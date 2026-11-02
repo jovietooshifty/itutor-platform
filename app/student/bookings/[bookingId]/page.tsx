@@ -18,7 +18,6 @@ import { getBookingStatusColor, getBookingStatusLabel } from '@/lib/types/bookin
 import SessionJoinButton from '@/components/sessions/SessionJoinButton';
 import ReportNoShowFlow from '@/components/sessions/ReportNoShowFlow';
 import { Session } from '@/lib/types/sessions';
-import { isPaidClassesEnabled } from '@/lib/featureFlags/paidClasses';
 import StudentSessionAttendance, { type SessionAttendanceState } from '@/components/student/StudentSessionAttendance';
 import CancelBookingModal from '@/components/cancellation/CancelBookingModal';
 
@@ -39,6 +38,12 @@ export default function BookingThreadPage() {
   const [sending, setSending] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  // PAID_CLASSES_ENABLED is read on the server and served by
+  // /api/feature-flags. It is not a NEXT_PUBLIC_ variable, so calling
+  // isPaidClassesEnabled() from this client component read `undefined` in the
+  // browser and fell through to the "enabled" default no matter what the
+  // environment said. Same pattern as app/student/bookings/page.tsx.
+  const [paidClassesEnabled, setPaidClassesEnabled] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +56,8 @@ export default function BookingThreadPage() {
     }
 
     loadBookingData();
-    
+    fetchPaidClassesFlag();
+
     // Set up real-time subscriptions
     const bookingChannel = subscribeToBooking(bookingId, (payload) => {
       console.log('Booking updated:', payload);
@@ -75,6 +81,14 @@ export default function BookingThreadPage() {
 
   function scrollToBottom() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  async function fetchPaidClassesFlag() {
+    try {
+      const res = await fetch('/api/feature-flags', { cache: 'no-store' });
+      const data = await res.json();
+      setPaidClassesEnabled(Boolean(data?.paidClassesEnabled));
+    } catch { setPaidClassesEnabled(false); }
   }
 
   async function loadBookingData() {
@@ -217,7 +231,6 @@ export default function BookingThreadPage() {
   const canCancel = (booking.status === 'PENDING' || booking.status === 'CONFIRMED') &&
     effectiveStatus !== 'CANCELLED' &&
     !hasSessionStarted;
-  const paidClassesEnabled = isPaidClassesEnabled();
 
   return (
     

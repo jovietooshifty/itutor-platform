@@ -22,7 +22,15 @@ Migration scripts are in `scripts/` and can be run with `npx ts-node scripts/<na
 - **Email**: Resend + `@react-email/components`
 - **Push notifications**: Firebase Cloud Messaging (FCM)
 - **Video**: Google Meet / Zoom OAuth integration
-- **Payments**: WiPay
+- **Payments**: Stripe. 1:1 bookings, group-class subscriptions, secure spot,
+  parent approval and credits all go through `lib/payments/stripeClient.ts`.
+  **LuniPay** is the previous processor and is not fully removed: it still owns
+  **refunds** (`lib/payments/refundService.ts`,
+  `lib/payments/subscriptionRemovalRefund.ts`) and two `finalize` call sites on
+  the payment-success and subscription-confirmed pages. **WiPay is an unused
+  stub** — `lib/payments/wipayClient.ts` logs `STUB MODE` and its keys default
+  to `YOUR_API_KEY_HERE`; nothing charges through it. There is no provider
+  switch: the processor is whichever code path a screen calls.
 
 ## Architecture
 
@@ -63,7 +71,11 @@ Key interfaces: `Profile` (with `role`, `tutor_verification_status`, `billing_mo
 ### Feature flags (`lib/featureFlags/`)
 
 Flags read from env vars:
-- `isPaidClassesEnabled()` — `PAID_CLASSES_ENABLED` (currently `false`)
+- `isPaidClassesEnabled()` — `PAID_CLASSES_ENABLED`. Defaults to **enabled**;
+  only the exact string `false` turns it off. Paid classes are live in
+  production. **It is not `NEXT_PUBLIC_`**, so it reads `undefined` in the
+  browser and falls through to that default — client components must take it
+  from `/api/feature-flags`, never by calling this function directly.
 - `isCommunitiesArchived()`
 - `isGroupsFeatureEnabled()`
 - `isClassMatchWeekEnabled()` — `CLASS_MATCH_WEEK_ENABLED`. The campaign kill
@@ -100,7 +112,10 @@ NEXT_PUBLIC_APP_URL
 CRON_SECRET
 NEXT_PUBLIC_VAPID_PUBLIC_KEY   # Web push notifications
 TOKEN_ENCRYPTION_KEY           # For encrypting OAuth tokens
-PAID_CLASSES_ENABLED           # Feature flag (true/false)
+PAID_CLASSES_ENABLED           # Paid classes on/off (default true). Server-only
+STRIPE_SECRET_KEY              # Live payment processor
+STRIPE_WEBHOOK_SECRET
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 CLASS_MATCH_WEEK_ENABLED       # Class Match Week on/off (default true)
 ```
 
