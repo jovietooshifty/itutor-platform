@@ -6,11 +6,36 @@ import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import ParentShell from '@/components/parent/ParentShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
+import ParentBillingV2 from '@/components/parent/v2/ParentBillingV2';
 
 type NotifRow = { id: string; title: string; message: string; type: string; created_at: string; is_read: boolean };
 
 export default function BillingPage() {
-  return <ParentShell><BillingContent /></ParentShell>;
+  // Old dark activity log stays the default; see the note at the top of
+  // ParentBillingV2 about the data source this screen reads instead.
+  return isNewUiEnabled() ? <BillingV2Route /> : <ParentShell><BillingContent /></ParentShell>;
+}
+
+/** Figma 160:4095 / 160:4257 — see components/parent/v2. */
+function BillingV2Route() {
+  const { profile } = useProfile();
+  const name = profile?.display_name || profile?.full_name || '';
+  const initials =
+    name
+      .split(' ')
+      .map((part) => part[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || undefined;
+
+  return (
+    <ParentV2Shell initials={initials}>
+      <ParentBillingV2 />
+    </ParentV2Shell>
+  );
 }
 
 function BillingContent() {
