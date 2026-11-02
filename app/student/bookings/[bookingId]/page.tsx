@@ -42,8 +42,11 @@ export default function BookingThreadPage() {
   // /api/feature-flags. It is not a NEXT_PUBLIC_ variable, so calling
   // isPaidClassesEnabled() from this client component read `undefined` in the
   // browser and fell through to the "enabled" default no matter what the
-  // environment said. Same pattern as app/student/bookings/page.tsx.
-  const [paidClassesEnabled, setPaidClassesEnabled] = useState(false);
+  // environment said.
+  //
+  // `null` means "not known yet". The price/Free difference is not rendered
+  // in that state, so the user never sees one answer replaced by the other.
+  const [paidClassesEnabled, setPaidClassesEnabled] = useState<boolean | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -86,9 +89,19 @@ export default function BookingThreadPage() {
   async function fetchPaidClassesFlag() {
     try {
       const res = await fetch('/api/feature-flags', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`feature-flags responded ${res.status}`);
       const data = await res.json();
-      setPaidClassesEnabled(Boolean(data?.paidClassesEnabled));
-    } catch { setPaidClassesEnabled(false); }
+      const value = data?.paidClassesEnabled;
+      // Only an explicit boolean is trusted. A malformed body falls back the
+      // same way a failed request does.
+      setPaidClassesEnabled(typeof value === 'boolean' ? value : true);
+    } catch {
+      // Fall back to TRUE — the server's own default for this flag. Showing a
+      // paid booking as "Free" because a flag fetch failed is the worse of the
+      // two errors, and the API routes still enforce the real value, so the
+      // off-switch keeps working whatever this renders.
+      setPaidClassesEnabled(true);
+    }
   }
 
   async function loadBookingData() {
@@ -297,19 +310,23 @@ export default function BookingThreadPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-gray-700">
-              <svg className="w-5 h-5 text-itutor-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <div className="font-medium">
-                  {paidClassesEnabled ? `$${booking.price_ttd} TTD` : 'Free'}
-                </div>
-                <div className="text-gray-500 text-xs">
-                  {paidClassesEnabled ? 'Payment' : 'No payment required'}
+            {/* Hidden until the flag is known, so "Free" is never shown and
+                then replaced by a price (or the reverse). */}
+            {paidClassesEnabled !== null && (
+              <div className="flex items-center gap-2 text-gray-700">
+                <svg className="w-5 h-5 text-itutor-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <div className="font-medium">
+                    {paidClassesEnabled ? `$${booking.price_ttd} TTD` : 'Free'}
+                  </div>
+                  <div className="text-gray-500 text-xs">
+                    {paidClassesEnabled ? 'Payment' : 'No payment required'}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {booking.student_notes && (
