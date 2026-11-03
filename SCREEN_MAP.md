@@ -198,17 +198,30 @@ Upcoming / Past toggle (`160:3622` / `160:3831`). **Both old routes redirect** t
 new Classes tab — they are not kept as separate pages. Booking requests become a
 section inside Upcoming.
 
-**2. The nav drops from 8 items to 5.** APPROVED. New `BottomNav`:
-**Home · Explore · Classes · Billing · Profile**. Where the displaced items go:
+**2. The nav drops from 7 items to 5.** APPROVED. New `BottomNav`:
+**Home · Explore · Classes · Billing · Profile**.
+
+**Corrected 2026-11-03.** This row said eight items. The current nav
+(`components/parent/ParentShell.tsx`, `allNav`) has **seven**: Home, Explore,
+Children, Calendar, Feedback, Rewards, Approvals — and Rewards is conditional
+(`rewardsVisible(credits.data)`), so a parent with no credit programme and no
+balance sees **six**. Subscriptions and Transactions, which the old table treated
+as displaced nav items, were never in the nav at all; they are reached from
+Settings. Where everything goes:
 
 | Was a top-level nav item | Now lives under |
 | --- | --- |
 | Approvals | Classes (Upcoming) |
-| Subscriptions | Classes |
 | Children | **Profile** |
+| Calendar | **Profile** (frame pending — see Alejandro's `P11-2`) |
+| Feedback | Profile (frame pending — see Alejandro's `P15-1`) |
+| Rewards | **Profile** — no frame in Arjun's file; keeps its old route for now |
+
+| Was reached from Settings | Now lives under |
+| --- | --- |
+| Subscriptions | Classes |
 | Settings | **Profile** |
 | Transactions | **Billing** |
-| Feedback | Profile (frame pending — see Alejandro's `P15-1`) |
 
 **3. "Explore" is a new concept for parents.** APPROVED. Parent Explore **reuses
 `ExploreMarketplace`'s data and logic behind a parent wrapper** — not a reimplementation
@@ -223,11 +236,21 @@ queries, filters and the groups RLS behaviour as they are.
 Home "Needs action" card (`160:1828`) and the **dot on the Billing tab** in the
 bottom nav (`BottomNav` supports this via `badge` on a `NavItem`).
 
-**6. Dark to light.** The current parent app is dark (`itutor-card` `#0F0F0F`); the
-design system is light-only and defines no dark theme. Every parent screen rebuilt
-this way flips theme. That is expected, but it means a half-migrated parent app will
-be visibly two-toned until the flow is complete — which is what
-`NEXT_PUBLIC_NEW_UI_ENABLED` is for.
+**6. Light to light — not a theme flip.** **Corrected 2026-11-03.** This row
+previously said the current parent app is dark (`itutor-card` `#0F0F0F`) and that
+every rebuilt screen flips theme. That is wrong, and it was verified by screenshot
+while building the Main tabs: `/parent/dashboard` and `/parent/billing` **already
+render light today**. The rebuild is light → light.
+
+What changes is the **design language**, not the theme: type (Archivo / Atkinson
+Hyperlegible Next instead of the system stack), radii, card borders and shadows,
+the green (`#32cc6e` instead of `#199356`) and the spacing scale. So a half-migrated
+parent app will still look two-toned — two visual languages side by side — but not
+dark next to light. `NEXT_PUBLIC_NEW_UI_ENABLED` is still what keeps that invisible
+to users until a flow is complete.
+
+The dark `itutor-*` surfaces are real elsewhere in the app (the tutor and student
+shells), so this correction applies to the **parent** app only.
 
 ---
 
