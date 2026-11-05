@@ -114,13 +114,36 @@
 
   html {
     scroll-behavior: smooth;
+    /*
+     * CLIP, NOT HIDDEN — this is what makes `position: sticky` work.
+     *
+     * The guard itself is old: an `overflow-x: hidden` has sat on html and
+     * body since the first landing-page overhaul, stopping a wide hero from
+     * giving the whole site a horizontal scrollbar. No specific bug is
+     * recorded against it; treat it as still load-bearing and keep it.
+     *
+     * But `overflow: hidden` on one axis forces the other axis from
+     * `visible` to `auto`, which turns the element into a scroll container.
+     * A sticky descendant then sticks to THAT box rather than the viewport,
+     * and because the box never scrolls it has no travel to stick through —
+     * so the parent shell’s header and bottom nav (both `sticky`) simply
+     * scrolled away with the page.
+     *
+     * `clip` clips the same overflow without creating a scroll container,
+     * so the guard stays and sticky works. The `hidden` line below it is a
+     * fallback for anything older than Safari 16; browsers that understand
+     * `clip` take the later declaration.
+     */
     overflow-x: hidden;
+    overflow-x: clip;
   }
 
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* See the note on html above: clip guards without killing sticky. */
     overflow-x: hidden;
+    overflow-x: clip;
     font-family: var(--font-sans, Inter, Arial, sans-serif);
     color: var(--ink);
     /* `color` was set without a matching `background`, so every gap a shell did

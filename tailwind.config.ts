@@ -170,10 +170,19 @@ const config: Config = {
         'ds-card': '10px',
         'ds-full': '999px',
       },
-      borderWidth: {
-        hair: '1px',
-        bold: '2px',
-      },
+      /*
+       * NO borderWidth EXTENSION HERE, ON PURPOSE.
+       *
+       * `hair: '1px'` and `bold: '2px'` used to live here, generating
+       * `border-hair` and `border-bold`. tailwind-merge — which cn() runs
+       * over every className in the design system — groups any `border-<x>`
+       * it does not recognise with the border COLOUR utilities and keeps
+       * only the last one, so the width was silently deleted at runtime
+       * wherever it was paired with `border-border`. The widths are now
+       * `.bw-hair`, `.bw-bold`, `.bw-t-hair` and `.bw-b-hair`, hand-written
+       * in components/ui/ds-tokens.css where tailwind-merge cannot reach
+       * them. Re-adding a key here would recreate the bug.
+       */
       boxShadow: {
         'brand-glow': '0 0 0 6px rgba(22,163,74,0.12)',
         // The lip: a solid 3px offset in a darker shade of the fill. There

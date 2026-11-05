@@ -25,10 +25,10 @@ export interface CardProps {
 }
 
 const TONES: Record<NonNullable<CardProps['tone']>, string> = {
-  default: 'bg-surface-card border-hair border-border text-ink',
-  alert: 'bg-danger-soft border-hair border-danger text-ink',
-  feature: 'bg-ink border-hair border-ink text-on-ink',
-  outlined: 'bg-surface-card border-bold border-ink text-ink shadow-edge-ink',
+  default: 'bg-surface-card bw-hair border-border text-ink',
+  alert: 'bg-danger-soft bw-hair border-danger text-ink',
+  feature: 'bg-ink bw-hair border-ink text-on-ink',
+  outlined: 'bg-surface-card bw-bold border-ink text-ink shadow-edge-ink',
 };
 
 export function Card({
