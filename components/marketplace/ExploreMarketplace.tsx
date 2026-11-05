@@ -1321,6 +1321,7 @@ export default function ExploreMarketplace({ variant = 'student' }: { variant?: 
           tutorHref={tutorHref}
           filtersApplied={anyFilterApplied}
           onOpenFilters={() => setParentFiltersOpen(true)}
+          onClearSearch={clearFilters}
         />
         <ParentExploreFilters
           open={parentFiltersOpen}

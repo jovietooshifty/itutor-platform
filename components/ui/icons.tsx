@@ -19,6 +19,8 @@ import {
   CreditCard,
   GraduationCap,
   House,
+  Lifebuoy,
+  Lock,
   MagnifyingGlass,
   Play,
   SlidersHorizontal,
@@ -40,7 +42,9 @@ export type IconName =
   | 'chevron'
   | 'play'
   | 'users'
-  | 'filters';
+  | 'filters'
+  | 'lock'
+  | 'help';
 
 const ICONS: Record<IconName, PhosphorIcon> = {
   home: House,
@@ -55,6 +59,8 @@ const ICONS: Record<IconName, PhosphorIcon> = {
   play: Play,
   users: Users,
   filters: SlidersHorizontal,
+  lock: Lock,
+  help: Lifebuoy,
 };
 
 export interface DsIconProps {

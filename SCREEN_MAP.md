@@ -296,3 +296,72 @@ guessed.
 
 Every screen gets loading, empty and error states. The new UI renders only when
 `isNewUiEnabled()` is true; the old UI stays the default.
+
+---
+
+# Build status — Figma site map vs the app, 2026-11-05
+
+Frame inventory from the tables above (verified against the file for the
+Account section, where three of three frames matched their descriptions).
+Build status read from the routes themselves, not from memory.
+
+**21 of 80 frames are built.** Everything below the Main tabs is still the old
+UI inside the new chrome — legible, because the shell fix gave every parent
+page one header and one tab bar, but not the design.
+
+| § | Frames | Built | Route today | State |
+| --- | --- | --- | --- | --- |
+| 1 Main tabs | 16 | **16** | `/parent/dashboard`, `/parent/classes`, `/parent/my-classes`, `/parent/billing` | `ParentHomeV2`, `ParentExploreV2`, `ParentClassesV2`, `ParentBillingV2` |
+| 2 Class pages | 12 | 0 | `/parent/classes/[groupId]` | old `ClassDetailView` |
+| 3 Tutor profiles | 12 | 0 | `/parent/tutors/[tutorId]` | old |
+| 4 Enrol and pay | 10 | 0 | `/parent/approvals?v2=0`, Stripe checkout | old |
+| 5 Payments and receipts | 4 | 0 | `/parent/transactions` | old; no receipt route |
+| 6 Fix failed payment | 6 | 0 | — | **no route exists** |
+| 7 Pause and cancel | 5 | 0 | `/parent/subscriptions` (redirects) | old |
+| 8 Account | 11 | **3** | see below | partly built |
+| 9 Help | 4 | 0 | `/help` (marketing) | **not parent-scoped** |
+
+## § 8 Account, in detail — the part built this pass
+
+| Frame | Node | Built | Notes |
+| --- | --- | --- | --- |
+| Account menu | `160:7794` | **yes** | `ParentAccountSheet`. Rebuilt to the frame: name, Account settings, Log out, Close. The guessed version had six rows |
+| Settings | `160:7984` | **yes** | `ParentSettingsV2`. Back link to Home, **no tab bar** — it is a detail screen |
+| Profile | `160:8114` | **yes** | `ParentProfileV2` at `/parent/profile`, now the Profile tab's destination |
+| Notifications – all | `160:7672` | no | `/parent/notifications`, old |
+| Notifications – unread | `160:7760` | no | filter state, old |
+| Security | `160:8159` | no | old `?section=security` |
+| Payment methods | `160:8189` | no | old `?section=billing` |
+| Add a card | `160:8223` | no | no route; Stripe SetupIntent not wired |
+| Notification settings | `160:8265` | no | old `?section=notifications` |
+| Droove (child) | `160:8307` | no | `/parent/children/[childId]`, old |
+| Signed out | `160:8376` | no | `/login`, old |
+
+## Two things the frames corrected
+
+**The Profile tab was pointed at the wrong screen.** `SCREEN_MAP` calls the
+account menu the "Profile tab root". The frames disagree: `160:8114` (Profile)
+carries the tab bar with Profile active, and `160:7984` (Settings) has a back
+link and no tab bar. So the tab goes to Profile, and Settings is reached from
+the account sheet. The frames win over the note.
+
+**"Save changes" is dark text on green** in `160:8114`, confirming the
+contrast fix rather than the white-on-green that shipped.
+
+## Routes with no frame in this file
+
+`/parent/calendar`, `/parent/feedback`, `/parent/rewards`, `/parent/messages`,
+`/parent/matches`. `SCREEN_MAP` sources the first four from Alejandro's file
+with node ids still **pending**, so there is nothing to build against yet.
+Calendar, Feedback and Rewards are reachable from a second group on the
+Settings screen — an addition beyond the frame, made because the five-tab bar
+displaced them and matching `160:7984` exactly would have left three live
+screens reachable only by typing a URL. Remove that group once they have
+frames of their own.
+
+## Frames with no route
+
+Fix failed payment (6), Receipt (1), Add a card (1), and a parent-scoped Help
+(4) have nowhere to live. `/help` is the marketing site and renders
+"Get started / Log in" to a signed-in parent — Billing help now points at
+Settings › Billing instead, as the nearest real answer.

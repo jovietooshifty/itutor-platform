@@ -80,6 +80,8 @@ export interface ParentExploreV2Props {
   tutorHref: (id: string) => string;
   filtersApplied: boolean;
   onOpenFilters: () => void;
+  /** Clears search, chip and filters together. */
+  onClearSearch: () => void;
 }
 
 /* ── money and text ──────────────────────────────────────────────────── */
@@ -387,11 +389,33 @@ function Skeleton({ height }: { height: number }) {
   return <div className="animate-pulse rounded-ds-card bg-surface-sunken" style={{ height }} />;
 }
 
-function EmptyState({ title, body }: { title: string; body: string }) {
+/** Frame `160:3406` pairs the message with a way out of it. */
+function EmptyState({
+  title,
+  body,
+  onClear,
+}: {
+  title: string;
+  body: string;
+  onClear?: () => void;
+}) {
   return (
     <div className="rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-center">
       <p className="font-display text-[16px] font-extrabold text-ink">{title}</p>
       <p className="mt-ds-1 font-body text-[13px] text-ink-muted">{body}</p>
+      {onClear ? (
+        <button
+          type="button"
+          onClick={onClear}
+          className={cn(
+            'mt-ds-3 rounded-ds-btn bw-bold border-ink bg-surface-card px-ds-4 py-ds-2',
+            'font-body text-[14px] font-extrabold text-ink cursor-pointer',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+          )}
+        >
+          Clear search
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -402,12 +426,15 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
   const {
     tab, onTabChange, searchQuery, onSearchChange, chips, activeChip, onChipChange,
     lessons, tutors, enrolledIds, loadingLessons, loadingTutors,
-    classHref, enrolledClassHref, tutorHref, filtersApplied, onOpenFilters,
+    classHref, enrolledClassHref, tutorHref, filtersApplied, onOpenFilters, onClearSearch,
   } = props;
 
   const showingLessons = tab === 'lessons';
   const loading = showingLessons ? loadingLessons : loadingTutors;
   const enrolledCount = lessons.reduce((n, l) => n + (enrolledIds.has(l.id) ? 1 : 0), 0);
+  // Only offer "Clear search" when something is actually narrowing the
+  // list -- on a genuinely empty catalogue the button would do nothing.
+  const narrowed = searchQuery.trim() !== '' || activeChip !== 'All' || filtersApplied;
 
   return (
     <div className="flex flex-col gap-ds-4">
@@ -440,6 +467,7 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
             <EmptyState
               title="No classes match"
               body="Try a different subject, or clear the filters."
+              onClear={narrowed ? onClearSearch : undefined}
             />
           ) : (
             <div className="flex flex-col gap-ds-3">
@@ -464,6 +492,7 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
             <EmptyState
               title="No tutors match"
               body="Try a different subject, or clear the filters."
+              onClear={narrowed ? onClearSearch : undefined}
             />
           ) : (
             <div className="flex flex-col gap-ds-3">

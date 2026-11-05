@@ -6,6 +6,10 @@ import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import ParentShell from '@/components/parent/ParentShell';
+import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
+import ParentSettingsV2 from '@/components/parent/v2/ParentSettingsV2';
+import { parentInitials } from '@/components/parent/v2/initials';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import LogoutConfirmModal from '@/components/LogoutConfirmModal';
 import ChildBillingControls from '@/components/parent/ChildBillingControls';
 import NotificationPreferences from '@/components/parent/NotificationPreferences';
@@ -23,8 +27,30 @@ const SECTIONS = [
 
 type Section = typeof SECTIONS[number]['id'];
 
+/**
+ * Settings — frame `160:7984`.
+ *
+ * `nav={false}` because the frame has no tab bar: it is a detail screen
+ * reached from the account sheet, with a back link to Home. The old
+ * five-section switcher is still here behind the flag, and still serves the
+ * ?section= deep links the new screen points at for billing, notifications
+ * and security.
+ */
 export default function ParentSettingsPage() {
+  if (isNewUiEnabled()) return <SettingsV2Route />;
   return <ParentShell><SettingsContent /></ParentShell>;
+}
+
+function SettingsV2Route() {
+  const { profile } = useProfile();
+  // A ?section= link lands on the old section view, which is what the new
+  // list rows point at for the parts that have no frame of their own yet.
+  const deep = typeof window !== 'undefined' && !!new URLSearchParams(window.location.search).get('section');
+  return (
+    <ParentV2Shell initials={parentInitials(profile)} nav={false}>
+      {deep ? <SettingsContent /> : <ParentSettingsV2 />}
+    </ParentV2Shell>
+  );
 }
 
 function SettingsContent() {
