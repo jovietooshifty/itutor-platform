@@ -11,6 +11,9 @@ import { supabase } from '@/lib/supabase/client';
 import CampaignDashboardBanner from '@/components/classMatchWeek/CampaignDashboardBanner';
 import CampaignJoinCard from '@/components/classMatchWeek/CampaignJoinCard';
 import DashboardRewardsCard from '@/components/credits/DashboardRewardsCard';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
+import ParentHomeV2 from '@/components/parent/v2/ParentHomeV2';
 
 type ChildData = {
   id: string; name: string; initials: string; hue: number;
@@ -18,7 +21,31 @@ type ChildData = {
 };
 
 export default function ParentDashboardPage() {
-  return <ParentShell><DashboardContent /></ParentShell>;
+  // The old dark dashboard stays the default. isNewUiEnabled() reads a
+  // NEXT_PUBLIC_ variable, so this resolves at build time and the two trees
+  // never alternate between renders — no hook-order hazard from the branch.
+  return isNewUiEnabled() ? <ParentHomeV2Route /> : <ParentShell><DashboardContent /></ParentShell>;
+}
+
+/** Figma 160:1828 / 160:2057 / 160:2208 — see components/parent/v2. */
+function ParentHomeV2Route() {
+  const { profile } = useProfile();
+  const name = profile?.display_name || profile?.full_name || '';
+  const firstName = name.split(' ')[0] || 'there';
+  const initials =
+    name
+      .split(' ')
+      .map((part) => part[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || undefined;
+
+  return (
+    <ParentV2Shell initials={initials}>
+      <ParentHomeV2 firstName={firstName} />
+    </ParentV2Shell>
+  );
 }
 
 function DashboardContent() {

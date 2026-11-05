@@ -41,7 +41,7 @@ function Specimen({
           {group}
         </span>
       </div>
-      <div className="rounded-ds-card border-hair border-border bg-surface-card p-ds-3">
+      <div className="rounded-ds-card bw-hair border-border bg-surface-card p-ds-3">
         {children}
       </div>
     </section>
@@ -286,7 +286,7 @@ export default function UiGallery() {
                 {steps.map((cls, i) => (
                   <div key={cls} className="flex flex-1 flex-col gap-ds-1">
                     <div
-                      className={`h-10 rounded-ds-sm border-hair border-border ${cls}`}
+                      className={`h-10 rounded-ds-sm bw-hair border-border ${cls}`}
                     />
                     <span className="text-[11px] text-ink-muted">
                       {[10, 50, 100][i]}%

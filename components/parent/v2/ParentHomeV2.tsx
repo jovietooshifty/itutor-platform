@@ -1,0 +1,373 @@
+'use client';
+
+/**
+ * Parent Home, new UI — Figma `160:1828` (needs action), `160:2057` (all paid),
+ * `160:2208` (new parent, no classes).
+ *
+ * SAME DATA AS THE OLD DASHBOARD, NEW LOOK. SCREEN_MAP marks all three frames
+ * RESKIN, so every number here comes from an endpoint that already existed:
+ *
+ *   /api/parent/attention  the two action cards. It already returns exactly the
+ *                          three kinds the frames draw — a failed payment, a
+ *                          join request, and tutor feedback — with the title,
+ *                          detail, href and button label each one needs.
+ *   /api/parent/dashboard  `upcomingSessions[0]` is the "Up next" feature card.
+ *   /api/parent/billing    `subscriptions[]` gives Payments by child and the
+ *                          class list, already scoped to this parent's children.
+ *
+ * WHAT IS NOT HERE. The frames carry a "Popular classes" section. That is
+ * marketplace data, and SCREEN_MAP's logic row 3 says parent Explore reuses
+ * ExploreMarketplace rather than opening a second data path to the same
+ * groups. Wiring a thinner second read here is the exact thing that row
+ * forbids, so the section lands with Explore in the logic half of this flow.
+ *
+ * THE FOURTH STATE. Arjun drew three; there are four. A parent with no child
+ * linked at all cannot "find a class for" anyone, so that case keeps its own
+ * empty state pointing at /parent/children. Without it the screen would
+ * address a child who does not exist.
+ */
+
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Check } from '@phosphor-icons/react';
+import {
+  Button,
+  Card,
+  ClassRow,
+  IconNote,
+  SectionHeader,
+  StepList,
+  SummaryRow,
+  Tag,
+} from '@/components/ui';
+import { subjectCode, subjectColor } from './subjectTile';
+
+type AttentionItem = {
+  kind: 'approval' | 'payment' | 'feedback';
+  id: string;
+  childName: string | null;
+  title: string;
+  detail: string;
+  href: string;
+  actionLabel: string;
+  closesAt?: string | null;
+};
+
+type UpcomingSession = {
+  id: string;
+  childName: string;
+  tutorName: string;
+  subjectName: string;
+  scheduledStartAt: string;
+};
+
+type Subscription = {
+  id: string;
+  childId: string;
+  childName: string;
+  className: string;
+  tutorName: string | null;
+  status: string;
+  amount: number;
+  nextCharge: string | null;
+  cancelled: boolean;
+  paused: boolean;
+};
+
+const TT = new Intl.NumberFormat('en-TT', { maximumFractionDigits: 0 });
+const money = (n: number) => `TT$${TT.format(Math.round(n))}`;
+
+function whenLabel(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('en-TT', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'America/Port_of_Spain',
+  });
+  const time = d.toLocaleTimeString('en-TT', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/Port_of_Spain',
+  });
+  return `${date} · ${time}`;
+}
+
+function isToday(iso: string): boolean {
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('en-CA', { timeZone: 'America/Port_of_Spain' });
+  return fmt(new Date(iso)) === fmt(new Date());
+}
+
+export default function ParentHomeV2({ firstName }: { firstName: string }) {
+  const router = useRouter();
+  const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
+  const [items, setItems] = useState<AttentionItem[]>([]);
+  const [hasChildren, setHasChildren] = useState(false);
+  const [sessions, setSessions] = useState<UpcomingSession[]>([]);
+  const [subs, setSubs] = useState<Subscription[]>([]);
+
+  const load = useCallback(async () => {
+    setStatus('loading');
+    try {
+      const [attentionRes, dashRes, billingRes] = await Promise.all([
+        fetch('/api/parent/attention', { cache: 'no-store' }),
+        fetch('/api/parent/dashboard', { cache: 'no-store' }),
+        fetch('/api/parent/billing', { cache: 'no-store' }),
+      ]);
+      // The three carry different halves of the screen; if any fails the page
+      // would be quietly wrong rather than visibly broken, so treat it as an
+      // error and offer a retry.
+      if (!attentionRes.ok || !dashRes.ok || !billingRes.ok) throw new Error('load failed');
+
+      const attention = await attentionRes.json();
+      const dash = await dashRes.json();
+      const billing = await billingRes.json();
+
+      setItems(attention.items ?? []);
+      setHasChildren(Boolean(attention.hasChildren));
+      setSessions(dash?.dashboard?.upcomingSessions ?? []);
+      setSubs(billing.subscriptions ?? []);
+      setStatus('ready');
+    } catch {
+      setStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (status === 'loading') {
+    return (
+      <div className="flex flex-col gap-ds-card" aria-busy>
+        <div className="h-[30px] w-1/2 animate-pulse rounded-ds-sm bg-surface-sunken" />
+        <div className="h-[150px] animate-pulse rounded-ds-card bg-surface-sunken" />
+        <div className="h-[170px] animate-pulse rounded-ds-card bg-surface-sunken" />
+        <div className="h-[90px] animate-pulse rounded-ds-card bg-surface-sunken" />
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="flex flex-col gap-ds-card">
+        <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
+          Something went wrong
+        </h1>
+        <Card
+          title="We could not load your week"
+          body="This is usually temporary. Try again, and if it keeps happening your classes are still safe — nothing has changed."
+        >
+          <Button variant="primary" block onClick={() => void load()}>
+            Try again
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // No child linked at all — the state the Figma frames do not cover.
+  if (!hasChildren) {
+    return (
+      <div className="flex flex-col gap-ds-card">
+        <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
+          Welcome, {firstName}
+        </h1>
+        <Card
+          title="Link your child to get started"
+          body="We email them a secure link. They appear here once they accept — you cannot add a child without their agreement."
+        >
+          <Button variant="primary" size="lg" block onClick={() => router.push('/parent/children')}>
+            Invite a child
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // A cancelled enrolment keeps its row in the billing payload so the history
+  // survives; it must not be counted in a monthly total or listed as a class.
+  const active = subs.filter((s) => !s.cancelled);
+  const childNames = Array.from(new Set(subs.map((s) => s.childName)));
+  const headlineChild = childNames.length === 1 ? childNames[0].split(' ')[0] : null;
+
+  // New parent: a child is linked but has no classes yet — frame 160:2208.
+  if (subs.length === 0) {
+    return (
+      <div className="flex flex-col gap-ds-card">
+        <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
+          Find a class{headlineChild ? ` for ${headlineChild}` : ''}
+        </h1>
+
+        <Button variant="primary" size="lg" block onClick={() => router.push('/parent/classes')}>
+          Explore classes
+        </Button>
+
+        <SectionHeader title="How it works" />
+        <StepList
+          steps={[
+            { title: 'Pick a class', detail: 'Browse verified teachers and subjects.' },
+            {
+              title: 'Approve and pay',
+              detail: headlineChild
+                ? `${headlineChild} asks, you approve and pay.`
+                : 'Your child asks, you approve and pay.',
+            },
+            {
+              title: headlineChild ? `${headlineChild} joins` : 'They join',
+              detail: headlineChild
+                ? `Classes appear in ${headlineChild}'s week.`
+                : 'Classes appear here once they join.',
+            },
+          ]}
+        />
+      </div>
+    );
+  }
+
+  const nextSession = sessions[0] ?? null;
+  const monthly = active.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+  const nextCharge = active.map((s) => s.nextCharge).filter(Boolean)[0] ?? null;
+
+  return (
+    <div className="flex flex-col gap-ds-card">
+      <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
+        {headlineChild ? `${headlineChild}'s week` : 'Your week'}
+      </h1>
+
+      {/* Needs-action cards. Order is the API's: approvals first, because they
+          are the only items with a deadline. */}
+      {items.map((item) => {
+        if (item.kind === 'payment') {
+          return (
+            <Card
+              key={`${item.kind}:${item.id}`}
+              tone="alert"
+              tag={<Tag tone="danger">Needs action</Tag>}
+              title={item.title}
+              body={item.detail}
+            >
+              <Button variant="danger" size="sm" block onClick={() => router.push(item.href)}>
+                {item.actionLabel}
+              </Button>
+            </Card>
+          );
+        }
+        if (item.kind === 'approval') {
+          return (
+            <Card
+              key={`${item.kind}:${item.id}`}
+              tag={
+                <Tag tone="outline">
+                  {item.childName
+                    ? `${item.childName.split(' ')[0]} asks to join`
+                    : 'Asks to join'}
+                </Tag>
+              }
+              title={item.title}
+              body={
+                item.closesAt
+                  ? `${item.detail} · No place is held. Closes ${item.closesAt}.`
+                  : `${item.detail} · No place is held while you decide.`
+              }
+            >
+              <Button variant="primary" block onClick={() => router.push(item.href)}>
+                {item.actionLabel}
+              </Button>
+            </Card>
+          );
+        }
+        return (
+          <Card
+            key={`${item.kind}:${item.id}`}
+            tag={<Tag tone="warning">New feedback</Tag>}
+            title={item.title}
+            body={item.detail}
+          >
+            <Button variant="outline" size="sm" block onClick={() => router.push(item.href)}>
+              {item.actionLabel}
+            </Button>
+          </Card>
+        );
+      })}
+
+      {/* All clear — frame 160:2057. */}
+      {items.length === 0 ? (
+        <IconNote
+          icon={<Check size={18} weight="bold" />}
+          title="All paid. Nothing needs your attention."
+          meta={nextCharge ? `Next payment ${nextCharge}` : undefined}
+        />
+      ) : null}
+
+      {nextSession ? (
+        <Card
+          tone="feature"
+          eyebrow={isToday(nextSession.scheduledStartAt) ? 'Up next · today' : 'Up next'}
+          title={nextSession.subjectName}
+          body={`${nextSession.tutorName} · ${whenLabel(nextSession.scheduledStartAt)}`}
+        >
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            onClick={() => router.push('/parent/calendar')}
+          >
+            View class
+          </Button>
+        </Card>
+      ) : null}
+
+      {active.length > 0 ? (
+        <>
+          <SectionHeader
+            title="Payments by child"
+            action="See all"
+            onAction={() => router.push('/parent/billing')}
+          />
+          <Card>
+            {childNames.map((name) => {
+              const forChild = active.filter((s) => s.childName === name);
+              const total = forChild.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+              return (
+                <SummaryRow
+                  key={name}
+                  label={`${name.split(' ')[0]} · ${forChild.length} ${forChild.length === 1 ? 'class' : 'classes'}`}
+                  value={`${money(total)}/month`}
+                />
+              );
+            })}
+            {nextCharge ? <SummaryRow label="Next charge" value={nextCharge} /> : null}
+            {childNames.length > 1 ? (
+              <SummaryRow label="Monthly total" value={`${money(monthly)}/month`} />
+            ) : null}
+          </Card>
+        </>
+      ) : null}
+
+      {active.length > 0 ? (
+        <>
+          <SectionHeader
+            title={headlineChild ? `Classes for ${headlineChild}` : 'Classes'}
+            action="See all"
+            onAction={() => router.push('/parent/subscriptions')}
+          />
+          {active.map((s) => (
+            <ClassRow
+              key={s.id}
+              code={subjectCode(s.className)}
+              color={subjectColor(s.className)}
+              title={s.className}
+              meta={[s.tutorName, childNames.length > 1 ? s.childName.split(' ')[0] : null]
+                .filter(Boolean)
+                .join(' · ')}
+              price={s.amount > 0 ? money(s.amount) : undefined}
+              onClick={() => router.push('/parent/subscriptions')}
+            />
+          ))}
+        </>
+      ) : null}
+    </div>
+  );
+}
