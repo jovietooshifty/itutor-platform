@@ -205,3 +205,12 @@ itutor-planner/
 
 # Git worktrees created for parallel branch work. Embedded repos, never content.
 .claude/worktrees/
+
+# design-sync (claude.ai/design): build staging and output. The config, NOTES.md and
+# conventions.md under .design-sync/ ARE committed; these are not.
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/node_modules
+.design-sync/build/
+.design-sync/learnings/
