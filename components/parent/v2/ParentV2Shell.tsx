@@ -30,10 +30,9 @@ import { NewUiShell, type NavItem } from '@/components/ui';
 const TABS: Array<NavItem & { href: string }> = [
   { id: 'home', label: 'Home', icon: 'home', href: '/parent/dashboard' },
   { id: 'explore', label: 'Explore', icon: 'explore', href: '/parent/classes' },
-  // The merged Upcoming/Past Classes tab is the logic half of this flow; until
-  // it lands this points at the existing subscriptions list so the tab is never
-  // a dead end.
-  { id: 'classes', label: 'Classes', icon: 'classes', href: '/parent/subscriptions' },
+  // The merged Upcoming/Past Classes tab (SCREEN_MAP logic row 1). The old
+  // /parent/subscriptions and /parent/approvals both redirect to it.
+  { id: 'classes', label: 'Classes', icon: 'classes', href: '/parent/my-classes' },
   { id: 'billing', label: 'Billing', icon: 'billing', href: '/parent/billing' },
   { id: 'profile', label: 'Profile', icon: 'profile', href: '/parent/settings' },
 ];

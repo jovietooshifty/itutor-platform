@@ -32,6 +32,7 @@
  *   node scripts/verify-ds-render.mjs --parent        # + authed parent routes
  *   node scripts/verify-ds-render.mjs --shots <dir>   # write screenshots
  *   node scripts/verify-ds-render.mjs --base <url>
+ *   node scripts/verify-ds-render.mjs --parent --routes /parent/my-classes,/x
  *
  * Exits non-zero on any failure, so it can gate a PR.
  */
@@ -50,6 +51,10 @@ const has = (name) => argv.includes(name);
 const BASE = flag('--base', 'http://localhost:3000').replace(/\/$/, '');
 const SHOTS = flag('--shots', null);
 const WANT_PARENT = has('--parent');
+const ROUTES = (flag('--routes', '') || '')
+  .split(',')
+  .map((r) => r.trim())
+  .filter(Boolean);
 const EMAIL = process.env.VERIFY_EMAIL || 'jovangoodluck+testparent@myitutor.com';
 const PASSWORD = process.env.VERIFY_PASSWORD || 'StagingTest!Parent26';
 
@@ -337,7 +342,8 @@ const main = async () => {
   if (WANT_PARENT) {
     console.log('\nparent routes');
     if (await signIn(context)) {
-      for (const route of ['/parent/dashboard', '/parent/billing', '/parent/my-classes']) {
+      const routes = ROUTES.length ? ROUTES : ['/parent/dashboard', '/parent/billing', '/parent/my-classes'];
+      for (const route of routes) {
         for (const vp of VIEWPORTS) await checkRoute(context, route, vp, 'parent');
       }
     }

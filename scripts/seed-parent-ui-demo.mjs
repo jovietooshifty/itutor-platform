@@ -8,7 +8,8 @@
 //
 // Everything it writes is synthetic and clearly marked:
 //   * the child is "Anaya Seed" <jovangoodluck+seedchild1@myitutor.com>
-//   * the classes are named "[SEED] …" and are visibility='unlisted'
+//   * the classes are named "[SEED] …" and are visibility='private', so they
+//     never enter the staging catalogue — see the note on `visibility` below
 //   * every row carries a FIXED uuid from the SEED table below
 //
 // Because the ids are fixed, --apply is idempotent and --revert is exact:
@@ -88,17 +89,29 @@ const SEED = {
   // class the child already holds a seat in closes itself the moment anyone
   // looks at it, and the "wants to join" card never renders.
   groupBiology: '6d9b2f31-4c70-4a2e-9f2c-6e3a51d0c7b4',
+  // A class that is OVER, so the Classes tab's Past half has something in it.
+  // It needs a class of its own: the two active enrolments must stay active,
+  // and an enrolment on Biology would settle the pending join request.
+  groupSpanish: '0c84a7e2-55f1-4d3b-9a16-3ef0c21d8b77',
   enrolMaths: '7b090060-25f8-4898-a1f4-377be1cd7178',
   enrolPhysics: '072f35fb-ef7e-4236-ae47-cefe2c09df25',
+  enrolEnded: 'b3e1d9c4-7a28-4f05-8c6d-1e29a7b4f308',
   memberMaths: '2d621976-1927-4cd3-bba4-8f3e8afa9adf',
   memberPhysics: '986ed7d4-3ef7-4a53-ad49-591cb34bd209',
+  memberSpanish: 'c71f4a60-9d83-4e12-bb5a-20f6d8c3419e',
   bookingUpcoming: '64dcc18d-460b-4d47-93c4-5f2fe9b03434',
   bookingPaid: '409fbbcf-dbda-42f6-acc6-8051aacddbfc',
   bookingFailed: '53519e24-b7c7-441b-922b-db2261b9ac75',
+  bookingAwaitingParent: 'd48c2b71-6e30-4a95-83f7-5c1b09e2da64',
   joinRequest: 'a1b2c3d4-0002-4000-8000-00000000f002',
 };
 
-const BOOKING_IDS = [SEED.bookingUpcoming, SEED.bookingPaid, SEED.bookingFailed];
+const BOOKING_IDS = [
+  SEED.bookingUpcoming,
+  SEED.bookingPaid,
+  SEED.bookingFailed,
+  SEED.bookingAwaitingParent,
+];
 
 const day = 86_400_000;
 const iso = (ms) => new Date(ms).toISOString();
@@ -130,14 +143,20 @@ async function report(db, parentId) {
     ['groups', db
         .from('groups')
         .select('id')
-        .in('id', [SEED.groupMaths, SEED.groupPhysics, SEED.groupBiology])],
+        .in('id', [SEED.groupMaths, SEED.groupPhysics, SEED.groupBiology, SEED.groupSpanish])],
     [
       'group_members',
-      db.from('group_members').select('id').in('id', [SEED.memberMaths, SEED.memberPhysics]),
+      db
+        .from('group_members')
+        .select('id')
+        .in('id', [SEED.memberMaths, SEED.memberPhysics, SEED.memberSpanish]),
     ],
     [
       'group_enrollments',
-      db.from('group_enrollments').select('id').in('id', [SEED.enrolMaths, SEED.enrolPhysics]),
+      db
+        .from('group_enrollments')
+        .select('id')
+        .in('id', [SEED.enrolMaths, SEED.enrolPhysics, SEED.enrolEnded]),
     ],
     ['bookings', db.from('bookings').select('id').in('id', BOOKING_IDS)],
     ['sessions', db.from('sessions').select('id').in('booking_id', BOOKING_IDS)],
@@ -216,9 +235,9 @@ async function main() {
     const steps = [
       ['class_join_requests', [SEED.joinRequest]],
       ['bookings', BOOKING_IDS],
-      ['group_enrollments', [SEED.enrolMaths, SEED.enrolPhysics]],
-      ['group_members', [SEED.memberMaths, SEED.memberPhysics]],
-      ['groups', [SEED.groupMaths, SEED.groupPhysics, SEED.groupBiology]],
+      ['group_enrollments', [SEED.enrolMaths, SEED.enrolPhysics, SEED.enrolEnded]],
+      ['group_members', [SEED.memberMaths, SEED.memberPhysics, SEED.memberSpanish]],
+      ['groups', [SEED.groupMaths, SEED.groupPhysics, SEED.groupBiology, SEED.groupSpanish]],
     ];
     for (const [table, ids] of steps) {
       const { error } = await db.from(table).delete().in('id', ids);
@@ -252,9 +271,10 @@ async function main() {
   const plan = [
     `auth user + profile   ${CHILD.full_name} <${CHILD.email}> (id ${CHILD.id})`,
     `parent_child_links    ${parent.id} -> ${CHILD.id}, requires_approval=true`,
-    `groups                [SEED] CSEC Mathematics  TT$180/month, unlisted`,
-    `groups                [SEED] CSEC Physics      TT$160/month, unlisted`,
-    `groups                [SEED] CSEC Biology      TT$150/month, unlisted — no seat`,
+    `groups                [SEED] CSEC Mathematics  TT$180/month, private`,
+    `groups                [SEED] CSEC Physics      TT$160/month, private`,
+    `groups                [SEED] CSEC Biology      TT$150/month, private — no seat`,
+    `groups                [SEED] CSEC Spanish      TT$140/month, private — ended`,
     `group_members ×2      ${CHILD.full_name} approved in both`,
     `group_enrollments ×2  ACTIVE, payer_id=parent, next charge in 19 and 24 days`,
     `bookings              1 CONFIRMED upcoming (paid) + 1 COMPLETED (paid)`,
@@ -263,6 +283,8 @@ async function main() {
   if (PROBLEMS) {
     plan.push(
       `bookings              1 more with payment_status='failed', TT$180`,
+      `bookings              1 PENDING_PARENT_APPROVAL — the 1:1 request row`,
+      `group_enrollments     1 CANCELLED on [SEED] CSEC Spanish — the Past half`,
       `class_join_requests   1 PENDING for [SEED] CSEC Biology — no seat, so it does not self-settle`
     );
   }
@@ -339,7 +361,16 @@ async function main() {
   const groupBase = {
     tutor_id: tutor.id,
     status: 'PUBLISHED',
-    visibility: 'unlisted', // keeps seed classes out of the staging marketplace
+    // PRIVATE, and this is load-bearing. 'unlisted' does NOT hide a class:
+    // the catalogue query is .or('visibility.neq.private,visibility.is.null'),
+    // so unlisted classes appear in Explore — verified by screenshot, where all
+    // three [SEED] classes sat among the real ones. Staging holds real customer
+    // accounts, so a fake class in the catalogue is visible to real people.
+    //
+    // 'private' is safe for everything this seed needs: the visibility gate in
+    // GET /api/groups/[groupId] blocks ANONYMOUS viewers only, so the signed-in
+    // parent still opens the class page a Classes row links to.
+    visibility: 'private',
     pricing_model: 'MONTHLY',
     timezone: 'America/Port_of_Spain',
     max_students: 12,
@@ -388,6 +419,19 @@ async function main() {
   );
 
   await w(
+    'group [SEED] CSEC Spanish',
+    db.from('groups').upsert({
+      ...groupBase,
+      id: SEED.groupSpanish,
+      name: '[SEED] CSEC Spanish',
+      subject: 'Spanish',
+      description: 'Synthetic class for UI screenshots. Not a real class.',
+      price_monthly: 140,
+      form_level: 'Form 4',
+    })
+  );
+
+  await w(
     'group_members',
     db.from('group_members').upsert([
       {
@@ -402,6 +446,14 @@ async function main() {
         group_id: SEED.groupPhysics,
         user_id: CHILD.id,
         status: 'approved',
+        parent_id: parent.id,
+      },
+      {
+        id: SEED.memberSpanish,
+        group_id: SEED.groupSpanish,
+        user_id: CHILD.id,
+        // The class ended; the roster row stays, as it does in real data.
+        status: 'removed',
         parent_id: parent.id,
       },
     ])
@@ -480,6 +532,47 @@ async function main() {
   );
 
   if (PROBLEMS) {
+    // An ENDED enrolment, so the Classes tab's Past half is not photographed
+    // empty. CANCELLED + cancelled_at is what /api/parent/billing reads as
+    // `cancelled: true`, which is what puts a row in Past.
+    await w(
+      'group_enrollments (ended)',
+      db.from('group_enrollments').upsert({
+        ...enrolBase,
+        id: SEED.enrolEnded,
+        group_id: SEED.groupSpanish,
+        status: 'CANCELLED',
+        plan_price_ttd: 140,
+        current_period_start: iso(now - 95 * day),
+        current_period_end: iso(now - 35 * day),
+        next_payment_due_at: null,
+        last_paid_at: iso(now - 65 * day),
+        cancelled_at: iso(now - 35 * day),
+        cancellation_reason: 'Seeded: the class finished.',
+      })
+    );
+
+    // A 1:1 session request WAITING ON THE PARENT. listParentRequests selects
+    // bookings by status, and only PENDING_PARENT_APPROVAL lands in the pending
+    // queue — a plain PENDING booking (what the failed-payment row below is)
+    // never appears there, which is why the first screenshots showed the group
+    // request alone.
+    await w(
+      'bookings (awaiting parent approval)',
+      db.from('bookings').upsert({
+        ...bookingBase,
+        id: SEED.bookingAwaitingParent,
+        status: 'PENDING_PARENT_APPROVAL',
+        payment_status: 'pending',
+        price_ttd: 120,
+        frozen_price: 120,
+        requested_at: iso(now - 3 * 3_600_000),
+        requested_start_at: iso(now + 3 * day),
+        requested_end_at: iso(now + 3 * day + 3_600_000),
+        expires_at: iso(now + 3 * day - 2 * 3_600_000),
+      })
+    );
+
     await w(
       'bookings (failed payment)',
       db.from('bookings').upsert({

@@ -13,6 +13,7 @@ import CampaignJoinCard from '@/components/classMatchWeek/CampaignJoinCard';
 import DashboardRewardsCard from '@/components/credits/DashboardRewardsCard';
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
+import { parentInitials } from '@/components/parent/v2/initials';
 import ParentHomeV2 from '@/components/parent/v2/ParentHomeV2';
 
 type ChildData = {
@@ -32,14 +33,7 @@ function ParentHomeV2Route() {
   const { profile } = useProfile();
   const name = profile?.display_name || profile?.full_name || '';
   const firstName = name.split(' ')[0] || 'there';
-  const initials =
-    name
-      .split(' ')
-      .map((part) => part[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join('')
-      .toUpperCase() || undefined;
+  const initials = parentInitials(profile);
 
   return (
     <ParentV2Shell initials={initials}>

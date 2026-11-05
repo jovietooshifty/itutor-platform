@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import Link from 'next/link';
 import { CreditCard, CheckCircle, AlertCircle, Clock, RefreshCw, CalendarCheck2, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,7 +28,22 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-TT', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/**
+ * SCREEN_MAP logic row 1: this route is REPLACED by the Classes tab, but it is
+ * not deleted. An old bookmark, an email link and the badge in the old nav all
+ * still point here, so with the new UI on it redirects rather than 404s; with
+ * the flag off it renders exactly what it always did.
+ */
 export default function ParentSubscriptionsPage() {
+  const router = useRouter();
+  const newUi = isNewUiEnabled();
+
+  useEffect(() => {
+    if (newUi) router.replace('/parent/my-classes');
+  }, [newUi, router]);
+
+  if (newUi) return null;
+
   return <ParentShell><SubscriptionsContent /></ParentShell>;
 }
 
