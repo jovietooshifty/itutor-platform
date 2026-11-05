@@ -26,6 +26,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { NewUiShell, type NavItem } from '@/components/ui';
+import ParentAccountSheet from '@/components/parent/v2/ParentAccountSheet';
+import { rewardsVisible, useCredits } from '@/lib/credits/useCredits';
+import { supabase } from '@/lib/supabase/client';
 
 const TABS: Array<NavItem & { href: string }> = [
   { id: 'home', label: 'Home', icon: 'home', href: '/parent/dashboard' },
@@ -65,6 +68,11 @@ export default function ParentV2Shell({
   const pathname = usePathname();
   const [needsPayment, setNeedsPayment] = useState(false);
   const [unread, setUnread] = useState(false);
+  // The header chip had no handler at all, so it looked interactive and
+  // did nothing. It now opens the account sheet, which is also where the
+  // five sidebar sections the tab bar displaced now live.
+  const [accountOpen, setAccountOpen] = useState(false);
+  const credits = useCredits('lite');
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +100,7 @@ export default function ParentV2Shell({
   );
 
   return (
+    <>
     <NewUiShell
       active={activeFromPath(pathname)}
       items={items}
@@ -99,6 +108,10 @@ export default function ParentV2Shell({
       header={header}
       unread={unread}
       initials={initials}
+      onHeaderAction={(action) => {
+        if (action === 'bell') router.push('/parent/notifications');
+      }}
+      onAccount={() => setAccountOpen(true)}
       onSelect={(id) => {
         const tab = TABS.find((t) => t.id === id);
         if (tab) router.push(tab.href);
@@ -116,5 +129,16 @@ export default function ParentV2Shell({
     >
       {children}
     </NewUiShell>
+
+    <ParentAccountSheet
+      open={accountOpen}
+      onClose={() => setAccountOpen(false)}
+      showRewards={rewardsVisible(credits.data)}
+      onLogout={async () => {
+        await supabase.auth.signOut();
+        router.push('/login');
+      }}
+    />
+    </>
   );
 }

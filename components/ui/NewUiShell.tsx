@@ -34,6 +34,10 @@ export interface NewUiShellProps {
   onSelect?: (id: string) => void;
   headerTone?: AppHeaderProps['tone'];
   headerActions?: HeaderAction[];
+  /** Bell / chat / search. Without it the header buttons do nothing. */
+  onHeaderAction?: AppHeaderProps['onAction'];
+  /** The account chip. Without it the avatar does nothing. */
+  onAccount?: AppHeaderProps['onAccount'];
   logo?: ReactNode;
   unread?: boolean;
   initials?: string;
@@ -50,6 +54,8 @@ export function NewUiShell({
   onSelect,
   headerTone = 'light',
   headerActions = ['bell'],
+  onHeaderAction,
+  onAccount,
   logo,
   unread,
   initials,
@@ -63,6 +69,8 @@ export function NewUiShell({
           <AppHeader
             tone={headerTone}
             actions={headerActions}
+            onAction={onHeaderAction}
+            onAccount={onAccount}
             logo={logo}
             unread={unread}
             initials={initials}

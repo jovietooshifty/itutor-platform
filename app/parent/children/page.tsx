@@ -174,7 +174,7 @@ function ChildrenContent() {
                   placeholder="child@example.com"
                   className="flex-1 px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
                 <button onClick={sendInvite} disabled={sending || !email.trim()}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-deep disabled:opacity-50">
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand text-[#0d2318] text-sm font-semibold hover:bg-brand-deep disabled:opacity-50">
                   {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Send invite
                 </button>
               </div>
@@ -219,7 +219,7 @@ function ChildrenContent() {
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-3">
-      <span className="mt-0.5 size-6 shrink-0 rounded-full bg-brand text-white grid place-items-center text-xs font-bold">{n}</span>
+      <span className="mt-0.5 size-6 shrink-0 rounded-full bg-brand text-[#0d2318] grid place-items-center text-xs font-bold">{n}</span>
       <div className="text-sm text-ink flex-1">{children}</div>
     </li>
   );

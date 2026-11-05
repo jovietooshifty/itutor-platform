@@ -152,7 +152,7 @@ function TutorProfileContent() {
 
           <Link
             href="/parent/messages"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] hover:bg-brand-deep"
           >
             <MessageSquare className="size-4" />
             Message {first}

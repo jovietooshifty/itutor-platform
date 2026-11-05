@@ -29,7 +29,16 @@ export default function ParentSettingsPage() {
 
 function SettingsContent() {
   const { profile } = useProfile();
-  const [section, setSection] = useState<Section>('profile');
+  // Deep-linkable, so "Billing help" can land on Billing rather than
+  // dropping the parent on Profile to find it themselves. Read from
+  // window rather than useSearchParams: the latter forces a Suspense
+  // boundary on this page for no benefit, since the value is only needed
+  // for the first render.
+  const [section, setSection] = useState<Section>(() => {
+    if (typeof window === 'undefined') return 'profile';
+    const want = new URLSearchParams(window.location.search).get('section');
+    return SECTIONS.some((s) => s.id === want) ? (want as Section) : 'profile';
+  });
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
@@ -101,7 +110,7 @@ function SettingsContent() {
           {section === 'profile' && (
             <>
               <div className="flex items-center gap-4 pb-5 border-b border-border">
-                <div className="size-16 rounded-full bg-gradient-to-br from-brand to-brand-deep grid place-items-center text-white text-xl font-semibold">
+                <div className="size-16 rounded-full bg-gradient-to-br from-brand to-brand-deep grid place-items-center text-[#0d2318] text-xl font-semibold">
                   {displayName.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
                 </div>
                 <div>
@@ -114,7 +123,7 @@ function SettingsContent() {
               <Field label="Phone" value={phone} onChange={setPhone} />
               <div className="flex justify-end gap-2 pt-4 border-t border-border">
                 <button onClick={handleSave} disabled={saving}
-                  className="px-4 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-deep disabled:opacity-50">
+                  className="px-4 py-2 rounded-xl bg-brand text-[#0d2318] text-sm font-semibold hover:bg-brand-deep disabled:opacity-50">
                   {saving ? 'Saving…' : saved ? 'Saved!' : 'Save changes'}
                 </button>
               </div>
@@ -164,7 +173,7 @@ function SettingsContent() {
               <Field label="New password" type="password" />
               <Field label="Confirm new password" type="password" />
               <div className="flex justify-end gap-2 pt-4 border-t border-border">
-                <button className="px-4 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-deep">Update password</button>
+                <button className="px-4 py-2 rounded-xl bg-brand text-[#0d2318] text-sm font-semibold hover:bg-brand-deep">Update password</button>
               </div>
             </>
           )}

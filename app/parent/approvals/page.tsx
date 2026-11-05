@@ -98,8 +98,13 @@ export default function ParentApprovalsPage() {
   const redirect = isNewUiEnabled() && !keepOld;
 
   useEffect(() => {
-    if (redirect) router.replace('/parent/my-classes');
-  }, [redirect, router]);
+    if (!redirect) return;
+    // Carry the request through. Home sends the parent here from a named
+    // card ("Review & pay"); landing on an unhighlighted list makes them
+    // find the row again and guess whether it is the one they tapped.
+    const want = params.get('request');
+    router.replace(want ? `/parent/my-classes?request=${encodeURIComponent(want)}` : '/parent/my-classes');
+  }, [redirect, router, params]);
 
   if (redirect) return null;
 
@@ -415,7 +420,7 @@ function ApprovalsContent() {
                 <button
                   onClick={() => decideClass(r.id, true)}
                   disabled={busyId === r.id}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] disabled:opacity-60"
                 >
                   {busyId === r.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -427,7 +432,7 @@ function ApprovalsContent() {
               ) : (
                 <Link
                   href={`/parent/classes/${r.groupId}`}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white"
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318]"
                 >
                   <Check className="h-4 w-4" />
                   Review &amp; pay
@@ -550,7 +555,7 @@ function ApprovalsContent() {
               <button
                 onClick={() => approve(r.id)}
                 disabled={busyId === r.id}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] disabled:opacity-60"
               >
                 {busyId === r.id ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

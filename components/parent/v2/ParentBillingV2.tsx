@@ -27,6 +27,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { withRequest } from '@/components/parent/v2/attention';
 import { useRouter } from 'next/navigation';
 import {
   Button,
@@ -41,6 +42,12 @@ import { subjectCode, subjectColor } from './subjectTile';
 
 type Subscription = {
   id: string;
+  /**
+   * The CLASS id, not the enrolment id. /parent/classes/[groupId] is keyed
+   * on the group, so routing with `id` sent every row to a page that does
+   * not exist and fell through to the catalogue.
+   */
+  groupId: string | null;
   childId: string;
   childName: string;
   className: string;
@@ -164,7 +171,7 @@ export default function ParentBillingV2() {
 
       {failed ? (
         <Card tone="alert" tag={<Tag tone="danger">Payment failed</Tag>} title={failed.title} body={failed.detail}>
-          <Button variant="danger" block onClick={() => router.push(failed.href)}>
+          <Button variant="danger" block onClick={() => router.push(withRequest(failed))}>
             {failed.actionLabel}
           </Button>
         </Card>
@@ -225,12 +232,27 @@ export default function ParentBillingV2() {
               {statusTag(s)}
             </>
           }
-          onClick={() => router.push('/parent/subscriptions')}
+          // The class itself, not the old subscriptions list. Figma has a
+          // payment-detail screen here; until that exists the class page is
+          // the real destination rather than a list the parent just left.
+          onClick={() =>
+            router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')
+          }
         />
       ))}
 
       <NavRow title="Payment history and receipts" onClick={() => router.push('/parent/transactions')} />
-      <NavRow title="Billing help" onClick={() => router.push('/help')} />
+      {/*
+        NOT /help: that is the marketing site, which renders "Get started"
+        and "Log in" to a parent who is already signed in. Figma has a
+        Billing help screen; until it exists this goes to the billing
+        section of settings, which is a real answer to "how do I change
+        what I am paying".
+      */}
+      <NavRow
+        title="Billing help"
+        onClick={() => router.push('/parent/settings?section=billing')}
+      />
     </div>
   );
 }

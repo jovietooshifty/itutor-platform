@@ -28,6 +28,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { withRequest } from '@/components/parent/v2/attention';
 import { useRouter } from 'next/navigation';
 import { Check } from '@phosphor-icons/react';
 import {
@@ -248,7 +249,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
               title={item.title}
               body={item.detail}
             >
-              <Button variant="danger" size="sm" block onClick={() => router.push(item.href)}>
+              <Button variant="danger" size="sm" block onClick={() => router.push(withRequest(item))}>
                 {item.actionLabel}
               </Button>
             </Card>
@@ -272,7 +273,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
                   : `${item.detail} · No place is held while you decide.`
               }
             >
-              <Button variant="primary" block onClick={() => router.push(item.href)}>
+              <Button variant="primary" block onClick={() => router.push(withRequest(item))}>
                 {item.actionLabel}
               </Button>
             </Card>
@@ -285,7 +286,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
             title={item.title}
             body={item.detail}
           >
-            <Button variant="outline" size="sm" block onClick={() => router.push(item.href)}>
+            <Button variant="outline" size="sm" block onClick={() => router.push(withRequest(item))}>
               {item.actionLabel}
             </Button>
           </Card>

@@ -119,7 +119,7 @@ function SubscriptionsContent() {
           <div className="mx-auto size-12 rounded-2xl bg-brand-soft text-brand-deep grid place-items-center mb-4"><GraduationCap className="size-5"/></div>
           <h2 className="font-bold text-ink">No active subscriptions</h2>
           <p className="text-sm text-muted-foreground mt-1">Enroll a child in a class to see subscriptions here.</p>
-          <Link href="/parent/classes" className="mt-4 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-brand text-white text-sm font-semibold hover:bg-brand-deep">Find classes</Link>
+          <Link href="/parent/classes" className="mt-4 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-brand text-[#0d2318] text-sm font-semibold hover:bg-brand-deep">Find classes</Link>
         </div>
       ) : (
         <div className="space-y-3">

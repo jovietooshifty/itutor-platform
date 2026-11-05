@@ -257,7 +257,7 @@ function ClassContent() {
                 <button
                   onClick={() => readyChildId && enroll(readyChildId)}
                   disabled={!readyChildId || busy}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] hover:bg-brand-deep disabled:opacity-50"
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <Users className="size-4" />}
                   {isPaid
@@ -333,7 +333,7 @@ function Confirmation({
       <div className="flex flex-wrap justify-center gap-2 pt-1">
         <Link
           href="/parent/children"
-          className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
+          className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] hover:bg-brand-deep"
         >
           See their classes
         </Link>

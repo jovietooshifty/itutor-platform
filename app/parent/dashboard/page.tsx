@@ -91,7 +91,7 @@ function DashboardContent() {
             left the nav. */}
         <Link
           href="/parent/classes"
-          className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep sm:self-auto"
+          className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] hover:bg-brand-deep sm:self-auto"
         >
           <Search className="size-4" /> Find a class
         </Link>
@@ -133,7 +133,7 @@ function DashboardContent() {
           </div>
           <h2 className="font-bold text-ink">No children linked yet</h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">Link your child's student account to manage their classes and payments.</p>
-          <Link href="/parent/children" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-brand text-white text-sm font-semibold hover:bg-brand-deep">
+          <Link href="/parent/children" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-brand text-[#0d2318] text-sm font-semibold hover:bg-brand-deep">
             <Plus className="size-4" /> Invite a child
           </Link>
           <div className="mt-6 flex justify-center gap-4 text-xs">
@@ -144,7 +144,7 @@ function DashboardContent() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-ink">My children</h2>
-            <Link href="/parent/children" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-deep">
+            <Link href="/parent/children" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand text-[#0d2318] text-sm font-semibold hover:bg-brand-deep">
               <Plus className="size-4" /> Invite a child
             </Link>
           </div>
