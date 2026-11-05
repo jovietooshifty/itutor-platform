@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useProfile } from '@/lib/hooks/useProfile';
@@ -46,7 +47,7 @@ export default function BookingThreadPage() {
     if (profileLoading) return;
     
     if (!profile || profile.role !== 'student') {
-      router.push('/login');
+      router.push(nonStudentRedirect(profile));
       return;
     }
 

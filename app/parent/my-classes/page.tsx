@@ -15,7 +15,7 @@
  * the two old pages.
  */
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
@@ -36,7 +36,10 @@ export default function ParentMyClassesPage() {
 
   return (
     <ParentV2Shell initials={parentInitials(profile)}>
-      <ParentClassesV2 />
+      {/* useSearchParams (?request=, ?booking=) needs a Suspense boundary. */}
+      <Suspense fallback={null}>
+        <ParentClassesV2 />
+      </Suspense>
     </ParentV2Shell>
   );
 }

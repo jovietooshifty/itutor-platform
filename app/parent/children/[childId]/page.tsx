@@ -12,6 +12,8 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import ParentShell from '@/components/parent/ParentShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentChildV2 from '@/components/parent/v2/ParentChildV2';
 
 type Enrollment = {
   groupId: string; name: string; subject: string | null; status: string; joinedAt: string | null;
@@ -70,7 +72,7 @@ type AttSummary = {
 };
 
 export default function ChildDetailPage() {
-  return <ParentShell><ChildContent /></ParentShell>;
+  return isNewUiEnabled() ? <ParentChildV2 /> : <ParentShell><ChildContent /></ParentShell>;
 }
 
 function ChildContent() {

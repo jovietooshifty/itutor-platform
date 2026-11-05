@@ -12,12 +12,14 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import { getDisplayName } from '@/lib/utils/displayName';
 import ParentShell from '@/components/parent/ParentShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentChildrenV2 from '@/components/parent/v2/ParentChildrenV2';
 
 type ChildData = { id: string; name: string; initials: string; hue: number; activeClasses: number; pendingCount: number };
 type PendingInvite = { id: string; child_email: string; created_at: string };
 
 export default function ChildrenPage() {
-  return <ParentShell><ChildrenContent /></ParentShell>;
+  return isNewUiEnabled() ? <ParentChildrenV2 /> : <ParentShell><ChildrenContent /></ParentShell>;
 }
 
 function relative(iso: string) {

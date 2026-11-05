@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -374,7 +375,7 @@ export default function TutorProfilePage() {
 
   useEffect(() => {
     if (profileLoading) return;
-    if (!profile || profile.role !== 'student') { router.push('/login'); return; }
+    if (!profile || profile.role !== 'student') { router.push(nonStudentRedirect(profile)); return; }
 
     // A shared link carries the tutor's username, but this page and its
     // children all query by UUID. Canonicalise the URL first.

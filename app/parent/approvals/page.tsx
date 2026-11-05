@@ -67,43 +67,24 @@ type PendingClassRequest = {
 };
 
 /**
- * TEMPORARY: `?v2=0` IS SCAFFOLDING, NOT A DUAL-UI DECISION.
+ * With the new UI on, requests are answered in a bottom sheet on the Classes
+ * tab (components/parent/v2/ParentRequestSheet), so this route always
+ * redirects there. The whole query string travels with it: `request` opens the
+ * sheet on that item, and `booking` + `checkout` are Stripe's return from
+ * paying for an approved 1:1 session, which the Classes tab now shows.
  *
- * This app does not support running two UIs side by side, and nothing here is
- * the beginning of that. The query parameter exists for one reason and has one
- * removal condition, both written below. If you are reading this after
- * SCREEN_MAP section 4 (Enrol and pay) has shipped, the parameter is dead code
- * and should be deleted along with the two links in ParentClassesV2 that use
- * it — `grep -rn "v2=0"` finds all three sites.
- *
- * SCREEN_MAP logic row 1 replaces this route with the Classes tab, so with the
- * new UI on it redirects there — EXCEPT with `?v2=0`.
- *
- * WHY THE ESCAPE HATCH EXISTS, and when it goes. Approve, decline and pay are
- * implemented here and nowhere else; their new-UI home is the Enrol and pay
- * flow (SCREEN_MAP section 4), which is not built yet. A blanket redirect would
- * therefore do two bad things at once: strand a parent who has a request to
- * answer, and send them in a circle, because the request rows ON the Classes
- * tab link here for exactly those buttons.
- *
- * So the Classes tab links to `/parent/approvals?v2=0` and this page honours
- * it. Every other way in — an old bookmark, an email, the old nav — redirects.
- * When section 4 lands, the `?v2=0` branch and the links that use it are
- * deleted together, and this becomes an unconditional redirect.
+ * The old `?v2=0` escape hatch, which kept this page reachable until the sheet
+ * existed, is gone. With the flag off this page renders as it always did.
  */
 export default function ParentApprovalsPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const keepOld = params.get('v2') === '0';
-  const redirect = isNewUiEnabled() && !keepOld;
+  const redirect = isNewUiEnabled();
 
   useEffect(() => {
     if (!redirect) return;
-    // Carry the request through. Home sends the parent here from a named
-    // card ("Review & pay"); landing on an unhighlighted list makes them
-    // find the row again and guess whether it is the one they tapped.
-    const want = params.get('request');
-    router.replace(want ? `/parent/my-classes?request=${encodeURIComponent(want)}` : '/parent/my-classes');
+    const qs = params.toString();
+    router.replace(qs ? `/parent/my-classes?${qs}` : '/parent/my-classes');
   }, [redirect, router, params]);
 
   if (redirect) return null;

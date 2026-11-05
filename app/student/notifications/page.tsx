@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -39,7 +40,7 @@ export default function StudentNotificationsPage() {
   useEffect(() => {
     if (profileLoading) return;
     if (!profile) { router.push('/login'); return; }
-    if (profile.role !== 'student') { router.push('/student/dashboard'); return; }
+    if (profile.role !== 'student') { router.push(profile.role === 'parent' ? nonStudentRedirect(profile) : '/student/dashboard'); return; }
     loadNotifications();
   }, [profile, profileLoading, router]);
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -103,7 +104,7 @@ export default function StudentSettingsPage() {
 
   useEffect(() => {
     if (profileLoading) return;
-    if (!profile || profile.role !== 'student') { router.push('/login'); return; }
+    if (!profile || profile.role !== 'student') { router.push(nonStudentRedirect(profile)); return; }
     setDisplayName(profile.display_name || profile.full_name || '');
     setUsername(profile.username || '');
     setEmail(profile.email || '');

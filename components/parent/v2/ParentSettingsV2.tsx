@@ -41,7 +41,7 @@ const ROWS: Array<{ href: string; icon: IconName; label: string; detail: string 
   { href: '/parent/settings?section=notifications', icon: 'bell', label: 'Notifications', detail: 'Classes and payments' },
   { href: '/parent/settings?section=security', icon: 'lock', label: 'Security', detail: 'Password' },
   { href: '/parent/billing', icon: 'billing', label: 'Billing', detail: 'Receipts' },
-  { href: '/help', icon: 'help', label: 'Help and support', detail: 'Contact the iTutor team' },
+  { href: '/parent/help', icon: 'help', label: 'Help and support', detail: 'Contact the iTutor team' },
 ];
 
 // See the header note: real routes with no frame in this file.

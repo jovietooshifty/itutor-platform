@@ -242,17 +242,10 @@ export default function ParentBillingV2() {
       ))}
 
       <NavRow title="Payment history and receipts" onClick={() => router.push('/parent/transactions')} />
-      {/*
-        NOT /help: that is the marketing site, which renders "Get started"
-        and "Log in" to a parent who is already signed in. Figma has a
-        Billing help screen; until it exists this goes to the billing
-        section of settings, which is a real answer to "how do I change
-        what I am paying".
-      */}
-      <NavRow
-        title="Billing help"
-        onClick={() => router.push('/parent/settings?section=billing')}
-      />
+      {/* NOT /help: that is the marketing site, which shows "Get started"
+          and "Log in" to a parent who is already signed in. /parent/help is
+          the in-app help screen, opened at its billing questions. */}
+      <NavRow title="Billing help" onClick={() => router.push('/parent/help#billing')} />
     </div>
   );
 }

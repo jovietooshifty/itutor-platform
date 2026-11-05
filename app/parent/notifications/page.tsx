@@ -8,6 +8,8 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import ParentShell from '@/components/parent/ParentShell';
 import NotificationPreferences from '@/components/parent/NotificationPreferences';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentNotificationsV2 from '@/components/parent/v2/ParentNotificationsV2';
 
 /**
  * Notification links are written by whoever raised the notification, and
@@ -33,7 +35,7 @@ type NotifRow = { id: string; title: string; message: string; type: string; link
 const FILTERS = ['All', 'Unread', 'Enrolment', 'Alerts'] as const;
 
 export default function NotificationsPage() {
-  return <ParentShell><NotificationsContent /></ParentShell>;
+  return isNewUiEnabled() ? <ParentNotificationsV2 /> : <ParentShell><NotificationsContent /></ParentShell>;
 }
 
 function NotificationsContent() {

@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Star, MessageSquare } from 'lucide-react';
@@ -43,7 +44,7 @@ export default function StudentRatings() {
 
   useEffect(() => {
     if (loading) return;
-    if (!profile || profile.role !== 'student') { router.push('/login'); return; }
+    if (!profile || profile.role !== 'student') { router.push(nonStudentRedirect(profile)); return; }
     fetchAll(profile.id);
   }, [profile, loading, router]);
 

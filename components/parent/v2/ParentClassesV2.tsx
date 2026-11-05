@@ -33,21 +33,19 @@
  * when something is wrong with it. A suspended class belongs in front of the
  * parent, not filed away.
  *
- * NO ACTIONS HERE YET. Approve, decline and pay live in the Enrol and pay flow
- * (SCREEN_MAP section 4), which is not this PR. Every request row links to the
- * existing `/parent/approvals` screen, which still works and still holds the
- * real buttons. Rendering a dead Approve button would be worse than a link.
+ * ANSWERING A REQUEST happens here, in ParentRequestSheet: tapping a "Waiting
+ * on you" row opens it, and `?request=<id>` (Home's "Review & pay", and any
+ * old /parent/approvals link, which redirects here) opens it on arrival. The
+ * old `/parent/approvals?v2=0` escape hatch is gone with it.
  *
- * TEMPORARY, and not a dual-UI decision. The `?v2=0` on those links exists
- * because /parent/approvals redirects HERE when the new UI is on, so a bare
- * link would bounce the parent straight back. It keeps the old page reachable
- * until SCREEN_MAP section 4 (Enrol and pay) gives those buttons a new home.
- * When section 4 ships, delete the parameter here and the branch that honours
- * it in /parent/approvals: `grep -rn "v2=0"` finds all three sites.
+ * `?booking=&checkout=` is Stripe's return from paying for an approved 1:1
+ * session; it used to land on /parent/approvals, and the banner moved here.
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import CheckoutStateBanner from '@/components/parent/CheckoutStateBanner';
+import { ParentRequestSheet, type AnyRequest } from './ParentRequestSheet';
 import {
   Button,
   Card,
@@ -80,6 +78,8 @@ type Subscription = {
 type SessionRequest = {
   id: string;
   childName: string;
+  tutorId?: string;
+  minutes?: number;
   tutorName: string;
   when: string;
   priceWhenRequested: number;
@@ -98,6 +98,7 @@ type ClassRequest = {
   priceTtd: number;
   isFree: boolean;
   scheduleLabel: string | null;
+  requiresTutorApproval?: boolean;
 };
 
 const TT = new Intl.NumberFormat('en-TT', { maximumFractionDigits: 0 });
@@ -147,6 +148,12 @@ function subMeta(s: Subscription) {
 
 export default function ParentClassesV2() {
   const router = useRouter();
+  const params = useSearchParams();
+  const [openRequest, setOpenRequest] = useState<AnyRequest | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [wantedRequest, setWantedRequest] = useState<string | null>(params.get('request'));
+  const checkoutBookingId = params.get('booking');
+  const [checkoutDismissed, setCheckoutDismissed] = useState(false);
   const [subs, setSubs] = useState<Subscription[] | null>(null);
   const [sessionReqs, setSessionReqs] = useState<SessionRequest[]>([]);
   const [classReqs, setClassReqs] = useState<ClassRequest[]>([]);
@@ -188,6 +195,17 @@ export default function ParentClassesV2() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Open the request named in ?request= once the queues have loaded. Cleared
+  // after, so closing the sheet does not reopen it on the next reload.
+  useEffect(() => {
+    if (!wantedRequest || loading) return;
+    const c = classReqs.find((r) => r.id === wantedRequest);
+    const s = sessionReqs.find((r) => r.id === wantedRequest);
+    if (c) setOpenRequest({ kind: 'class', ...c });
+    else if (s) setOpenRequest({ kind: 'session', ...s });
+    setWantedRequest(null);
+  }, [wantedRequest, loading, classReqs, sessionReqs]);
 
   if (loading) {
     return (
@@ -235,6 +253,30 @@ export default function ParentClassesV2() {
       <h1 className="font-display text-[30px] font-extrabold leading-[34px] text-ink">
         Classes
       </h1>
+
+      {checkoutBookingId && !checkoutDismissed ? (
+        <CheckoutStateBanner
+          bookingId={checkoutBookingId}
+          hint={params.get('checkout')}
+          onDismiss={() => setCheckoutDismissed(true)}
+        />
+      ) : null}
+
+      {flash ? (
+        <p role="status" className="rounded-ds-card bg-brand px-ds-card py-ds-2 font-body text-[14px] font-extrabold text-ink">
+          {flash}
+        </p>
+      ) : null}
+
+      <ParentRequestSheet
+        request={openRequest}
+        onClose={() => setOpenRequest(null)}
+        onSettled={(m) => {
+          setFlash(m);
+          window.setTimeout(() => setFlash(null), 8000);
+          void load();
+        }}
+      />
 
       {/* The toggle. Two buttons rather than links: switching halves of one
           screen is not a navigation, and a URL per half would make the back
@@ -289,8 +331,7 @@ export default function ParentClassesV2() {
           {classReqs.map((r) => (
             <NavRow
               key={r.id}
-              // TEMPORARY until SCREEN_MAP section 4 — see /parent/approvals
-              href="/parent/approvals?v2=0"
+              onClick={() => setOpenRequest({ kind: 'class', ...r })}
               tile={
                 <SubjectTile
                   code={subjectCode(r.className)}
@@ -311,8 +352,7 @@ export default function ParentClassesV2() {
           {sessionReqs.map((r) => (
             <NavRow
               key={r.id}
-              // TEMPORARY until SCREEN_MAP section 4 — see /parent/approvals
-              href="/parent/approvals?v2=0"
+              onClick={() => setOpenRequest({ kind: 'session', ...r })}
               tile={
                 <SubjectTile
                   code={subjectCode(r.tutorName)}
