@@ -30,7 +30,7 @@ export function Tag({ tone = 'outline', className, children }: TagProps) {
     <span
       className={cn(
         'inline-flex items-center py-[3px] px-ds-2',
-        'rounded-ds-xs border-hair border-transparent',
+        'rounded-ds-xs bw-hair border-transparent',
         'font-body font-extrabold text-[11px] leading-[13px] tracking-[0.55px] uppercase',
         'whitespace-nowrap',
         TONES[tone],
