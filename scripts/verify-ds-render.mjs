@@ -242,11 +242,24 @@ async function checkRoute(context, route, vp, label) {
     .waitForFunction(
       () => {
         const w = window;
+        if (!w.__dsFirstSeen) w.__dsFirstSeen = Date.now();
         if (!w.__dsSamples) w.__dsSamples = [];
+
         const pulses = document.querySelectorAll('[class*="animate-pulse"]').length;
-        w.__dsSamples.push(document.querySelectorAll('*').length + ':' + pulses);
+        // Track the thing actually being measured, not just the node count.
+        // A screen can clear its skeleton and hold a stable DOM for a moment
+        // while React Query is still resolving, and then paint 44 more cards.
+        // /parent/my-classes did exactly that: 1 border edge at 390px in the
+        // same run that found 45 at 1280px.
+        const bw = document.querySelectorAll('[class*="bw-"]').length;
+        w.__dsSamples.push(document.querySelectorAll('*').length + ':' + pulses + ':' + bw);
         if (w.__dsSamples.length > 4) w.__dsSamples.shift();
-        return pulses === 0 && w.__dsSamples.length === 4 && new Set(w.__dsSamples).size === 1;
+
+        const stable = w.__dsSamples.length === 4 && new Set(w.__dsSamples).size === 1;
+        if (pulses !== 0 || !stable) return false;
+        // A page with nothing to measure is allowed to settle, but only
+        // after it has had a fair chance to paint something.
+        return bw > 1 || Date.now() - w.__dsFirstSeen > 9000;
       },
       null,
       { timeout: 30000, polling: 400 }
@@ -254,9 +267,8 @@ async function checkRoute(context, route, vp, label) {
     .then(() => true)
     .catch(() => false);
   if (!settled) {
-    warn(label + ' ' + route + ' @' + vp.name + ': content never settled (skeleton still up after 30s) — findings below cover the loading state only, not the screen');
+    warn(label + ' ' + route + ' @' + vp.name + ': content never settled in 30s — findings below may cover a part-rendered page, not the screen');
   }
-  await page.waitForTimeout(400);
 
   const borders = await page.evaluate(auditBorders);
   if (borders.legacy.length) {

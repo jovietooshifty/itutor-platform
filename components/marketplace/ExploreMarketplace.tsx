@@ -23,6 +23,9 @@ import { supabase } from '@/lib/supabase/client';
 import { getDisplayName } from '@/lib/utils/displayName';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import UserAvatar from '@/components/UserAvatar';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentExploreV2 from '@/components/parent/v2/ParentExploreV2';
+import ParentExploreFilters from '@/components/parent/v2/ParentExploreFilters';
 import { cn } from '@/lib/utils';
 import { Search, Star, Heart, Calendar, Clock, Users, GraduationCap, Flame, X, Check, Video, Sparkles, ChevronDown, MapPin } from 'lucide-react';
 import {
@@ -326,6 +329,9 @@ export default function ExploreMarketplace({ variant = 'student' }: { variant?: 
   const [sortOrder, setSortOrder] = useState<'relevance' | 'price_low' | 'rating_high'>('relevance');
   const [tab, setTab] = useState<'lessons' | 'tutors'>('lessons');
   const [activeChip, setActiveChip] = useState('All');
+  // Only the new parent Explore uses this: its frames collapse the filter
+  // pills into one Filters button, which opens a sheet.
+  const [parentFiltersOpen, setParentFiltersOpen] = useState(false);
   // Day / time-of-day narrowing. Both multi-select; a lesson matches when one of
   // its recurring sessions satisfies every active filter, and a tutor matches
   // when one of their weekly availability windows does.
@@ -1204,6 +1210,131 @@ export default function ExploreMarketplace({ variant = 'student' }: { variant?: 
   const scheduleFilterActive = selectedDays.length > 0 || selectedBands.length > 0;
   const toggleSave = (id: string) => setSavedItems((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
+  // ── The new parent Explore ──────────────────────────────────────────
+  //
+  // Presentation only. Everything above has already run: the same catalogue,
+  // the same filter pipeline, the same gating. This swaps the markup and
+  // nothing else, so the student marketplace below is untouched BY
+  // CONSTRUCTION rather than by careful editing -- which matters in a file
+  // carrying @ts-nocheck, where a careless edit compiles either way.
+  if (isParent && isNewUiEnabled()) {
+    const filterGroups = [
+      {
+        id: 'price',
+        label: tab === 'lessons' ? 'Price per month' : 'Price per hour',
+        multi: false,
+        options: PRICE_BANDS.map((b) => ({ value: b.id, label: b.label, selected: priceBand === b.id })),
+      },
+      {
+        id: 'rating',
+        label: 'Tutor rating',
+        multi: false,
+        options: RATING_OPTIONS.map((o) => ({
+          value: o.value === null ? 'any' : String(o.value),
+          label: o.label,
+          selected: selectedRating === o.value,
+        })),
+      },
+      {
+        id: 'days',
+        label: 'Days',
+        multi: true,
+        options: DAY_FILTER_OPTIONS.map((d) => ({
+          value: String(d.value),
+          label: d.short,
+          selected: selectedDays.includes(d.value),
+        })),
+      },
+      {
+        id: 'time',
+        label: 'Time of day',
+        multi: true,
+        options: TIME_BANDS.map((b) => ({
+          value: b.value,
+          label: b.short,
+          selected: selectedBands.includes(b.value),
+        })),
+      },
+      // Location was a pill on the old parent Explore. Collapsing the pills
+      // into one Filters button must not quietly drop one of them.
+      {
+        id: 'format',
+        label: 'Format',
+        multi: false,
+        options: [
+          { value: 'any', label: 'Any' },
+          { value: 'online', label: 'Online' },
+          { value: 'in_person', label: 'In person' },
+        ].map((o) => ({ ...o, selected: locationFilter.format === o.value })),
+      },
+      ...(regions.length
+        ? [{
+            id: 'region',
+            label: 'Area',
+            multi: false,
+            options: [
+              { value: '', label: 'Anywhere', selected: locationFilter.regionId === null },
+              ...regions.map((r) => ({
+                value: r.id,
+                label: r.name,
+                selected: locationFilter.regionId === r.id,
+              })),
+            ],
+          }]
+        : []),
+    ];
+
+    // Committing straight to the live filter state rather than to the drafts
+    // the old pills use: the sheet shows its result count on the button, so
+    // the list has to move as each chip is pressed.
+    const onFilterToggle = (groupId, value) => {
+      if (groupId === 'price') setPriceBand(value);
+      if (groupId === 'rating') setSelectedRating(value === 'any' ? null : Number(value));
+      if (groupId === 'days') {
+        const day = Number(value);
+        setSelectedDays((prev) => (prev.includes(day) ? prev.filter((v) => v !== day) : [...prev, day]));
+      }
+      if (groupId === 'time') {
+        setSelectedBands((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
+      }
+      if (groupId === 'format') setLocationFilter((prev) => ({ ...prev, format: value }));
+      if (groupId === 'region') setLocationFilter((prev) => ({ ...prev, regionId: value || null }));
+    };
+
+    return (
+      <>
+        <ParentExploreV2
+          tab={tab}
+          onTabChange={setTab}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          chips={SUBJECT_CHIPS}
+          activeChip={activeChip}
+          onChipChange={setActiveChip}
+          lessons={filteredGroupLessons}
+          tutors={filteredTutors}
+          enrolledIds={enrolledLessonIds}
+          loadingLessons={loadingGroupLessons}
+          loadingTutors={loadingTutors}
+          classHref={classHref}
+          enrolledClassHref={enrolledClassHref}
+          tutorHref={tutorHref}
+          filtersApplied={anyFilterApplied}
+          onOpenFilters={() => setParentFiltersOpen(true)}
+        />
+        <ParentExploreFilters
+          open={parentFiltersOpen}
+          groups={filterGroups}
+          onToggle={onFilterToggle}
+          onClear={clearFilters}
+          onClose={() => setParentFiltersOpen(false)}
+          resultCount={tab === 'lessons' ? filteredGroupLessons.length : filteredTutors.length}
+          resultNoun={tab === 'lessons' ? 'class' : 'tutor'}
+          anyApplied={anyFilterApplied}
+        />
+      </>
+    );
+  }
   return (
     <>
       <div className="max-w-6xl mx-auto space-y-6">

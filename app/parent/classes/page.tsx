@@ -30,12 +30,14 @@ import { useProfile } from '@/lib/hooks/useProfile';
  * the flag on it renders inside ParentV2Shell (new header, five-tab bar), with
  * the flag off inside ParentShell exactly as before.
  *
- * WHAT IS NOT DONE HERE, deliberately. The cards inside the marketplace are
- * still the old marketplace's cards. Restyling them to the Figma Explore frames
- * means editing a 1,698-line component that also serves the LIVE student
- * marketplace and carries `@ts-nocheck` on its first line — so the compiler
- * would catch none of it. That is its own change with its own blast radius, not
- * a rider on this one.
+ * The cards are now the Explore frames too. That was deferred once because
+ * restyling in place means editing a 1,698-line component that also serves the
+ * LIVE student marketplace and carries `@ts-nocheck`, so the compiler would
+ * catch none of it. It is done instead by swapping only the PRESENTATION:
+ * ExploreMarketplace keeps the catalogue, the filters and the gating, and for a
+ * parent on the new UI it renders ParentExploreV2 rather than its own markup.
+ * The new markup lives in its own type-checked file, and the student path is
+ * untouched by construction rather than by careful editing.
  */
 export default function ParentClassesPage() {
   const { profile } = useProfile();

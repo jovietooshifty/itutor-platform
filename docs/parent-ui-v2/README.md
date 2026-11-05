@@ -83,11 +83,13 @@ Measured on this branch, every route green:
 | `/parent/dashboard` | 65 / 65 | both hold (453px @390, 377px @1280) |
 | `/parent/billing` | 49 / 49 | both hold @390 |
 | `/parent/my-classes` | 45 / 45 | page shorter than the viewport |
-| `/parent/classes` (Explore) | 9 / 9 | both hold through 700px |
+| `/parent/classes` (Explore) | 89 / 89 | both hold through 700px |
 
-Explore reports only 9 because it is the **old** marketplace inside the new
-shell — the deferred tradeoff, not a regression. Its nine are the header rule
-and the shell's own buttons.
+Explore is now the Explore frames rather than the old marketplace wearing the
+new shell, which is why its count went from 9 to 89. The catalogue, the
+filters and the gating did not move: ExploreMarketplace still owns all of it
+and renders ParentExploreV2 for a parent on the new UI, so there is still one
+catalogue and the student path is untouched.
 
 The Past tab needs a click, so `verify-ds-render` cannot reach it; it was shot
 separately with the same computed-style check (6 `.bw-*` elements, none at
