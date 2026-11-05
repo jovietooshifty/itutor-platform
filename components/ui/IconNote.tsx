@@ -40,7 +40,7 @@ export function IconNote({
   return (
     <div
       className={cn(
-        'flex items-start gap-ds-3 rounded-ds-card border-hair border-border bg-surface-card p-ds-card',
+        'flex items-start gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card',
         className
       )}
     >

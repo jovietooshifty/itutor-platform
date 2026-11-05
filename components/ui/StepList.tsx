@@ -32,7 +32,7 @@ export function StepList({ steps, className }: StepListProps) {
   return (
     <ol
       className={cn(
-        'flex flex-col rounded-ds-card border-hair border-border bg-surface-card px-ds-card',
+        'flex flex-col rounded-ds-card bw-hair border-border bg-surface-card px-ds-card',
         className
       )}
     >
@@ -41,7 +41,7 @@ export function StepList({ steps, className }: StepListProps) {
           key={i}
           className={cn(
             'flex items-start gap-ds-3 py-ds-card',
-            i > 0 && 'border-t-hair border-line-soft'
+            i > 0 && 'bw-t-hair border-line-soft'
           )}
         >
           <span
