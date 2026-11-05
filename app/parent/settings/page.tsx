@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { User, Bell, Lock, CreditCard, Users, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
@@ -42,13 +43,27 @@ export default function ParentSettingsPage() {
 }
 
 function SettingsV2Route() {
+  // Suspense because useSearchParams opts the page into dynamic rendering
+  // and Next asks for a boundary. The fallback is the shell itself, so the
+  // header does not flash.
+  return (
+    <Suspense fallback={null}>
+      <SettingsV2Inner />
+    </Suspense>
+  );
+}
+
+function SettingsV2Inner() {
   const { profile } = useProfile();
-  // A ?section= link lands on the old section view, which is what the new
-  // list rows point at for the parts that have no frame of their own yet.
-  const deep = typeof window !== 'undefined' && !!new URLSearchParams(window.location.search).get('section');
+  // REACTIVE, unlike the window.location read this replaced: pushing
+  // ?section=billing from the hub is a query-only navigation on the page
+  // you are already on, so a value read during render never changed and
+  // three rows looked dead.
+  const params = useSearchParams();
+  const section = params.get('section');
   return (
     <ParentV2Shell initials={parentInitials(profile)} nav={false}>
-      {deep ? <SettingsContent /> : <ParentSettingsV2 />}
+      {section ? <SettingsContent key={section} /> : <ParentSettingsV2 />}
     </ParentV2Shell>
   );
 }

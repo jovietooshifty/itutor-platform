@@ -274,7 +274,7 @@ function BackLink() {
       href="/parent/approvals"
       className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-ink"
     >
-      <ArrowLeft className="size-4" /> Back to approvals
+      <ArrowLeft className="size-4" /> Back
     </Link>
   );
 }

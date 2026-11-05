@@ -49,6 +49,12 @@ export interface ParentExploreFiltersProps {
   anyApplied: boolean;
 }
 
+/** "class" pluralises to "classes", not "classs". */
+function plural(n: number, noun: string): string {
+  if (n === 1) return noun;
+  return /(s|x|z|ch|sh)$/i.test(noun) ? noun + 'es' : noun + 's';
+}
+
 export function ParentExploreFilters({
   open,
   groups,
@@ -147,7 +153,7 @@ export function ParentExploreFilters({
 
           <div className="bw-t-hair border-line-soft p-ds-card">
             <Button onClick={onClose} block>
-              {`Show ${resultCount} ${resultCount === 1 ? resultNoun : resultNoun + 's'}`}
+              {`Show ${resultCount} ${plural(resultCount, resultNoun)}`}
             </Button>
           </div>
         </div>

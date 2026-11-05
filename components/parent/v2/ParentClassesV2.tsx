@@ -240,16 +240,16 @@ export default function ParentClassesV2() {
           screen is not a navigation, and a URL per half would make the back
           button undo a filter.
 
-          PROVISIONAL VISUALS — NOT FRAME-VERIFIED. The behaviour here is
-          settled, but the appearance is not. This screen was built from a
-          written description while Figma access was unavailable, so frame
-          160:3622 has never actually been read. The selected-tab treatment
-          below (bg-brand with ink text) is this system applied by analogy
-          to the other selected states, not a colour taken from the design.
-          The same caveat covers the date grouping further down.
+          Frame 160:3622 has now been read. The selected segment is an INK
+          fill with light text, not the brand green this was built with by
+          analogy — corrected.
 
-          Do not treat either as approved. When Figma access returns, open
-          160:3622 and reconcile; if the frame disagrees, the frame wins. */}
+          STILL NOT THE FRAME, structurally. 160:3622 is a dated SCHEDULE:
+          rows grouped under date headings, each with a dark date tile and
+          a time range, and a yellow NEXT tag on the soonest. This screen
+          lists ENROLMENTS instead. That is a data change, not a restyle —
+          it needs session occurrences per child — so it is tracked rather
+          than faked. */}
       <div
         role="tablist"
         aria-label="Classes"
@@ -268,7 +268,7 @@ export default function ParentClassesV2() {
               className={[
                 'flex-1 rounded-ds-btn px-ds-3 py-ds-2 font-body text-[14px] font-extrabold',
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
-                active ? 'bg-brand text-ink' : 'bg-transparent text-ink-muted',
+                active ? 'bg-ink text-on-ink' : 'bg-transparent text-ink-muted',
               ].join(' ')}
             >
               {key === 'upcoming' ? 'Upcoming' : 'Past'}
