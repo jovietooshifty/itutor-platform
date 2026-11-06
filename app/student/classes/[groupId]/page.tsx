@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -180,6 +181,7 @@ export default function EnrolledClassPage({ params }: { params: { groupId: strin
   useEffect(() => {
     if (profileLoading) return;
     if (!profile) { router.push('/login'); return; }
+    if (profile.role === 'parent') { router.replace(nonStudentRedirect(profile)); return; }
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, profile, profileLoading]);

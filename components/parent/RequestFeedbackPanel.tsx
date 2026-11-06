@@ -229,7 +229,7 @@ export default function RequestFeedbackPanel() {
                   <button
                     onClick={() => request(t.tutorId)}
                     disabled={used || sending === t.tutorId}
-                    className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+                    className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-[#0d2318] hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
                   >
                     {sending === t.tutorId ? (
                       <Loader2 className="size-3.5 animate-spin" />

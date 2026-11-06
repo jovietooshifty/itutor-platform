@@ -8,13 +8,34 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import ParentShell from '@/components/parent/ParentShell';
 import NotificationPreferences from '@/components/parent/NotificationPreferences';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentNotificationsV2 from '@/components/parent/v2/ParentNotificationsV2';
 
+/**
+ * Notification links are written by whoever raised the notification, and
+ * some of them point at student-only routes. A parent following one is
+ * bounced by the auth guard onto /login, which reads as being signed out.
+ *
+ * Known student routes are mapped to the parent equivalent; anything else
+ * under /student/ is dropped so the row renders as plain text rather than
+ * a link that throws the parent out of the app. Dropping a link is a worse
+ * row and a better outcome than a dead end.
+ */
+function parentSafeLink(link: string | null): string | null {
+  if (!link) return null;
+  if (!link.startsWith('/student/')) return link;
+  if (link.startsWith('/student/bookings')) return '/parent/my-classes';
+  if (link.startsWith('/student/subscriptions')) return '/parent/my-classes';
+  if (link.startsWith('/student/classes')) return '/parent/my-classes';
+  if (link.startsWith('/student/explore')) return '/parent/classes';
+  return null;
+}
 type NotifRow = { id: string; title: string; message: string; type: string; link: string | null; created_at: string; is_read: boolean };
 
 const FILTERS = ['All', 'Unread', 'Enrolment', 'Alerts'] as const;
 
 export default function NotificationsPage() {
-  return <ParentShell><NotificationsContent /></ParentShell>;
+  return isNewUiEnabled() ? <ParentNotificationsV2 /> : <ParentShell><NotificationsContent /></ParentShell>;
 }
 
 function NotificationsContent() {
@@ -119,8 +140,9 @@ function NotificationsContent() {
               </div>
             </>
           );
-          return n.link ? (
-            <Link key={n.id} href={n.link} onClick={() => toggleRead(n.id, n.is_read)} className={cls}>{inner}</Link>
+          const href = parentSafeLink(n.link);
+          return href ? (
+            <Link key={n.id} href={href} onClick={() => toggleRead(n.id, n.is_read)} className={cls}>{inner}</Link>
           ) : (
             <button key={n.id} onClick={() => toggleRead(n.id, n.is_read)} className={cls}>{inner}</button>
           );

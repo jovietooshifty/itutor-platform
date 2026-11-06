@@ -1,0 +1,81 @@
+{
+  "projectId": "ae7c7005-01c1-48ee-a58f-3a1fb262224d",
+  "shape": "package",
+  "pkg": "itutor-frontend",
+  "globalName": "ITutorV3",
+  "srcDir": "components/ui",
+  "tsconfig": ".design-sync/tsconfig.json",
+  "buildCmd": "node .design-sync/build-assets.mjs",
+  "cssEntry": ".design-sync/build/ds.css",
+  "extraFonts": [
+    ".design-sync/fonts/fonts.css"
+  ],
+  "extraEntries": [
+    "./.design-sync/extras/index.tsx"
+  ],
+  "provider": {
+    "component": "DsRoot"
+  },
+  "guidelinesGlob": [],
+  "docsDir": "docs/ui-foundation",
+  "dtsPropsFor": {
+    "AppHeader": "tone?: 'light' | 'dark'; /** The logo element; supplied by the consumer. */ logo?: React.ReactNode; /** Icon buttons left of the account chip. Default ['bell']. */ actions?: Array<'bell' | 'chat' | 'search'>; /** Red dot on the bell. */ unread?: boolean; /** Letters in the account chip. */ initials?: string; onAction?: (action: 'bell' | 'chat' | 'search') => void; onAccount?: () => void; className?: string;",
+    "BottomNav": "/** The tabs. Default: Home, Explore, Classes, Billing, Profile. */ items?: Array<{ id: string; label: string; icon: 'bell' | 'chat' | 'search' | 'home' | 'explore' | 'classes' | 'billing' | 'profile' | 'chevron' | 'play' | 'users' | 'filters' | 'lock' | 'help'; /** Red dot on the tab. */ badge?: boolean }>; /** id of the current tab. */ active?: string; onSelect?: (id: string) => void; className?: string;",
+    "NewUiShell": "children: React.ReactNode; /** id of the current tab. */ active?: string; /** The tabs. Default: Home, Explore, Classes, Billing, Profile. */ items?: Array<{ id: string; label: string; icon: 'bell' | 'chat' | 'search' | 'home' | 'explore' | 'classes' | 'billing' | 'profile' | 'chevron' | 'play' | 'users' | 'filters' | 'lock' | 'help'; badge?: boolean }>; /** Hide the tab bar on flows and detail pages, as the Figma files specify. */ nav?: boolean; onSelect?: (id: string) => void; headerTone?: 'light' | 'dark'; headerActions?: Array<'bell' | 'chat' | 'search'>; onHeaderAction?: (action: 'bell' | 'chat' | 'search') => void; onAccount?: () => void; logo?: React.ReactNode; unread?: boolean; initials?: string; /** Drop the header too, for full-bleed flows. */ header?: boolean; className?: string;",
+    "StepList": "steps: Array<{ title: React.ReactNode; detail?: React.ReactNode }>; className?: string;"
+  },
+  "overrides": {
+    "NewUiShell": {
+      "cardMode": "single",
+      "viewport": "430x844",
+      "primaryStory": "HomeScreen"
+    },
+    "DsPortal": {
+      "cardMode": "single",
+      "viewport": "430x400"
+    },
+    "AppHeader": {
+      "cardMode": "column"
+    },
+    "BottomNav": {
+      "cardMode": "column"
+    },
+    "Card": {
+      "cardMode": "column"
+    },
+    "ClassRow": {
+      "cardMode": "column"
+    },
+    "Countdown": {
+      "cardMode": "column"
+    },
+    "DsIcon": {
+      "cardMode": "column"
+    },
+    "IconNote": {
+      "cardMode": "column"
+    },
+    "NavRow": {
+      "cardMode": "column"
+    },
+    "SectionHeader": {
+      "cardMode": "column"
+    },
+    "StepList": {
+      "cardMode": "column"
+    },
+    "SummaryRow": {
+      "cardMode": "column"
+    },
+    "Tag": {
+      "cardMode": "column"
+    },
+    "Button": {
+      "cardMode": "column"
+    },
+    "QuestProgress": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

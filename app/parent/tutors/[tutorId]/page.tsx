@@ -21,6 +21,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, MessageSquare, ShieldAlert, ShieldCheck, Star } from 'lucide-react';
 import ParentShell from '@/components/parent/ParentShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentTutorProfileV2 from '@/components/parent/v2/ParentTutorProfileV2';
 import BlurredBannerBackdrop from '@/components/tutor/BlurredBannerBackdrop';
 
 type Tutor = {
@@ -46,6 +48,7 @@ type Extra = {
 };
 
 export default function ParentTutorProfilePage() {
+  if (isNewUiEnabled()) return <ParentTutorProfileV2 />;
   return (
     <ParentShell>
       <TutorProfileContent />
@@ -152,7 +155,7 @@ function TutorProfileContent() {
 
           <Link
             href="/parent/messages"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] hover:bg-brand-deep"
           >
             <MessageSquare className="size-4" />
             Message {first}
@@ -274,7 +277,7 @@ function BackLink() {
       href="/parent/approvals"
       className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-ink"
     >
-      <ArrowLeft className="size-4" /> Back to approvals
+      <ArrowLeft className="size-4" /> Back
     </Link>
   );
 }

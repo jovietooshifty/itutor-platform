@@ -12,6 +12,8 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import ParentShell from '@/components/parent/ParentShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentChildV2 from '@/components/parent/v2/ParentChildV2';
 
 type Enrollment = {
   groupId: string; name: string; subject: string | null; status: string; joinedAt: string | null;
@@ -70,7 +72,7 @@ type AttSummary = {
 };
 
 export default function ChildDetailPage() {
-  return <ParentShell><ChildContent /></ParentShell>;
+  return isNewUiEnabled() ? <ParentChildV2 /> : <ParentShell><ChildContent /></ParentShell>;
 }
 
 function ChildContent() {
@@ -345,7 +347,7 @@ function ClassesTab({ enrollments, childId }: { enrollments: Enrollment[]; child
             action={
               <Link
                 href={`/parent/children/${childId}/classes/${e.groupId}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-brand text-white hover:bg-brand-deep"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-brand text-[#0d2318] hover:bg-brand-deep"
               >
                 View as student
               </Link>

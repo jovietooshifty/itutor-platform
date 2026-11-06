@@ -26,16 +26,21 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { NewUiShell, type NavItem } from '@/components/ui';
+import ParentAccountSheet from '@/components/parent/v2/ParentAccountSheet';
+import { useProfile } from '@/lib/hooks/useProfile';
+import { supabase } from '@/lib/supabase/client';
 
 const TABS: Array<NavItem & { href: string }> = [
   { id: 'home', label: 'Home', icon: 'home', href: '/parent/dashboard' },
   { id: 'explore', label: 'Explore', icon: 'explore', href: '/parent/classes' },
-  // The merged Upcoming/Past Classes tab is the logic half of this flow; until
-  // it lands this points at the existing subscriptions list so the tab is never
-  // a dead end.
-  { id: 'classes', label: 'Classes', icon: 'classes', href: '/parent/subscriptions' },
+  // The merged Upcoming/Past Classes tab (SCREEN_MAP logic row 1). The old
+  // /parent/subscriptions and /parent/approvals both redirect to it.
+  { id: 'classes', label: 'Classes', icon: 'classes', href: '/parent/my-classes' },
   { id: 'billing', label: 'Billing', icon: 'billing', href: '/parent/billing' },
-  { id: 'profile', label: 'Profile', icon: 'profile', href: '/parent/settings' },
+  // The Profile FRAME (160:8114) carries the tab bar with Profile active,
+  // so the tab lands there. Settings (160:7984) has a back link and no
+  // nav, and is reached from the account sheet instead.
+  { id: 'profile', label: 'Profile', icon: 'profile', href: '/parent/profile' },
 ];
 
 function activeFromPath(pathname: string | null): string | undefined {
@@ -66,6 +71,12 @@ export default function ParentV2Shell({
   const pathname = usePathname();
   const [needsPayment, setNeedsPayment] = useState(false);
   const [unread, setUnread] = useState(false);
+  // The header chip had no handler at all, so it looked interactive and
+  // did nothing. It now opens the account sheet, which is also where the
+  // five sidebar sections the tab bar displaced now live.
+  const [accountOpen, setAccountOpen] = useState(false);
+  const { profile } = useProfile();
+  const profileName = profile?.display_name || profile?.full_name || undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +104,7 @@ export default function ParentV2Shell({
   );
 
   return (
+    <>
     <NewUiShell
       active={activeFromPath(pathname)}
       items={items}
@@ -100,6 +112,10 @@ export default function ParentV2Shell({
       header={header}
       unread={unread}
       initials={initials}
+      onHeaderAction={(action) => {
+        if (action === 'bell') router.push('/parent/notifications');
+      }}
+      onAccount={() => setAccountOpen(true)}
       onSelect={(id) => {
         const tab = TABS.find((t) => t.id === id);
         if (tab) router.push(tab.href);
@@ -117,5 +133,16 @@ export default function ParentV2Shell({
     >
       {children}
     </NewUiShell>
+
+    <ParentAccountSheet
+      open={accountOpen}
+      onClose={() => setAccountOpen(false)}
+      name={profileName}
+      onLogout={async () => {
+        await supabase.auth.signOut();
+        router.push('/login');
+      }}
+    />
+    </>
   );
 }

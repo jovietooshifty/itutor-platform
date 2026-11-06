@@ -28,6 +28,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { withRequest } from '@/components/parent/v2/attention';
 import { useRouter } from 'next/navigation';
 import { Check } from '@phosphor-icons/react';
 import {
@@ -62,6 +63,8 @@ type UpcomingSession = {
 };
 
 type Subscription = {
+  /** The CLASS id. /parent/classes/[groupId] is keyed on the group. */
+  groupId: string | null;
   id: string;
   childId: string;
   childName: string;
@@ -248,7 +251,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
               title={item.title}
               body={item.detail}
             >
-              <Button variant="danger" size="sm" block onClick={() => router.push(item.href)}>
+              <Button variant="danger" size="sm" block onClick={() => router.push(withRequest(item))}>
                 {item.actionLabel}
               </Button>
             </Card>
@@ -272,7 +275,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
                   : `${item.detail} · No place is held while you decide.`
               }
             >
-              <Button variant="primary" block onClick={() => router.push(item.href)}>
+              <Button variant="primary" block onClick={() => router.push(withRequest(item))}>
                 {item.actionLabel}
               </Button>
             </Card>
@@ -285,7 +288,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
             title={item.title}
             body={item.detail}
           >
-            <Button variant="outline" size="sm" block onClick={() => router.push(item.href)}>
+            <Button variant="outline" size="sm" block onClick={() => router.push(withRequest(item))}>
               {item.actionLabel}
             </Button>
           </Card>
@@ -351,7 +354,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
           <SectionHeader
             title={headlineChild ? `Classes for ${headlineChild}` : 'Classes'}
             action="See all"
-            onAction={() => router.push('/parent/subscriptions')}
+            onAction={() => router.push('/parent/my-classes')}
           />
           {active.map((s) => (
             <ClassRow
@@ -363,7 +366,13 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
                 .filter(Boolean)
                 .join(' · ')}
               price={s.amount > 0 ? money(s.amount) : undefined}
-              onClick={() => router.push('/parent/subscriptions')}
+              // The class itself. These rows come from the same
+              // /api/parent/billing subscriptions[] as Billing, so they
+              // carry groupId; before this every row opened the Classes
+              // list, which is where the parent had just come from.
+              onClick={() =>
+                router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')
+              }
             />
           ))}
         </>

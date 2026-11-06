@@ -276,7 +276,7 @@ function MessagesContent() {
                   <button
                     onClick={send}
                     disabled={sending || !draft.trim()}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] disabled:opacity-50"
                   >
                     {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                     Send

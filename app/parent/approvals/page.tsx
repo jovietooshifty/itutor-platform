@@ -17,6 +17,7 @@
 // §9.1 are read off the query string on arrival.
 
 import { useCallback, useEffect, useState } from 'react';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Check, Clock, Loader2, ShieldCheck, X } from 'lucide-react';
@@ -65,7 +66,29 @@ type PendingClassRequest = {
   requiresTutorApproval: boolean;
 };
 
+/**
+ * With the new UI on, requests are answered in a bottom sheet on the Classes
+ * tab (components/parent/v2/ParentRequestSheet), so this route always
+ * redirects there. The whole query string travels with it: `request` opens the
+ * sheet on that item, and `booking` + `checkout` are Stripe's return from
+ * paying for an approved 1:1 session, which the Classes tab now shows.
+ *
+ * The old `?v2=0` escape hatch, which kept this page reachable until the sheet
+ * existed, is gone. With the flag off this page renders as it always did.
+ */
 export default function ParentApprovalsPage() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const redirect = isNewUiEnabled();
+
+  useEffect(() => {
+    if (!redirect) return;
+    const qs = params.toString();
+    router.replace(qs ? `/parent/my-classes?${qs}` : '/parent/my-classes');
+  }, [redirect, router, params]);
+
+  if (redirect) return null;
+
   return (
     <ParentShell>
       <ApprovalsContent />
@@ -378,7 +401,7 @@ function ApprovalsContent() {
                 <button
                   onClick={() => decideClass(r.id, true)}
                   disabled={busyId === r.id}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] disabled:opacity-60"
                 >
                   {busyId === r.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -390,7 +413,7 @@ function ApprovalsContent() {
               ) : (
                 <Link
                   href={`/parent/classes/${r.groupId}`}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white"
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318]"
                 >
                   <Check className="h-4 w-4" />
                   Review &amp; pay
@@ -513,7 +536,7 @@ function ApprovalsContent() {
               <button
                 onClick={() => approve(r.id)}
                 disabled={busyId === r.id}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] disabled:opacity-60"
               >
                 {busyId === r.id ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

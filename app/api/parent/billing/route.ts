@@ -123,6 +123,10 @@ export async function GET(_request: NextRequest) {
       const pausedByTutor = r.pause_reason === 'tutor_break';
       return {
         id: r.id,
+        // The GROUP, not the enrolment. A Classes row links to
+        // /parent/classes/[groupId]; before this it had only `id`, which is the
+        // enrolment, and would have linked to a class page that does not exist.
+        groupId: r.group_id,
         childId: r.student_id,
         childName: nameById.get(r.student_id) ?? 'Child',
         className: groupName.get(r.group_id) ?? 'Class',

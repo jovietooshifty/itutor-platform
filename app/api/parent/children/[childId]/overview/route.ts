@@ -26,12 +26,28 @@ export async function GET(_request: NextRequest, { params }: Params) {
     // The extra columns exist so the Classes tab can render the SAME card the
     // marketplace does. A class that loses its banner, price and tutor the moment
     // a child joins reads as a different object to the parent who joined it.
-    const { data: groups } = groupIds.length
-      ? await admin
-          .from('groups')
-          .select('id, name, subject, form_level, cover_image, price_monthly, tutor_id, schedule_data, session_schedule, average_rating')
-          .in('id', groupIds)
-      : { data: [] as any[] };
+    //
+    // TIERED, because one missing column fails the WHOLE select and PostgREST
+    // returns null rather than throwing. That is what made every class on the
+    // child page read "Class by Tutor": a column absent in some environments
+    // (session_schedule / average_rating) emptied the lookup, and every row fell
+    // back to the placeholder name. The first tier that answers wins.
+    let groups: any[] = [];
+    if (groupIds.length) {
+      const tiers = [
+        'id, name, subject, form_level, cover_image, price_monthly, tutor_id, schedule_data, session_schedule, average_rating',
+        'id, name, subject, form_level, cover_image, price_monthly, tutor_id, schedule_data',
+        'id, name, subject, tutor_id',
+      ];
+      for (const cols of tiers) {
+        const res = await admin.from('groups').select(cols).in('id', groupIds);
+        if (!res.error) {
+          groups = (res.data ?? []) as any[];
+          break;
+        }
+        console.error('[parent overview] groups select failed, trying fewer columns:', res.error.message);
+      }
+    }
     const groupTutorIds = [...new Set((groups ?? []).map((g: any) => g.tutor_id).filter(Boolean))];
     const { data: groupTutors } = groupTutorIds.length
       ? await admin.from('profiles').select('id, full_name, display_name').in('id', groupTutorIds)

@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase/client';
 import ParentShell from '@/components/parent/ParentShell';
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
+import { parentInitials } from '@/components/parent/v2/initials';
 import ParentBillingV2 from '@/components/parent/v2/ParentBillingV2';
 
 type NotifRow = { id: string; title: string; message: string; type: string; created_at: string; is_read: boolean };
@@ -21,15 +22,7 @@ export default function BillingPage() {
 /** Figma 160:4095 / 160:4257 — see components/parent/v2. */
 function BillingV2Route() {
   const { profile } = useProfile();
-  const name = profile?.display_name || profile?.full_name || '';
-  const initials =
-    name
-      .split(' ')
-      .map((part) => part[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join('')
-      .toUpperCase() || undefined;
+  const initials = parentInitials(profile);
 
   return (
     <ParentV2Shell initials={initials}>

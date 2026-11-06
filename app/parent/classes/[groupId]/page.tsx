@@ -26,8 +26,15 @@ import { fetchClassDetail } from '@/lib/classes/fetchClassDetail';
 import { hasAnyPrice } from '@/lib/payments/groupPricing';
 import CheckoutCreditsChoice, { type CreditChoice } from '@/components/credits/CheckoutCreditsChoice';
 import { invalidateCredits } from '@/lib/credits/useCredits';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import { DetailScreen, DetailSkeleton, EmptyCard } from '@/components/parent/v2/DetailScreen';
+import { Sheet } from '@/components/parent/v2/Sheet';
+import { ParentClassDetailV2, type ChildEnrolment } from '@/components/parent/v2/ParentClassDetailV2';
+import { Button } from '@/components/ui';
 
 export default function ParentClassPage() {
+  // Same ClassContent, same enrolment logic; only the presentation forks.
+  if (isNewUiEnabled()) return <ClassContent v2 />;
   return (
     <ParentShell>
       <ClassContent />
@@ -35,8 +42,38 @@ export default function ParentClassPage() {
   );
 }
 
-function ClassContent() {
+function ClassContent({ v2 = false }: { v2?: boolean }) {
   const { groupId } = useParams<{ groupId: string }>();
+  // v2 only: which of THIS parent's children are already in the class. The
+  // old view read group.enrolled, which is about the viewer (the parent, who is
+  // never a member), so it offered "Join class" to a child already in it.
+  const [childEnrolments, setChildEnrolments] = useState<ChildEnrolment[]>([]);
+  const [childCount, setChildCount] = useState<number | null>(null);
+  const loadChildren = useCallback(async () => {
+    try {
+      const summary = await fetch('/api/parent/children/summary', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { children: [] }));
+      const kids: Array<{ id: string; name: string }> = summary.children ?? [];
+      setChildCount(kids.length);
+      const found = await Promise.all(
+        kids.map(async (c) => {
+          const ov = await fetch(`/api/parent/children/${c.id}/overview`, { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null);
+          const e = (ov?.enrollments ?? []).find((x: { groupId: string }) => x.groupId === groupId);
+          if (!e) return null;
+          if (['approved', 'active'].includes(e.status)) return { childId: c.id, childName: c.name, status: 'in' as const };
+          if (e.status === 'pending') return { childId: c.id, childName: c.name, status: 'pending' as const };
+          return null;
+        })
+      );
+      setChildEnrolments(found.filter((x): x is ChildEnrolment => x !== null));
+    } catch {
+      setChildCount(0);
+    }
+  }, [groupId]);
+  useEffect(() => {
+    if (v2) void loadChildren();
+  }, [v2, loadChildren]);
   const [group, setGroup] = useState<GroupData | null>(null);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -66,6 +103,21 @@ function ClassContent() {
   useEffect(() => {
     void load(true);
   }, [load]);
+
+  if (v2 && loading) {
+    return (
+      <DetailScreen backLabel="Back" fallbackHref="/parent/classes">
+        <DetailSkeleton rows={3} />
+      </DetailScreen>
+    );
+  }
+  if (v2 && !group) {
+    return (
+      <DetailScreen backLabel="Back" fallbackHref="/parent/classes" title="Class not found">
+        <EmptyCard title="This class is not available" body="It may have ended, or the tutor took it off the marketplace." />
+      </DetailScreen>
+    );
+  }
 
   if (loading) {
     return (
@@ -164,6 +216,7 @@ function ClassContent() {
       if (json.free || json.completed) {
         setDone({ kind: 'enrolled', childName: json.childName ?? null, position: null });
         await load();
+        if (v2) void loadChildren();
         return;
       }
       // The modal used to close on success and say nothing at all. A parent who
@@ -175,12 +228,94 @@ function ClassContent() {
         position: null,
       });
       await load();
+      if (v2) void loadChildren();
     } catch {
       setError('Could not continue.');
     } finally {
       setBusy(false);
     }
   };
+
+  if (v2) {
+    const kids = childCount ?? 0;
+    return (
+      <DetailScreen backLabel="Back" fallbackHref="/parent/classes">
+        {error ? (
+          <p role="alert" className="rounded-ds-card bg-danger-soft px-ds-card py-ds-2 font-body text-[14px] font-extrabold text-danger">
+            {error}
+          </p>
+        ) : null}
+        <ParentClassDetailV2
+          group={group}
+          enrolments={childEnrolments}
+          hasChildren={childCount === null || kids > 0}
+          canAddChild={childCount === null ? false : childEnrolments.length < kids}
+          isPaid={isPaid}
+          isPreorder={isPreorder}
+          onJoin={() => {
+            setError(null);
+            setReadyChildId(null);
+            setPickerOpen(true);
+          }}
+        />
+        <Sheet
+          open={pickerOpen}
+          onClose={() => {
+            setPickerOpen(false);
+            setDone(null);
+          }}
+          title={done ? 'Done' : 'Who is this for?'}
+          footer={
+            done ? (
+              <>
+                <Button block size="lg" onClick={() => { setDone(null); setPickerOpen(false); }}>
+                  Done
+                </Button>
+              </>
+            ) : (
+              <Button
+                block
+                size="lg"
+                disabled={!readyChildId || busy}
+                onClick={() => {
+                  if (readyChildId) void enroll(readyChildId);
+                }}
+              >
+                {busy
+                  ? 'Working…'
+                  : isPaid
+                    ? isPreorder
+                      ? 'Continue to secure the spot'
+                      : 'Continue to payment'
+                    : group.require_join_requests
+                      ? 'Send request'
+                      : 'Join class'}
+              </Button>
+            )
+          }
+        >
+          {done ? (
+            <ConfirmationV2 done={done} className={group.name} />
+          ) : (
+            <>
+              <p className="font-body text-[14px] text-ink-muted">
+                {isPaid ? 'You pay; they are the one enrolled.' : 'They are the one enrolled.'}
+              </p>
+              {/* ChildPickerCheck runs the §5 checks (schedule clash, level)
+                  before any card is entered. Reused as is. */}
+              <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false} />
+              {isPaid && !isPreorder ? (
+                <CheckoutCreditsChoice groupId={group.id} value={creditChoice} onChange={setCreditChoice} />
+              ) : null}
+              {error ? (
+                <p role="alert" className="font-body text-[13px] font-extrabold text-danger">{error}</p>
+              ) : null}
+            </>
+          )}
+        </Sheet>
+      </DetailScreen>
+    );
+  }
 
   return (
     <>
@@ -257,7 +392,7 @@ function ClassContent() {
                 <button
                   onClick={() => readyChildId && enroll(readyChildId)}
                   disabled={!readyChildId || busy}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] hover:bg-brand-deep disabled:opacity-50"
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <Users className="size-4" />}
                   {isPaid
@@ -333,7 +468,7 @@ function Confirmation({
       <div className="flex flex-wrap justify-center gap-2 pt-1">
         <Link
           href="/parent/children"
-          className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
+          className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] hover:bg-brand-deep"
         >
           See their classes
         </Link>
@@ -344,6 +479,39 @@ function Confirmation({
           Done
         </button>
       </div>
+    </div>
+  );
+}
+
+/** The v2 sheet's outcome copy. Same three outcomes as Confirmation. */
+function ConfirmationV2({
+  done,
+  className,
+}: {
+  done: { kind: 'enrolled' | 'requested' | 'waitlisted'; childName: string | null; position: number | null };
+  className: string;
+}) {
+  const who = done.childName ?? 'Your child';
+  const copy = {
+    enrolled: {
+      title: `${who} is in ${className}`,
+      body: 'They can see the class and its sessions on their own account now. You get their attendance and any feedback the tutor writes.',
+    },
+    requested: {
+      title: `Request sent for ${who}`,
+      body: `The tutor approves who joins ${className}. Nothing else is needed from you. You will hear when they answer, and ${who} is not in the class until they do.`,
+    },
+    waitlisted: {
+      title: `${who} is on the waitlist`,
+      body: done.position
+        ? `The class is full. They are number ${done.position} in the queue, and we will tell you if a place opens.`
+        : 'The class is full. We will tell you if a place opens.',
+    },
+  }[done.kind];
+  return (
+    <div className="flex flex-col gap-ds-2">
+      <p className="font-display text-[18px] font-extrabold text-ink">{copy.title}</p>
+      <p className="font-body text-[14px] text-ink-muted">{copy.body}</p>
     </div>
   );
 }
