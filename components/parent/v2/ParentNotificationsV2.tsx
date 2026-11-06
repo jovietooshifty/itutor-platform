@@ -66,12 +66,12 @@ function when(iso: string): string {
   if (mins < 1) return 'Just now';
   if (mins < 60) return `${mins} min ago`;
   const sameDay = d.toDateString() === now.toDateString();
-  const t = d.toLocaleTimeString('en-TT', { hour: 'numeric', minute: '2-digit' });
+  const t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   if (sameDay) return `Today · ${t}`;
   const y = new Date(now);
   y.setDate(now.getDate() - 1);
   if (d.toDateString() === y.toDateString()) return `Yesterday · ${t}`;
-  return `${d.toLocaleDateString('en-TT', { weekday: 'short', day: 'numeric', month: 'short' })} · ${t}`;
+  return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} · ${t}`;
 }
 
 export default function ParentNotificationsV2() {

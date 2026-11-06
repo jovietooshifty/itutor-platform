@@ -23,7 +23,11 @@
 import Link from 'next/link';
 import { Button, Card, NavRow, SubjectTile, SummaryRow, Tag } from '@/components/ui';
 import type { GroupData, SessionRow } from '@/components/classes/ClassDetailView';
-import { formatAstDate, formatAstTimeRange } from '@/lib/utils/scheduleFormat';
+import { formatAstTimeRange } from '@/lib/utils/scheduleFormat';
+
+/** "Sat 7 Nov", in the class's own timezone (AST), per the system's date format. */
+const formatAstDate = (d: Date, o: Intl.DateTimeFormatOptions) =>
+  d.toLocaleDateString('en-GB', { ...o, timeZone: 'America/Port_of_Spain' });
 import { subjectCode, subjectColor } from './subjectTile';
 
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

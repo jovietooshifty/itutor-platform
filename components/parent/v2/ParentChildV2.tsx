@@ -52,9 +52,9 @@ type AttSummary = { counted?: number; total: number; rateLabel?: string };
 
 const TZ = 'America/Port_of_Spain';
 const fmtWhen = (iso: string) =>
-  `${new Date(iso).toLocaleDateString('en-TT', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })} · ${new Date(
+  `${new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })} · ${new Date(
     iso
-  ).toLocaleTimeString('en-TT', { hour: 'numeric', minute: '2-digit', timeZone: TZ })}`;
+  ).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ })}`;
 
 /** §6 vocabulary, character-identical to the other surfaces. */
 const ATT: Record<AttStatus, { label: string; tone: 'brand' | 'warning' | 'danger' | 'outline' }> = {
@@ -192,12 +192,12 @@ export default function ParentChildV2() {
               <span className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">Next</span>
               <span className="font-display text-[20px] font-extrabold leading-[24px] text-ink">
                 {upcoming[0]?.start
-                  ? new Date(upcoming[0].start).toLocaleDateString('en-TT', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })
+                  ? new Date(upcoming[0].start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })
                   : 'Nothing booked'}
               </span>
               <span className="font-body text-[13px] text-ink-muted">
                 {upcoming[0]?.start
-                  ? `${new Date(upcoming[0].start).toLocaleTimeString('en-TT', { hour: 'numeric', minute: '2-digit', timeZone: TZ })} · ${upcoming[0].tutorName}`
+                  ? `${new Date(upcoming[0].start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ })} · ${upcoming[0].tutorName}`
                   : 'Group classes are on the calendar'}
               </span>
             </div>
@@ -373,7 +373,7 @@ function ChildMessagesV2({ childId, first }: { childId: string; first: string })
   }, [childId]);
 
   const sinceLabel = since
-    ? new Date(since).toLocaleDateString('en-TT', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ })
+    ? new Date(since).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ })
     : null;
 
   if (!loaded) return <div className="h-[72px] animate-pulse rounded-ds-card bg-surface-sunken" />;

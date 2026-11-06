@@ -35,6 +35,7 @@ type Tutor = {
   avatar: string | null;
   verified: boolean;
   bio: string | null;
+  /** From /api/parent/tutors: which of YOUR children this tutor teaches. */
   teaches: string[];
 };
 type Review = { id: string; stars: number; comment: string | null; who: string; when: string };
@@ -101,7 +102,7 @@ export default function ParentTutorProfileV2() {
               stars: r.stars,
               comment: r.comment,
               who: (r.student?.full_name || 'A student').split(' ')[0],
-              when: new Date(r.created_at).toLocaleDateString('en-TT', { month: 'short', year: 'numeric' }),
+              when: new Date(r.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
             }))
           );
         }
@@ -138,7 +139,7 @@ export default function ParentTutorProfileV2() {
   }
 
   const first = tutor.name.split(' ')[0];
-  const subjects = [...new Set([...tutor.teaches, ...classes.map((c) => c.subject).filter(Boolean)])] as string[];
+  const subjects = [...new Set(classes.map((c) => c.subject).filter(Boolean))] as string[];
 
   return (
     <DetailScreen backLabel="Back" fallbackHref="/parent/classes">
@@ -169,7 +170,8 @@ export default function ParentTutorProfileV2() {
           label="Identity"
           value={tutor.verified ? 'Confirmed by iTutor' : 'Not confirmed yet'}
         />
-        {subjects.length > 0 ? <SummaryRow label="Teaches" value={subjects.slice(0, 4).join(', ')} /> : null}
+        {tutor.teaches.length > 0 ? <SummaryRow label="Teaches your child" value={tutor.teaches.join(', ')} /> : null}
+        {subjects.length > 0 ? <SummaryRow label="Subjects" value={subjects.slice(0, 4).join(', ')} /> : null}
         {classes.length > 0 ? (
           <SummaryRow label="Classes" value={`${classes.length} open`} />
         ) : null}

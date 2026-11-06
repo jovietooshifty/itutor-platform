@@ -25,9 +25,9 @@ import { useParentTransactions, type TxnRow } from './useParentTransactions';
 const TT = new Intl.NumberFormat('en-TT', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 const money = (n: number) => `TT$${TT.format(n)}`;
 const day = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-TT', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-const time = (iso: string) => new Date(iso).toLocaleTimeString('en-TT', { hour: 'numeric', minute: '2-digit' });
-const monthKey = (iso: string) => new Date(iso).toLocaleDateString('en-TT', { month: 'long', year: 'numeric' });
+  new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+const time = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+const monthKey = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
 const STATUS: Record<string, { label: string; tone: 'brand' | 'warning' | 'danger' | 'outline' }> = {
   PAID: { label: 'Paid', tone: 'brand' },

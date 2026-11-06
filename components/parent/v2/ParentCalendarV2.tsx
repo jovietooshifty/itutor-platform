@@ -48,17 +48,17 @@ const OUTCOME: Record<Outcome, { label: string; tone: 'brand' | 'warning' | 'dan
 };
 
 const dayKey = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: TZ });
-const time = (iso: string) => new Date(iso).toLocaleTimeString('en-TT', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
+const time = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
 
 function DateTile({ iso }: { iso: string }) {
   const d = new Date(iso);
   return (
     <span className="flex h-[52px] w-[52px] shrink-0 flex-col items-center justify-center rounded-ds-sm bg-ink text-on-ink">
       <span className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-on-ink-muted">
-        {d.toLocaleDateString('en-TT', { weekday: 'short', timeZone: TZ })}
+        {d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: TZ })}
       </span>
       <span className="font-display text-[20px] font-extrabold leading-[22px]">
-        {d.toLocaleDateString('en-TT', { day: 'numeric', timeZone: TZ })}
+        {d.toLocaleDateString('en-GB', { day: 'numeric', timeZone: TZ })}
       </span>
     </span>
   );
@@ -68,7 +68,7 @@ function dayHeading(iso: string): string {
   const k = dayKey(iso);
   const today = dayKey(new Date().toISOString());
   const tomorrow = dayKey(new Date(Date.now() + 86_400_000).toISOString());
-  const label = new Date(iso).toLocaleDateString('en-TT', { weekday: 'long', day: 'numeric', month: 'short', timeZone: TZ });
+  const label = new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', timeZone: TZ });
   if (k === today) return `Today · ${label}`;
   if (k === tomorrow) return `Tomorrow · ${label}`;
   return label;
