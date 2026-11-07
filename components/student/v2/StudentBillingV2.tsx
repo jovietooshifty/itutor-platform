@@ -195,8 +195,19 @@ export default function StudentBillingV2() {
   const past = (subs ?? []).filter((s) => !LIVE.includes(s.status));
   // The bill is what renews: active subscriptions not set to cancel.
   const renewing = live.filter((s) => (s.status === 'ACTIVE' || s.status === 'GRACE') && !s.cancel_at_period_end);
+  // Each subscription is its own Stripe charge with its own fixed fee, so
+  // gross up per subscription and add — grossing up the SUM would undercount
+  // the fixed part, and a TT$0 base must carry no fee at all.
   const base = renewing.reduce((n, s) => n + (s.plan_price_ttd ?? 0), 0);
-  const { gross: total, fee } = gross(base);
+  const { total, fee } = renewing.reduce(
+    (acc, s) => {
+      const p = s.plan_price_ttd ?? 0;
+      if (p <= 0) return acc;
+      const g = gross(p);
+      return { total: acc.total + g.gross, fee: acc.fee + g.fee };
+    },
+    { total: 0, fee: 0 }
+  );
   const nextCharge = renewing
     .map((s) => s.next_payment_due_at || s.current_period_end)
     .filter(Boolean)
