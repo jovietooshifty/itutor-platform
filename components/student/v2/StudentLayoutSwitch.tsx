@@ -28,6 +28,7 @@ const V2_ROUTES: RegExp[] = [
   /^\/student\/explore\/[^/]+\/?$/,
   /^\/student\/classes\/?$/,
   /^\/student\/notifications\/?$/,
+  /^\/student\/subscriptions\/?$/,
 ];
 
 export function isStudentV2Route(pathname: string | null): boolean {
