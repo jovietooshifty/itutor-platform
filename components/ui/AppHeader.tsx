@@ -60,7 +60,7 @@ export function AppHeader({
     >
       {logo ?? <span />}
 
-      <div className="flex items-center gap-ds-1h">
+      <div className="ml-auto flex items-center gap-ds-1h">
         {actions.map((action) => (
           <button
             key={action}
