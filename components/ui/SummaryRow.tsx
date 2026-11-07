@@ -55,7 +55,7 @@ export function SummaryRow({
       <span className={cn('min-w-0 text-[14px] leading-[20px]', labelCls, total && 'font-extrabold')}>{label}</span>
       <span
         className={cn(
-          'flex-none whitespace-nowrap text-right text-[14px] leading-[20px] tabular-nums',
+          'flex-none text-right text-[14px] leading-[20px] tabular-nums',
           valueCls,
           total && 'text-[16px]'
         )}

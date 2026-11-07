@@ -288,6 +288,33 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
   const monthly = active.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
   const nextCharge = active.map((s) => s.nextCharge).filter(Boolean)[0] ?? null;
 
+  const classList =
+    active.length > 0 ? (
+      <>
+        <SectionHeader
+          title={headlineChild ? `Classes for ${headlineChild}` : 'Classes'}
+          action="See all"
+          onAction={() => router.push('/parent/my-classes')}
+        />
+        {active.map((s) => (
+          <ClassRow
+            key={s.id}
+            code={subjectCode(s.className)}
+            color={subjectColor(s.className)}
+            title={s.className}
+            meta={[s.tutorName, childNames.length > 1 ? s.childName.split(' ')[0] : null]
+              .filter(Boolean)
+              .join(' · ')}
+            price={s.amount > 0 ? money(s.amount) : undefined}
+            // The class itself. These rows come from the same
+            // /api/parent/billing subscriptions[] as Billing, so they carry
+            // groupId.
+            onClick={() => router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')}
+          />
+        ))}
+      </>
+    ) : null;
+
   // An action card on a phone; from lg up a full-width banner with its button
   // on the right. The Card's three text rows fill column 1 and the button is
   // pinned to column 2 across them. PROVISIONAL: no wide frame.
@@ -373,9 +400,11 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
           other, in the frame's order. PROVISIONAL: no wide frame. */}
       <div className="flex flex-col gap-ds-card lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-ds-6">
         <div className="flex min-w-0 flex-col gap-ds-card">
-          {/* All clear — frame 160:2057. */}
+          {/* All clear — frame 160:2057. First on a phone; from lg up it
+              heads the right-hand column instead (rendered there too). */}
           {items.length === 0 ? (
             <IconNote
+              className="lg:hidden"
               icon={<Check size={18} weight="bold" />}
               title="All paid. Nothing needs your attention."
               meta={nextCharge ? `Next payment ${nextCharge}` : undefined}
@@ -459,9 +488,19 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
               </div>
             )}
           </section>
+
+          <div className="hidden flex-col gap-ds-card lg:flex">{classList}</div>
         </div>
 
         <div className="flex min-w-0 flex-col gap-ds-card">
+          {items.length === 0 ? (
+            <IconNote
+              className="hidden lg:flex"
+              icon={<Check size={18} weight="bold" />}
+              title="All paid. Nothing needs your attention."
+              meta={nextCharge ? `Next payment ${nextCharge}` : undefined}
+            />
+          ) : null}
           {active.length > 0 ? (
             <>
               <SectionHeader title="Payments by child" action="See all" onAction={() => router.push('/parent/billing')} />
@@ -487,27 +526,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
                 ) : null}
               </Card>
 
-              <SectionHeader
-                title={headlineChild ? `Classes for ${headlineChild}` : 'Classes'}
-                action="See all"
-                onAction={() => router.push('/parent/my-classes')}
-              />
-              {active.map((s) => (
-                <ClassRow
-                  key={s.id}
-                  code={subjectCode(s.className)}
-                  color={subjectColor(s.className)}
-                  title={s.className}
-                  meta={[s.tutorName, childNames.length > 1 ? s.childName.split(' ')[0] : null]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  price={s.amount > 0 ? money(s.amount) : undefined}
-                  // The class itself. These rows come from the same
-                  // /api/parent/billing subscriptions[] as Billing, so they
-                  // carry groupId.
-                  onClick={() => router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')}
-                />
-              ))}
+              <div className="flex flex-col gap-ds-card lg:hidden">{classList}</div>
             </>
           ) : null}
         </div>
