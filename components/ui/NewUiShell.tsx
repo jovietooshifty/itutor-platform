@@ -52,6 +52,8 @@ export interface NewUiShellProps {
   /** The account chip. Without it the avatar does nothing. */
   onAccount?: AppHeaderProps['onAccount'];
   logo?: ReactNode;
+  /** Passed to AppHeader's `extra` slot, before the icon buttons. */
+  headerExtra?: ReactNode;
   unread?: boolean;
   initials?: string;
   /** Drop the header too, for full-bleed flows. */
@@ -77,6 +79,7 @@ export function NewUiShell({
   onHeaderAction,
   onAccount,
   logo,
+  headerExtra,
   unread,
   initials,
   header = true,
@@ -124,6 +127,7 @@ export function NewUiShell({
             logo={side && logo ? <span className="md:hidden">{logo}</span> : logo}
             title={title}
             titleVisible={scrolled}
+            extra={headerExtra}
             unread={unread}
             initials={initials}
             className="ds-glass sticky top-0 z-10"
