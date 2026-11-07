@@ -452,7 +452,7 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
       <ChipRow chips={chips} activeChip={activeChip} onChipChange={onChipChange} />
 
       {loading ? (
-        <div className="flex flex-col gap-ds-3">
+        <div className="grid grid-cols-1 gap-ds-3 md:grid-cols-2 xl:grid-cols-3">
           <Skeleton height={showingLessons ? 210 : 96} />
           <Skeleton height={showingLessons ? 210 : 96} />
           <Skeleton height={showingLessons ? 210 : 96} />
@@ -470,7 +470,9 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
               onClear={narrowed ? onClearSearch : undefined}
             />
           ) : (
-            <div className="flex flex-col gap-ds-3">
+            // One column on a phone, as drawn; a grid from md up (PROVISIONAL:
+            // no wide frame). The page asks the shell for its 'wide' column.
+            <div className="grid grid-cols-1 gap-ds-3 md:grid-cols-2 xl:grid-cols-3">
               {lessons.map((l) => {
                 const enrolled = enrolledIds.has(l.id);
                 return (
@@ -495,7 +497,7 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
               onClear={narrowed ? onClearSearch : undefined}
             />
           ) : (
-            <div className="flex flex-col gap-ds-3">
+            <div className="grid grid-cols-1 gap-ds-3 md:grid-cols-2 xl:grid-cols-3">
               {tutors.map((t) => (
                 <TutorCard key={t.id} tutor={t} href={tutorHref(t.id)} />
               ))}

@@ -59,7 +59,7 @@ export function ParentAccountSheet({ open, onClose, name, onLogout }: ParentAcco
 
   return (
     <DsPortal>
-      <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-ds-8">
         <button
           type="button"
           aria-label="Close account menu"
@@ -72,12 +72,12 @@ export function ParentAccountSheet({ open, onClose, name, onLogout }: ParentAcco
           aria-modal="true"
           aria-label="Account"
           className={cn(
-            'relative flex w-full max-w-[430px] flex-col gap-ds-2',
-            'rounded-t-ds-card bw-hair border-border bg-surface-card px-ds-card pb-ds-card pt-ds-2'
+            'relative flex w-full max-w-[430px] flex-col md:max-w-[520px] gap-ds-2',
+            'rounded-t-ds-card md:rounded-ds-card bw-hair border-border bg-surface-card px-ds-card pb-ds-card pt-ds-2 md:pt-ds-card'
           )}
         >
           {/* The grab handle the frame draws above the title. */}
-          <span className="mx-auto h-[4px] w-[36px] rounded-ds-full bg-line-soft" aria-hidden />
+          <span className="mx-auto h-[4px] w-[36px] md:hidden rounded-ds-full bg-line-soft" aria-hidden />
 
           <h2 className="font-display text-[18px] font-extrabold text-ink">{name ?? 'Account'}</h2>
 

@@ -143,7 +143,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
 
   if (status === 'loading') {
     return (
-      <div className="flex flex-col gap-ds-card" aria-busy>
+      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-ds-card" aria-busy>
         <div className="h-[30px] w-1/2 animate-pulse rounded-ds-sm bg-surface-sunken" />
         <div className="h-[150px] animate-pulse rounded-ds-card bg-surface-sunken" />
         <div className="h-[170px] animate-pulse rounded-ds-card bg-surface-sunken" />
@@ -154,7 +154,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
 
   if (status === 'error') {
     return (
-      <div className="flex flex-col gap-ds-card">
+      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-ds-card">
         <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
           Something went wrong
         </h1>
@@ -173,7 +173,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
   // No child linked at all — the state the Figma frames do not cover.
   if (!hasChildren) {
     return (
-      <div className="flex flex-col gap-ds-card">
+      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-ds-card">
         <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
           Welcome, {firstName}
         </h1>
@@ -198,7 +198,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
   // New parent: a child is linked but has no classes yet — frame 160:2208.
   if (subs.length === 0) {
     return (
-      <div className="flex flex-col gap-ds-card">
+      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-ds-card">
         <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
           Find a class{headlineChild ? ` for ${headlineChild}` : ''}
         </h1>
@@ -238,6 +238,13 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
       <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
         {headlineChild ? `${headlineChild}'s week` : 'Your week'}
       </h1>
+
+      {/* From lg up, two columns: what needs doing and what is next on the
+          left, money and classes on the right. PROVISIONAL: no wide frame.
+          On a phone the two stacks run one after the other, in the frame's
+          order. */}
+      <div className="flex flex-col gap-ds-card lg:grid lg:grid-cols-2 lg:items-start lg:gap-ds-5">
+      <div className="flex min-w-0 flex-col gap-ds-card">
 
       {/* Needs-action cards. Order is the API's: approvals first, because they
           are the only items with a deadline. */}
@@ -321,7 +328,9 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
           </Button>
         </Card>
       ) : null}
+      </div>
 
+      <div className="flex min-w-0 flex-col gap-ds-card">
       {active.length > 0 ? (
         <>
           <SectionHeader
@@ -377,6 +386,8 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
           ))}
         </>
       ) : null}
+      </div>
+      </div>
     </div>
   );
 }

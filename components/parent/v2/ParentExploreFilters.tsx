@@ -91,7 +91,7 @@ export function ParentExploreFilters({
 
   return (
     <DsPortal>
-      <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-ds-8">
         <button
           type="button"
           aria-label="Close filters"
@@ -104,8 +104,8 @@ export function ParentExploreFilters({
           aria-modal="true"
           aria-label="Filters"
           className={cn(
-            'relative flex max-h-[85vh] w-full max-w-[430px] flex-col',
-            'rounded-t-ds-card bw-hair border-border bg-surface-card'
+            'relative flex max-h-[85vh] w-full max-w-[430px] flex-col md:max-w-[520px]',
+            'rounded-t-ds-card md:rounded-ds-card bw-hair border-border bg-surface-card'
           )}
         >
           <div className="flex items-center justify-between gap-ds-3 bw-b-hair border-line-soft px-ds-card py-ds-3">

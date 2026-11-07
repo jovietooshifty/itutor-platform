@@ -36,7 +36,7 @@ function ParentHomeV2Route() {
   const initials = parentInitials(profile);
 
   return (
-    <ParentV2Shell initials={initials}>
+    <ParentV2Shell initials={initials} width="wide">
       <ParentHomeV2 firstName={firstName} />
     </ParentV2Shell>
   );

@@ -44,7 +44,7 @@ export default function ParentClassesPage() {
 
   if (isNewUiEnabled()) {
     return (
-      <ParentV2Shell initials={parentInitials(profile)}>
+      <ParentV2Shell initials={parentInitials(profile)} width="wide">
         <ExploreMarketplace variant="parent" />
       </ParentV2Shell>
     );

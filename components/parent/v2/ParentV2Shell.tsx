@@ -59,6 +59,8 @@ export interface ParentV2ShellProps {
   initials?: string;
   nav?: boolean;
   header?: boolean;
+  /** Content width from 768px up: 'wide' only for screens with a wide layout. */
+  width?: 'reading' | 'wide';
 }
 
 export default function ParentV2Shell({
@@ -66,6 +68,7 @@ export default function ParentV2Shell({
   initials,
   nav = true,
   header = true,
+  width = 'reading',
 }: ParentV2ShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -110,6 +113,7 @@ export default function ParentV2Shell({
       items={items}
       nav={nav}
       header={header}
+      width={width}
       unread={unread}
       initials={initials}
       onHeaderAction={(action) => {
@@ -129,6 +133,17 @@ export default function ParentV2Shell({
           height={24}
           className="block h-6 w-auto"
         />
+      }
+      sideLogo={
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src="/brand/itutor-logo-on-dark.png" alt="iTutor" width={108} height={36} className="block h-9 w-auto" />
+      }
+      sideMark={
+        /* The rail is 88px: the logo's mark only, cropped from the same image. */
+        <span className="block h-9 w-[36px] overflow-hidden" aria-label="iTutor" role="img">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/itutor-logo-on-dark.png" alt="" width={108} height={36} className="block h-9 w-auto max-w-none" />
+        </span>
       }
     >
       {children}

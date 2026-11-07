@@ -47,7 +47,7 @@ export function Sheet({ open, onClose, title, label, children, footer }: SheetPr
 
   return (
     <DsPortal>
-      <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-ds-8">
         <button
           type="button"
           aria-label="Close"
@@ -59,12 +59,12 @@ export function Sheet({ open, onClose, title, label, children, footer }: SheetPr
           aria-modal="true"
           aria-label={label ?? (typeof title === 'string' ? title : undefined)}
           className={cn(
-            'relative flex max-h-[88vh] w-full max-w-[430px] flex-col',
-            'rounded-t-ds-card bw-hair border-border bg-surface-card'
+            'relative flex max-h-[88vh] w-full max-w-[430px] flex-col md:max-w-[520px]',
+            'rounded-t-ds-card md:rounded-ds-card bw-hair border-border bg-surface-card'
           )}
         >
-          <span className="mx-auto mt-ds-2 h-[4px] w-[36px] shrink-0 rounded-ds-full bg-line-soft" aria-hidden />
-          <h2 className="px-ds-card pb-ds-2 pt-ds-2 font-display text-[20px] font-extrabold leading-[24px] text-ink">
+          <span className="mx-auto mt-ds-2 h-[4px] w-[36px] md:hidden shrink-0 rounded-ds-full bg-line-soft" aria-hidden />
+          <h2 className="px-ds-card pb-ds-2 pt-ds-2 md:pt-ds-card font-display text-[20px] font-extrabold leading-[24px] text-ink">
             {title}
           </h2>
           <div className="flex flex-col gap-ds-3 overflow-y-auto px-ds-card pb-ds-card">{children}</div>

@@ -14,8 +14,17 @@
  * (brand, ink, ink-muted, border) plus the two font variables. See
  * ds-tokens.css for why that indirection exists.
  *
- * The frames are drawn at 390px, so the shell is a phone column centred on
- * anything wider rather than a stretched desktop layout.
+ * WIDER SCREENS. The frames are drawn at 390px and the system has no tablet or
+ * desktop frame, so below 768px this is exactly the phone column the frames
+ * show. From md up the tab bar becomes SideNav (a rail on tablets, a sidebar
+ * from lg), and the page sits in a centred column whose width the screen
+ * chooses with `width`:
+ * - 'reading' (default, 720px): single-column screens, detail pages, forms.
+ *   Cards and rows were drawn for a phone; past ~720px they stop reading as
+ *   rows and become stripes, so a screen stays here until it has a wide layout.
+ * - 'wide' (1120px): screens that lay their content out in columns or grids
+ *   from md up.
+ * The wide-screen layout is PROVISIONAL: no frame exists to check it against.
  */
 
 import type { ReactNode } from 'react';
@@ -23,6 +32,7 @@ import { cn } from '@/lib/utils';
 import './ds-tokens.css';
 import { AppHeader, type AppHeaderProps, type HeaderAction } from './AppHeader';
 import { BottomNav, DEFAULT_NAV, type NavItem } from './BottomNav';
+import { SideNav } from './SideNav';
 
 export interface NewUiShellProps {
   children: ReactNode;
@@ -43,6 +53,11 @@ export interface NewUiShellProps {
   initials?: string;
   /** Drop the header too, for full-bleed flows. */
   header?: boolean;
+  /** Content column width from md up. See the note above. */
+  width?: 'reading' | 'wide';
+  /** Light-on-ink logo and small mark for the side navigation. */
+  sideLogo?: ReactNode;
+  sideMark?: ReactNode;
   className?: string;
 }
 
@@ -60,32 +75,53 @@ export function NewUiShell({
   unread,
   initials,
   header = true,
+  width = 'reading',
+  sideLogo,
+  sideMark,
   className,
 }: NewUiShellProps) {
+  // The side navigation shows on every screen from md up, detail pages
+  // included: the phone hides the tab bar there to save height, which a
+  // sidebar does not cost. `nav` therefore only governs the phone tab bar.
+  const side = items.length > 0;
   return (
-    <div className="ds-root min-h-screen bg-surface-page">
-      <div className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-surface-page">
+    <div className="ds-root min-h-screen bg-surface-page md:flex">
+      {side ? (
+        <SideNav
+          items={items}
+          active={active}
+          onSelect={onSelect}
+          logo={sideLogo}
+          mark={sideMark}
+          className="sticky top-0 z-20 hidden h-screen shrink-0 md:flex"
+        />
+      ) : null}
+      <div className="mx-auto flex min-h-screen w-full min-w-0 max-w-[430px] flex-col bg-surface-page md:mx-0 md:max-w-none md:flex-1">
         {header ? (
           <AppHeader
             tone={headerTone}
             actions={headerActions}
             onAction={onHeaderAction}
             onAccount={onAccount}
-            logo={logo}
+            logo={side && logo ? <span className="md:hidden">{logo}</span> : logo}
             unread={unread}
             initials={initials}
             className="sticky top-0 z-10"
           />
         ) : null}
 
-        <main className={cn('flex-1 px-ds-4 py-ds-4', className)}>{children}</main>
+        <main className={cn('flex-1 px-ds-4 py-ds-4 md:px-ds-8 md:py-ds-5', className)}>
+          <div className={cn('mx-auto w-full', width === 'wide' ? 'md:max-w-[1120px]' : 'md:max-w-[720px]')}>
+            {children}
+          </div>
+        </main>
 
         {nav ? (
           <BottomNav
             items={items}
             active={active}
             onSelect={onSelect}
-            className="sticky bottom-0 z-10"
+            className="sticky bottom-0 z-10 md:hidden"
           />
         ) : null}
       </div>
