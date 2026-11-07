@@ -328,6 +328,11 @@ export default function ExploreMarketplace({ variant = 'student' }: { variant?: 
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOrder, setSortOrder] = useState<'relevance' | 'price_low' | 'rating_high'>('relevance');
   const [tab, setTab] = useState<'lessons' | 'tutors'>('lessons');
+  // ?tab=tutors opens the 1:1 tab (student Home's "Book a 1:1 tutor" quest).
+  // Read after mount, not in the initialiser, so server and client agree.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'tutors') setTab('tutors');
+  }, []);
   const [activeChip, setActiveChip] = useState('All');
   // Only the new parent Explore uses this: its frames collapse the filter
   // pills into one Filters button, which opens a sheet.
@@ -1217,7 +1222,9 @@ export default function ExploreMarketplace({ variant = 'student' }: { variant?: 
   // nothing else, so the student marketplace below is untouched BY
   // CONSTRUCTION rather than by careful editing -- which matters in a file
   // carrying @ts-nocheck, where a careless edit compiles either way.
-  if (isParent && isNewUiEnabled()) {
+  // Parent AND student since the student Explore frames (2:673, 2:812) match
+  // the parent ones. The student variant's hrefs are already student routes.
+  if (isNewUiEnabled()) {
     const filterGroups = [
       {
         id: 'price',

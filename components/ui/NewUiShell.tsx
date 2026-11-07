@@ -62,6 +62,13 @@ export interface NewUiShellProps {
   width?: 'reading' | 'wide';
   /** The page's name for the header, from md up, once scrolled. */
   title?: ReactNode;
+  /**
+   * A bar pinned to the bottom of the screen, directly above the phone tab bar
+   * (the student class page's price + Join bar, Figma 2:922). It shares the
+   * tab bar's sticky container so the two can never overlap. The consumer
+   * decides when it shows (e.g. `lg:hidden` when a side panel takes over).
+   */
+  bottomBar?: ReactNode;
   /** Light-on-ink logo and small mark for the side navigation. */
   sideLogo?: ReactNode;
   sideMark?: ReactNode;
@@ -87,6 +94,7 @@ export function NewUiShell({
   title,
   sideLogo,
   sideMark,
+  bottomBar,
   className,
 }: NewUiShellProps) {
   // The side navigation shows on every screen from md up, detail pages
@@ -140,13 +148,13 @@ export function NewUiShell({
           </div>
         </main>
 
-        {nav ? (
-          <BottomNav
-            items={items}
-            active={active}
-            onSelect={onSelect}
-            className="sticky bottom-0 z-10 md:hidden"
-          />
+        {nav || bottomBar ? (
+          <div className="sticky bottom-0 z-10">
+            {bottomBar}
+            {nav ? (
+              <BottomNav items={items} active={active} onSelect={onSelect} className="md:hidden" />
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

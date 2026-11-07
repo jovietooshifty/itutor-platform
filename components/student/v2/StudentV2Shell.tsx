@@ -69,6 +69,8 @@ export interface StudentV2ShellProps {
   width?: 'reading' | 'wide';
   /** Header title once scrolled, from md up. Defaults to the current tab's name. */
   title?: string;
+  /** See NewUiShell's bottomBar. */
+  bottomBar?: ReactNode;
 }
 
 export default function StudentV2Shell({
@@ -77,6 +79,7 @@ export default function StudentV2Shell({
   header = true,
   width = 'reading',
   title,
+  bottomBar,
 }: StudentV2ShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -116,6 +119,7 @@ export default function StudentV2Shell({
         nav={nav}
         header={header}
         width={width}
+        bottomBar={bottomBar}
         unread={unread}
         initials={parentInitials(profile)}
         headerActions={['search', 'bell']}

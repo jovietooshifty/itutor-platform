@@ -22,6 +22,9 @@ import {
   type ParentGate,
   type Step,
 } from '@/components/classes/ClassDetailView';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import { StudentClassDetailV2, StudentClassJoinBar } from '@/components/student/v2/StudentClassDetailV2';
 
 export default function ExploreClassDetailPage() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -84,6 +87,45 @@ export default function ExploreClassDetailPage() {
     }
   }
 
+  const v2 = isNewUiEnabled();
+
+  // The join, as both the old and new screens start it: signed-out visitors
+  // go to log in first (the page itself is public for QR codes and shared
+  // links), everyone else opens the join flow.
+  const startJoin = () => {
+    if (!profile?.id) {
+      router.push(`/login?redirect=${encodeURIComponent(`/student/explore/${groupId}`)}`);
+      return;
+    }
+    setStep('join');
+  };
+
+  if (v2 && (loading || profileLoading)) {
+    return (
+      <StudentV2Shell width="wide">
+        <div className="flex flex-col gap-ds-card" aria-busy>
+          <div className="h-[120px] animate-pulse rounded-ds-card bg-surface-sunken md:h-[200px]" />
+          <div className="h-[40px] w-2/3 animate-pulse rounded-ds-sm bg-surface-sunken" />
+          <div className="h-[240px] animate-pulse rounded-ds-card bg-surface-sunken" />
+        </div>
+      </StudentV2Shell>
+    );
+  }
+
+  if (v2 && !group) {
+    return (
+      <StudentV2Shell>
+        <div className="flex flex-col items-start gap-ds-3">
+          <h1 className="ds-page-title m-0 font-display font-extrabold text-ink">Class not found</h1>
+          <p className="m-0 text-[15px] text-ink-muted">It may have been archived, or the link is wrong.</p>
+          <Link href="/student/find-tutors" className="ds-link text-[15px] font-extrabold text-brand-edge">
+            Back to Explore
+          </Link>
+        </div>
+      </StudentV2Shell>
+    );
+  }
+
   if (loading || profileLoading) {
     return <div className="flex justify-center py-32"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand" /></div>;
   }
@@ -94,6 +136,41 @@ export default function ExploreClassDetailPage() {
         <h1 className="text-2xl font-bold text-ink">Class not found</h1>
         <Link href="/student/find-tutors" className="mt-4 inline-block text-brand-deep font-semibold">← Back to explore</Link>
       </div>
+    );
+  }
+
+  const joinModal =
+    step !== 'detail' ? (
+      <Modal onClose={() => setStep('detail')}>
+        {step === 'join' && (
+          <JoinFlow
+            group={group}
+            onBack={() => setStep('detail')}
+            onSuccess={(s) => { setStep(s); void fetchGroup(); }}
+            profile={profile}
+            hasLinkedParent={hasLinkedParent}
+            parentGate={parentGate}
+          />
+        )}
+        {step === 'joined' && <JoinedScreen group={group} kind="enrolled" />}
+        {step === 'awaiting-approval' && <JoinedScreen group={group} kind="awaiting-approval" />}
+        {step === 'awaiting-parent' && <JoinedScreen group={group} kind="awaiting-parent" />}
+        {step === 'cash-held' && <JoinedScreen group={group} kind="cash-held" />}
+      </Modal>
+    ) : null;
+
+  if (v2) {
+    // The join flow is still the old modal; its frames (B1–B9) are the next
+    // step of this flow.
+    return (
+      <StudentV2Shell
+        width="wide"
+        title={group.name}
+        bottomBar={<StudentClassJoinBar group={group} parentGate={parentGate} onJoin={startJoin} />}
+      >
+        <StudentClassDetailV2 group={group} parentGate={parentGate} onJoin={startJoin} />
+        {joinModal}
+      </StudentV2Shell>
     );
   }
 

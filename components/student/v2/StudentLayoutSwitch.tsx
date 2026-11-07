@@ -22,7 +22,11 @@ import { usePathname } from 'next/navigation';
 import { StudentShell } from '@/components/student/StudentShell';
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 
-const V2_ROUTES: RegExp[] = [/^\/student\/dashboard\/?$/];
+const V2_ROUTES: RegExp[] = [
+  /^\/student\/dashboard\/?$/,
+  /^\/student\/find-tutors\/?$/,
+  /^\/student\/explore\/[^/]+\/?$/,
+];
 
 export function isStudentV2Route(pathname: string | null): boolean {
   if (!isNewUiEnabled() || !pathname) return false;
