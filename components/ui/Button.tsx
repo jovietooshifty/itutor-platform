@@ -20,8 +20,13 @@ export interface ButtonProps {
   variant?: 'primary' | 'danger' | 'dark' | 'outline';
   /** lg 48px, md 42px, sm 40px. */
   size?: 'lg' | 'md' | 'sm';
-  /** Span the full width of the parent (use inside cards). */
-  block?: boolean;
+  /**
+   * Span the full width of the parent (use inside cards) — on a phone. From
+   * lg up a full-width button is a thumb-reach habit with no thumb, so it
+   * returns to its natural width at the start of its row. Pass
+   * `block="always"` for the rare button that should stay full width.
+   */
+  block?: boolean | 'always';
   icon?: IconName;
   disabled?: boolean;
   type?: 'button' | 'submit';
@@ -66,7 +71,8 @@ export function Button({
         'inline-flex items-center justify-center gap-ds-2 px-ds-4 mb-[3px]',
         'rounded-ds-btn bw-bold border-transparent',
         'font-body font-extrabold leading-none',
-        'cursor-pointer transition-[transform,box-shadow] duration-[90ms] ease-out',
+        'cursor-pointer transition-[transform,box-shadow] duration-[90ms] ease-[cubic-bezier(.23,1,.32,1)]',
+        'tabular-nums',
         '[-webkit-tap-highlight-color:transparent]',
         'active:translate-y-[2px]',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ink',
@@ -74,6 +80,7 @@ export function Button({
         SIZES[size],
         VARIANTS[variant],
         block && 'flex w-full',
+        block === true && 'lg:inline-flex lg:w-auto lg:min-w-[180px] lg:self-start',
         className
       )}
     >

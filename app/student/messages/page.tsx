@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -24,7 +25,7 @@ export default function StudentMessagesPage() {
 
   useEffect(() => {
     if (profileLoading) return;
-    if (!profile || profile.role !== 'student') { router.push('/login'); return; }
+    if (!profile || profile.role !== 'student') { router.push(nonStudentRedirect(profile)); return; }
     loadConversations();
   }, [profile, profileLoading, router]);
 

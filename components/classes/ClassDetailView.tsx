@@ -233,7 +233,7 @@ function WeekdayChips({ days }: { days: Set<number> }) {
             aria-label={`${label}${on ? ' (class day)' : ''}`}
             className={cn(
               'inline-flex h-7 min-w-[2.5rem] items-center justify-center rounded-full px-2 text-[11px] font-semibold',
-              on ? 'bg-brand text-white' : 'bg-muted text-muted-foreground/50'
+              on ? 'bg-brand text-[#0d2318]' : 'bg-muted text-muted-foreground/50'
             )}
           >
             {label}
@@ -549,7 +549,7 @@ export function Detail({
       )}
 
       {/* Hero header with primary action */}
-      <section className="overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-brand to-brand-deep text-white shadow-[0_20px_50px_-30px_rgba(16,120,70,0.7)]">
+      <section className="overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-brand to-brand-deep text-[#0d2318] shadow-[0_20px_50px_-30px_rgba(16,120,70,0.7)]">
         {group.cover_image && (
           // Banners are authored 4:1 on light washes (lib/utils/bannerCanvas.ts),
           // so they get their own strip above the hero rather than sitting behind
@@ -675,9 +675,9 @@ export function Detail({
               disabled={ctaDisabled}
               className={cn(
                 'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold transition disabled:opacity-60 disabled:cursor-not-allowed',
-                group.enrolled ? 'bg-brand text-white hover:bg-brand-deep'
+                group.enrolled ? 'bg-brand text-[#0d2318] hover:bg-brand-deep'
                   : isFull ? 'bg-ink text-white hover:opacity-90'
-                  : 'bg-brand text-white shadow-[0_8px_20px_-8px_rgba(16,120,70,0.8)] hover:bg-brand-deep'
+                  : 'bg-brand text-[#0d2318] shadow-[0_8px_20px_-8px_rgba(16,120,70,0.8)] hover:bg-brand-deep'
               )}
             >
               {group.enrolled ? <CheckCircle2 className="size-4" /> : isFull && !isPending ? <Lock className="size-4" /> : gated ? <ShieldCheck className="size-4" /> : null}
@@ -782,7 +782,7 @@ export function Detail({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={group.tutor.avatar_url} alt={tutorName} className="size-14 shrink-0 rounded-2xl object-cover" />
                 ) : (
-                  <div className="size-14 shrink-0 rounded-2xl bg-gradient-to-br from-brand to-emerald-400 grid place-items-center text-white font-bold">{tutorInitials}</div>
+                  <div className="size-14 shrink-0 rounded-2xl bg-gradient-to-br from-brand to-emerald-400 grid place-items-center text-[#0d2318] font-bold">{tutorInitials}</div>
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -902,7 +902,7 @@ export function Detail({
                   </Link>
                 ) : (
                   <button onClick={handleCta} disabled={ctaDisabled}
-                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-deep disabled:opacity-60">
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] transition hover:bg-brand-deep disabled:opacity-60">
                     {isPending ? 'Request pending'
                       : paymentPending ? 'Complete payment'
                       : isFull ? 'Join the waitlist'
@@ -1047,9 +1047,9 @@ export function Detail({
             disabled={ctaDisabled}
             className={cn(
               'inline-flex items-center justify-center gap-1.5 rounded-2xl px-5 py-2.5 text-sm font-bold transition disabled:opacity-60 disabled:cursor-not-allowed',
-              group.enrolled ? 'bg-brand text-white hover:bg-brand-deep'
+              group.enrolled ? 'bg-brand text-[#0d2318] hover:bg-brand-deep'
                 : isFull ? 'bg-ink text-white hover:opacity-90'
-                : 'bg-brand text-white hover:bg-brand-deep'
+                : 'bg-brand text-[#0d2318] hover:bg-brand-deep'
             )}
           >
             {group.enrolled && <CheckCircle2 className="size-4" />}
@@ -1187,7 +1187,7 @@ function LapsedSpotBanner({ group }: { group: GroupData }) {
         <button
           onClick={handleSubscribe}
           disabled={submitting}
-          className="rounded-2xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-deep disabled:opacity-60"
+          className="rounded-2xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] transition hover:bg-brand-deep disabled:opacity-60"
         >
           {submitting ? 'Starting…' : 'Subscribe to continue'}
         </button>
@@ -1812,7 +1812,7 @@ export function JoinFlow({ group, onBack, onSuccess, profile, hasLinkedParent, p
       <button
         onClick={handleConfirm}
         disabled={submitting || feedbackDecisionRequired}
-        className="block w-full text-center px-5 py-3 rounded-2xl bg-brand text-white font-semibold hover:bg-brand-deep disabled:opacity-50 disabled:cursor-not-allowed"
+        className="block w-full text-center px-5 py-3 rounded-2xl bg-brand text-[#0d2318] font-semibold hover:bg-brand-deep disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {submitting ? <span className="inline-flex items-center gap-2 justify-center"><Loader2 className="size-4 animate-spin" /> Processing…</span> : confirmLabel}
       </button>

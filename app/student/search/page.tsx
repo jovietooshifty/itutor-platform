@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useProfile } from '@/lib/hooks/useProfile';
@@ -57,7 +58,7 @@ export default function StudentSearchResultsPage() {
     if (profileLoading) return;
     
     if (!profile || profile.role !== 'student') {
-      router.push('/login');
+      router.push(nonStudentRedirect(profile));
       return;
     }
 

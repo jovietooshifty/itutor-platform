@@ -56,7 +56,7 @@ export default async function ParentMatchesPage({
         </p>
         <Link
           href="/find?trigger=dashboard"
-          className="mt-6 inline-flex rounded-full bg-brand px-6 py-3 text-[15px] font-semibold text-white transition hover:brightness-110"
+          className="mt-6 inline-flex rounded-full bg-brand px-6 py-3 text-[15px] font-semibold text-[#0d2318] transition hover:brightness-110"
         >
           Find my iTutor
         </Link>

@@ -133,11 +133,22 @@ export async function ensureGroupPrice(
   // Compared against the BASE price, not the gross, so the check still
   // detects a tutor editing their price even if the fee schedule changes.
   const cachedAmount = Number(group.stripe_price_amount_ttd ?? NaN);
-  if (cached && Number.isFinite(cachedAmount) && cachedAmount === amount) {
-    return cached;
-  }
-
   const stripe = getStripeClient();
+
+  // A stored price is only reusable on the Stripe account that minted it.
+  // Staging is a branch of production and previews point at a test account,
+  // so their groups carry production price ids that the key in use cannot
+  // see, and every checkout failed with "No such price". Confirm the price
+  // exists here; when Stripe says it does not, mint one as for a price change.
+  if (cached && Number.isFinite(cachedAmount) && cachedAmount === amount) {
+    try {
+      const existing = await stripe.prices.retrieve(cached);
+      if (existing.active) return cached;
+    } catch (e: any) {
+      if (e?.code !== 'resource_missing') throw e;
+      console.warn('[stripe] stored price missing on this account, minting a new one', { groupId: group.id, cached });
+    }
+  }
   const price = await stripe.prices.create({
     currency: 'ttd',
     unit_amount: ttdToCents(grossAmount),

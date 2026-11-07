@@ -14,15 +14,28 @@
  * (brand, ink, ink-muted, border) plus the two font variables. See
  * ds-tokens.css for why that indirection exists.
  *
- * The frames are drawn at 390px, so the shell is a phone column centred on
- * anything wider rather than a stretched desktop layout.
+ * WIDER SCREENS. The frames are drawn at 390px and the system has no tablet or
+ * desktop frame, so below 768px this is exactly the phone column the frames
+ * show. From md up the tab bar becomes SideNav (a rail on tablets, a sidebar
+ * from lg), and every page sits in ONE page frame, 1280px at most and centred,
+ * so a title starts at the same x on every tab and does not jump sideways as
+ * the parent switches between them. `width` only decides what fills it:
+ * - 'wide': the screen lays itself out across the whole frame (columns, a
+ *   grid, list and detail side by side).
+ * - 'reading' (default): a single column capped at 720px, held to the frame's
+ *   LEFT edge rather than centred, for detail pages and forms. Cards and rows
+ *   were drawn for a phone; past ~720px they become stripes.
+ * The header becomes a see-through layer from md up, and takes the page's
+ * name once the page's own title has scrolled under it.
+ * The wide-screen layout is PROVISIONAL: no frame exists to check it against.
  */
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import './ds-tokens.css';
 import { AppHeader, type AppHeaderProps, type HeaderAction } from './AppHeader';
 import { BottomNav, DEFAULT_NAV, type NavItem } from './BottomNav';
+import { SideNav } from './SideNav';
 
 export interface NewUiShellProps {
   children: ReactNode;
@@ -34,11 +47,22 @@ export interface NewUiShellProps {
   onSelect?: (id: string) => void;
   headerTone?: AppHeaderProps['tone'];
   headerActions?: HeaderAction[];
+  /** Bell / chat / search. Without it the header buttons do nothing. */
+  onHeaderAction?: AppHeaderProps['onAction'];
+  /** The account chip. Without it the avatar does nothing. */
+  onAccount?: AppHeaderProps['onAccount'];
   logo?: ReactNode;
   unread?: boolean;
   initials?: string;
   /** Drop the header too, for full-bleed flows. */
   header?: boolean;
+  /** Content column width from md up. See the note above. */
+  width?: 'reading' | 'wide';
+  /** The page's name for the header, from md up, once scrolled. */
+  title?: ReactNode;
+  /** Light-on-ink logo and small mark for the side navigation. */
+  sideLogo?: ReactNode;
+  sideMark?: ReactNode;
   className?: string;
 }
 
@@ -50,34 +74,74 @@ export function NewUiShell({
   onSelect,
   headerTone = 'light',
   headerActions = ['bell'],
+  onHeaderAction,
+  onAccount,
   logo,
   unread,
   initials,
   header = true,
+  width = 'reading',
+  title,
+  sideLogo,
+  sideMark,
   className,
 }: NewUiShellProps) {
+  // The side navigation shows on every screen from md up, detail pages
+  // included: the phone hides the tab bar there to save height, which a
+  // sidebar does not cost. `nav` therefore only governs the phone tab bar.
+  const side = items.length > 0;
+
+  // The large page title is ~48px tall at the top of the content; once the
+  // page has scrolled past it, the header carries the name instead.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    if (!title) return;
+    const onScroll = () => setScrolled(window.scrollY > 56);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [title]);
+
   return (
-    <div className="ds-root min-h-screen bg-surface-page">
-      <div className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-surface-page">
+    <div className="ds-root min-h-screen bg-surface-page md:flex">
+      {side ? (
+        <SideNav
+          items={items}
+          active={active}
+          onSelect={onSelect}
+          logo={sideLogo}
+          mark={sideMark}
+          className="sticky top-0 z-20 hidden h-screen shrink-0 md:flex"
+        />
+      ) : null}
+      <div className="mx-auto flex min-h-screen w-full min-w-0 max-w-[430px] flex-col bg-surface-page md:mx-0 md:max-w-none md:flex-1">
         {header ? (
           <AppHeader
             tone={headerTone}
             actions={headerActions}
-            logo={logo}
+            onAction={onHeaderAction}
+            onAccount={onAccount}
+            logo={side && logo ? <span className="md:hidden">{logo}</span> : logo}
+            title={title}
+            titleVisible={scrolled}
             unread={unread}
             initials={initials}
-            className="sticky top-0 z-10"
+            className="ds-glass sticky top-0 z-10"
           />
         ) : null}
 
-        <main className={cn('flex-1 px-ds-4 py-ds-4', className)}>{children}</main>
+        <main className={cn('flex-1 px-ds-4 py-ds-4 md:px-ds-8 md:py-ds-5', className)}>
+          <div className="mx-auto w-full md:max-w-[1280px]">
+            {width === 'wide' ? children : <div className="w-full md:max-w-[720px]">{children}</div>}
+          </div>
+        </main>
 
         {nav ? (
           <BottomNav
             items={items}
             active={active}
             onSelect={onSelect}
-            className="sticky bottom-0 z-10"
+            className="sticky bottom-0 z-10 md:hidden"
           />
         ) : null}
       </div>

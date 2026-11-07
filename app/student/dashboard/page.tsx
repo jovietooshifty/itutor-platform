@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useProfile } from '@/lib/hooks/useProfile';
@@ -52,7 +53,7 @@ export default function StudentDashboard() {
     if (testMode) { setLoadingData(false); return; }
     if (loading) return;
     if (!loading && !profile) { router.push('/login'); return; }
-    if (!loading && profile && profile.role !== 'student') { router.push('/login'); return; }
+    if (!loading && profile && profile.role !== 'student') { router.push(nonStudentRedirect(profile)); return; }
     if (!profile || profile.role !== 'student') return;
     if (profile.billing_mode !== 'parent_required') {
       if (!profile.form_level) { router.push('/signup/complete-role'); return; }

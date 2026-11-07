@@ -39,3 +39,71 @@ later.
 `subjectCode()` derives two letters from the class name, and these class names
 begin with the literal `[SEED]` prefix. Real classes give real initials; the
 prefix is there so no one mistakes a seeded class for a tutor's own.
+
+## Seeded classes are visible in Explore while the seed is applied
+
+The script sets `visibility='unlisted'`, which an earlier version of this file
+claimed kept them out of the marketplace. It does not: the catalogue query
+excludes only `private`, so the three `[SEED]` classes appear in Explore
+alongside the real ones — visible in `explore-after.png`. They are staging-only
+and `--revert` removes them, but the claim was wrong and is corrected here.
+
+## The screenshots in `protocol/` and why the old ones were not enough
+
+Everything in `protocol/` was captured under the verification protocol adopted
+after the design review, by `scripts/verify-ds-render.mjs`. The earlier
+"after" shots in this folder were taken as full-page captures at one width,
+and that method is structurally blind to three of the things the review
+found:
+
+- **`fullPage` flattens `position: sticky`.** A header and a bottom nav that
+  never stick photograph perfectly in a full-page capture. Everything in
+  `protocol/` is a viewport capture, and each route has a `-scrolled` pair
+  taken after a real 700px scroll, which is the only way the difference shows.
+- **One narrow viewport cannot show a desktop layout.** Every route is shot at
+  **390** and **1280**. The 1280 shots are what make the missing desktop
+  layout legible rather than arguable — the phone column simply centres.
+- **A missing 1px border is invisible at 2x downscale.** So borders are no
+  longer judged from pictures at all; `getComputedStyle` is read directly and
+  the run fails on any `.bw-*` edge that is not full width.
+
+Re-run it against a dev server:
+
+```
+node scripts/verify-ds-render.mjs --parent \
+  --routes /parent/dashboard,/parent/billing,/parent/my-classes,/parent/classes \
+  --shots docs/parent-ui-v2/protocol
+```
+
+Measured on this branch, every route green:
+
+| route | border edges | sticky header / nav |
+|---|---|---|
+| `/dev/ui` | 202 / 202 | holds through 800px |
+| `/parent/dashboard` | 65 / 65 | both hold (453px @390, 377px @1280) |
+| `/parent/billing` | 49 / 49 | both hold @390 |
+| `/parent/my-classes` | 45 / 45 | page shorter than the viewport |
+| `/parent/classes` (Explore) | 89 / 89 | both hold through 700px |
+
+Explore is now the Explore frames rather than the old marketplace wearing the
+new shell, which is why its count went from 9 to 89. The catalogue, the
+filters and the gating did not move: ExploreMarketplace still owns all of it
+and renders ParentExploreV2 for a parent on the new UI, so there is still one
+catalogue and the student path is untouched.
+
+The Past tab needs a click, so `verify-ds-render` cannot reach it; it was shot
+separately with the same computed-style check (6 `.bw-*` elements, none at
+zero width, at both widths).
+
+## What these screenshots do NOT settle
+
+**The Classes screen's visuals are provisional.** It was built from a written
+description while Figma access was unavailable, so frame `160:3622` has never
+been read. The selected-tab colour and the date grouping are this design
+system applied by analogy, not values taken from the design. There is an
+inline comment saying so in `ParentClassesV2.tsx`. Approve the behaviour from
+these shots if you like; do not read them as sign-off on the appearance.
+
+**There is still no desktop layout.** The 1280 shots show a 430px column
+centred in the viewport, which is the honest current state and a known gap,
+not something these captures fixed.

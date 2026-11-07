@@ -26,16 +26,21 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { NewUiShell, type NavItem } from '@/components/ui';
+import ParentAccountSheet from '@/components/parent/v2/ParentAccountSheet';
+import { useProfile } from '@/lib/hooks/useProfile';
+import { supabase } from '@/lib/supabase/client';
 
 const TABS: Array<NavItem & { href: string }> = [
   { id: 'home', label: 'Home', icon: 'home', href: '/parent/dashboard' },
   { id: 'explore', label: 'Explore', icon: 'explore', href: '/parent/classes' },
-  // The merged Upcoming/Past Classes tab is the logic half of this flow; until
-  // it lands this points at the existing subscriptions list so the tab is never
-  // a dead end.
-  { id: 'classes', label: 'Classes', icon: 'classes', href: '/parent/subscriptions' },
+  // The merged Upcoming/Past Classes tab (SCREEN_MAP logic row 1). The old
+  // /parent/subscriptions and /parent/approvals both redirect to it.
+  { id: 'classes', label: 'Classes', icon: 'classes', href: '/parent/my-classes' },
   { id: 'billing', label: 'Billing', icon: 'billing', href: '/parent/billing' },
-  { id: 'profile', label: 'Profile', icon: 'profile', href: '/parent/settings' },
+  // The Profile FRAME (160:8114) carries the tab bar with Profile active,
+  // so the tab lands there. Settings (160:7984) has a back link and no
+  // nav, and is reached from the account sheet instead.
+  { id: 'profile', label: 'Profile', icon: 'profile', href: '/parent/profile' },
 ];
 
 function activeFromPath(pathname: string | null): string | undefined {
@@ -54,6 +59,10 @@ export interface ParentV2ShellProps {
   initials?: string;
   nav?: boolean;
   header?: boolean;
+  /** Content width from 768px up: 'wide' only for screens with a wide layout. */
+  width?: 'reading' | 'wide';
+  /** Header title once scrolled, from md up. Defaults to the current tab's name. */
+  title?: string;
 }
 
 export default function ParentV2Shell({
@@ -61,11 +70,19 @@ export default function ParentV2Shell({
   initials,
   nav = true,
   header = true,
+  width = 'reading',
+  title,
 }: ParentV2ShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [needsPayment, setNeedsPayment] = useState(false);
   const [unread, setUnread] = useState(false);
+  // The header chip had no handler at all, so it looked interactive and
+  // did nothing. It now opens the account sheet, which is also where the
+  // five sidebar sections the tab bar displaced now live.
+  const [accountOpen, setAccountOpen] = useState(false);
+  const { profile } = useProfile();
+  const profileName = profile?.display_name || profile?.full_name || undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -92,14 +109,23 @@ export default function ParentV2Shell({
     t.id === 'billing' ? { ...t, badge: needsPayment } : { ...t }
   );
 
+  const active = activeFromPath(pathname);
+
   return (
+    <>
     <NewUiShell
-      active={activeFromPath(pathname)}
+      active={active}
+      title={title ?? TABS.find((t) => t.id === active)?.label}
       items={items}
       nav={nav}
       header={header}
+      width={width}
       unread={unread}
       initials={initials}
+      onHeaderAction={(action) => {
+        if (action === 'bell') router.push('/parent/notifications');
+      }}
+      onAccount={() => setAccountOpen(true)}
       onSelect={(id) => {
         const tab = TABS.find((t) => t.id === id);
         if (tab) router.push(tab.href);
@@ -114,8 +140,30 @@ export default function ParentV2Shell({
           className="block h-6 w-auto"
         />
       }
+      sideLogo={
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src="/brand/itutor-logo-on-dark.png" alt="iTutor" width={108} height={36} className="block h-9 w-auto" />
+      }
+      sideMark={
+        /* The rail is 88px: the logo's mark only, cropped from the same image. */
+        <span className="block h-9 w-[36px] overflow-hidden" aria-label="iTutor" role="img">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/itutor-logo-on-dark.png" alt="" width={108} height={36} className="block h-9 w-auto max-w-none" />
+        </span>
+      }
     >
       {children}
     </NewUiShell>
+
+    <ParentAccountSheet
+      open={accountOpen}
+      onClose={() => setAccountOpen(false)}
+      name={profileName}
+      onLogout={async () => {
+        await supabase.auth.signOut();
+        router.push('/login');
+      }}
+    />
+    </>
   );
 }

@@ -12,6 +12,8 @@
 
 export { AppHeader, type AppHeaderProps, type HeaderAction } from './AppHeader';
 export { BottomNav, DEFAULT_NAV, type BottomNavProps, type NavItem } from './BottomNav';
+export { SideNav, type SideNavProps } from './SideNav';
+export { Segmented, type SegmentedProps, type SegmentedOption } from './Segmented';
 export { Button, type ButtonProps } from './Button';
 export { Card, type CardProps } from './Card';
 export { ClassRow, type ClassRowProps } from './ClassRow';

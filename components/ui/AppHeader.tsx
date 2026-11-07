@@ -23,6 +23,13 @@ export interface AppHeaderProps {
   tone?: 'light' | 'dark';
   /** The logo element; supplied by the consumer. */
   logo?: ReactNode;
+  /**
+   * The page's name, shown from md up beside where the logo sits on a phone.
+   * `titleVisible` fades it in once the page's own large title has scrolled
+   * away, so the two are never on screen together.
+   */
+  title?: ReactNode;
+  titleVisible?: boolean;
   actions?: HeaderAction[];
   /** Red dot on the bell. */
   unread?: boolean;
@@ -41,6 +48,8 @@ const LABELS: Record<HeaderAction, string> = {
 export function AppHeader({
   tone = 'light',
   logo,
+  title,
+  titleVisible,
   actions = ['bell'],
   unread,
   initials,
@@ -53,14 +62,27 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        'flex h-14 items-center justify-between bw-b-hair pl-ds-4 pr-ds-card',
+        'flex h-14 items-center justify-between bw-b-hair pl-ds-4 pr-ds-card md:pl-ds-8 md:pr-ds-6',
         dark ? 'bg-ink border-ink' : 'bg-surface-page border-border',
         className
       )}
     >
       {logo ?? <span />}
+      {title ? (
+        <span
+          aria-hidden={!titleVisible}
+          className={cn(
+            'hidden min-w-0 truncate font-display text-[17px] font-extrabold leading-[22px] md:block',
+            'transition-[opacity,transform] duration-200 ease-[cubic-bezier(.23,1,.32,1)]',
+            titleVisible ? 'translate-y-0 opacity-100' : 'translate-y-[4px] opacity-0',
+            dark ? 'text-on-ink' : 'text-ink'
+          )}
+        >
+          {title}
+        </span>
+      ) : null}
 
-      <div className="flex items-center gap-ds-1h">
+      <div className="ml-auto flex items-center gap-ds-1h">
         {actions.map((action) => (
           <button
             key={action}

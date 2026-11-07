@@ -16,8 +16,40 @@
 
 import ParentShell from '@/components/parent/ParentShell';
 import ExploreMarketplace from '@/components/marketplace/ExploreMarketplace';
+import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import { parentInitials } from '@/components/parent/v2/initials';
+import { useProfile } from '@/lib/hooks/useProfile';
 
+/**
+ * Explore — SCREEN_MAP logic row 3.
+ *
+ * The row's requirement is that parent Explore REUSES ExploreMarketplace's data
+ * and logic rather than opening a second path to the same catalogue. So the
+ * marketplace component is unchanged and is simply given the new chrome: with
+ * the flag on it renders inside ParentV2Shell (new header, five-tab bar), with
+ * the flag off inside ParentShell exactly as before.
+ *
+ * The cards are now the Explore frames too. That was deferred once because
+ * restyling in place means editing a 1,698-line component that also serves the
+ * LIVE student marketplace and carries `@ts-nocheck`, so the compiler would
+ * catch none of it. It is done instead by swapping only the PRESENTATION:
+ * ExploreMarketplace keeps the catalogue, the filters and the gating, and for a
+ * parent on the new UI it renders ParentExploreV2 rather than its own markup.
+ * The new markup lives in its own type-checked file, and the student path is
+ * untouched by construction rather than by careful editing.
+ */
 export default function ParentClassesPage() {
+  const { profile } = useProfile();
+
+  if (isNewUiEnabled()) {
+    return (
+      <ParentV2Shell initials={parentInitials(profile)} width="wide">
+        <ExploreMarketplace variant="parent" />
+      </ParentV2Shell>
+    );
+  }
+
   return (
     <ParentShell>
       <ExploreMarketplace variant="parent" />
