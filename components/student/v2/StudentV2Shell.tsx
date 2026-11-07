@@ -97,7 +97,8 @@ export default function StudentV2Shell({
         .from('notifications')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', profile.id)
-        .eq('read', false);
+        // `is_read`, not `read`: the column the table actually has.
+        .eq('is_read', false);
       if (!cancelled) setUnread((count ?? 0) > 0);
     })();
     return () => {

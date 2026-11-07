@@ -8,6 +8,9 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import { Bell, Calendar, MessageCircle, FileText, Star, CheckCheck, Settings as SettingsIcon, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import StudentNotificationsV2 from '@/components/student/v2/StudentNotificationsV2';
 
 type NotifType = 'lesson' | 'message' | 'assignment' | 'review' | 'system';
 
@@ -30,7 +33,18 @@ const META: Record<NotifType, { icon: any; bg: string; color: string; label: str
 
 const FILTERS = ['All', 'Unread'] as const;
 
-export default function StudentNotificationsPage() {
+/** New UI (Figma 2:2573) behind NEXT_PUBLIC_NEW_UI_ENABLED; fixed at build time. */
+export default function StudentNotificationsRoute() {
+  return isNewUiEnabled() ? (
+    <StudentV2Shell width="wide" title="Notifications">
+      <StudentNotificationsV2 />
+    </StudentV2Shell>
+  ) : (
+    <StudentNotificationsPage />
+  );
+}
+
+function StudentNotificationsPage() {
   const router = useRouter();
   const { profile, loading: profileLoading } = useProfile();
   const [notifications, setNotifications] = useState<Notification[]>([]);
