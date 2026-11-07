@@ -52,9 +52,13 @@ import {
   DsIcon,
   IconNote,
   NavRow,
+  Segmented,
   SubjectTile,
   Tag,
 } from '@/components/ui';
+import { cn } from '@/lib/utils';
+import { ClassPreviewPane } from './ClassPreviewPane';
+import { useWide } from './useWide';
 import { subjectCode, subjectColor } from './subjectTile';
 
 type Subscription = {
@@ -160,6 +164,10 @@ export default function ParentClassesV2() {
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
+  // From lg up the list keeps the left column and the chosen class opens
+  // beside it, instead of on a new page. PROVISIONAL: no wide frame.
+  const wide = useWide();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -210,7 +218,7 @@ export default function ParentClassesV2() {
   if (loading) {
     return (
       <div className="flex flex-col gap-ds-4" aria-busy="true">
-        <h1 className="font-display text-[30px] font-extrabold leading-[34px] text-ink">
+        <h1 className="ds-page-title">
           Classes
         </h1>
         <div className="h-11 rounded-ds-card bg-surface-sunken" />
@@ -224,7 +232,7 @@ export default function ParentClassesV2() {
   if (error || !subs) {
     return (
       <div className="flex flex-col gap-ds-4">
-        <h1 className="font-display text-[30px] font-extrabold leading-[34px] text-ink">
+        <h1 className="ds-page-title">
           Classes
         </h1>
         <Card>
@@ -247,10 +255,12 @@ export default function ParentClassesV2() {
   const past = subs.filter(isPast);
   const requestCount = sessionReqs.length + classReqs.length;
   const shown = tab === 'upcoming' ? upcoming : past;
+  const selectable = shown.filter((x) => x.groupId);
+  const selected = selectable.find((x) => x.id === selectedId) ?? selectable[0] ?? null;
 
   return (
     <div className="flex flex-col gap-ds-4">
-      <h1 className="font-display text-[30px] font-extrabold leading-[34px] text-ink">
+      <h1 className="ds-page-title">
         Classes
       </h1>
 
@@ -292,33 +302,17 @@ export default function ParentClassesV2() {
           lists ENROLMENTS instead. That is a data change, not a restyle —
           it needs session occurrences per child — so it is tracked rather
           than faked. */}
-      <div
-        role="tablist"
-        aria-label="Classes"
-        className="flex gap-ds-1 rounded-ds-card bw-hair border-border bg-surface-card p-[4px]"
-      >
-        {(['upcoming', 'past'] as const).map((key) => {
-          const active = tab === key;
+      <div className="flex flex-col gap-ds-4 lg:grid lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-start lg:gap-ds-6">
+      <div className="flex min-w-0 flex-col gap-ds-4">
+      <Segmented<'upcoming' | 'past'>
+        label="Classes"
+        value={tab}
+        onChange={setTab}
+        options={(['upcoming', 'past'] as const).map((key) => {
           const count = key === 'upcoming' ? upcoming.length : past.length;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(key)}
-              className={[
-                'flex-1 rounded-ds-btn px-ds-3 py-ds-2 font-body text-[14px] font-extrabold',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
-                active ? 'bg-ink text-on-ink' : 'bg-transparent text-ink-muted',
-              ].join(' ')}
-            >
-              {key === 'upcoming' ? 'Upcoming' : 'Past'}
-              {count > 0 ? ` (${count})` : ''}
-            </button>
-          );
+          return { id: key, label: `${key === 'upcoming' ? 'Upcoming' : 'Past'}${count > 0 ? ` (${count})` : ''}` };
         })}
-      </div>
+      />
 
       {/* Requests sit above enrolments, and only in Upcoming — a decision the
           parent has not taken yet outranks a class already running. */}
@@ -385,7 +379,10 @@ export default function ParentClassesV2() {
           {shown.map((s) => (
             <NavRow
               key={s.id}
-              href={s.groupId ? `/parent/classes/${s.groupId}` : undefined}
+              href={!wide && s.groupId ? `/parent/classes/${s.groupId}` : undefined}
+              onClick={wide && s.groupId ? () => setSelectedId(s.id) : undefined}
+              chevron={!wide}
+              className={cn(wide && selected?.id === s.id && 'border-ink shadow-edge-ink')}
               tile={
                 <SubjectTile
                   code={subjectCode(s.className)}
@@ -417,6 +414,20 @@ export default function ParentClassesV2() {
           meta="Classes that finish or are cancelled move here."
         />
       ) : null}
+      </div>
+
+      {wide && selected?.groupId ? (
+        <div className="sticky top-[80px] min-w-0 rounded-ds-card bw-hair border-border bg-surface-card p-ds-5">
+          <ClassPreviewPane
+            key={selected.groupId}
+            groupId={selected.groupId}
+            enrolments={subs
+              .filter((x) => x.groupId === selected.groupId)
+              .map((x) => ({ childId: x.childId, childName: x.childName, status: 'in' as const }))}
+          />
+        </div>
+      ) : null}
+      </div>
     </div>
   );
 }

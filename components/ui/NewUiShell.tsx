@@ -17,17 +17,20 @@
  * WIDER SCREENS. The frames are drawn at 390px and the system has no tablet or
  * desktop frame, so below 768px this is exactly the phone column the frames
  * show. From md up the tab bar becomes SideNav (a rail on tablets, a sidebar
- * from lg), and the page sits in a centred column whose width the screen
- * chooses with `width`:
- * - 'reading' (default, 720px): single-column screens, detail pages, forms.
- *   Cards and rows were drawn for a phone; past ~720px they stop reading as
- *   rows and become stripes, so a screen stays here until it has a wide layout.
- * - 'wide' (1120px): screens that lay their content out in columns or grids
- *   from md up.
+ * from lg), and every page sits in ONE page frame, 1280px at most and centred,
+ * so a title starts at the same x on every tab and does not jump sideways as
+ * the parent switches between them. `width` only decides what fills it:
+ * - 'wide': the screen lays itself out across the whole frame (columns, a
+ *   grid, list and detail side by side).
+ * - 'reading' (default): a single column capped at 720px, held to the frame's
+ *   LEFT edge rather than centred, for detail pages and forms. Cards and rows
+ *   were drawn for a phone; past ~720px they become stripes.
+ * The header becomes a see-through layer from md up, and takes the page's
+ * name once the page's own title has scrolled under it.
  * The wide-screen layout is PROVISIONAL: no frame exists to check it against.
  */
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import './ds-tokens.css';
 import { AppHeader, type AppHeaderProps, type HeaderAction } from './AppHeader';
@@ -55,6 +58,8 @@ export interface NewUiShellProps {
   header?: boolean;
   /** Content column width from md up. See the note above. */
   width?: 'reading' | 'wide';
+  /** The page's name for the header, from md up, once scrolled. */
+  title?: ReactNode;
   /** Light-on-ink logo and small mark for the side navigation. */
   sideLogo?: ReactNode;
   sideMark?: ReactNode;
@@ -76,6 +81,7 @@ export function NewUiShell({
   initials,
   header = true,
   width = 'reading',
+  title,
   sideLogo,
   sideMark,
   className,
@@ -84,6 +90,18 @@ export function NewUiShell({
   // included: the phone hides the tab bar there to save height, which a
   // sidebar does not cost. `nav` therefore only governs the phone tab bar.
   const side = items.length > 0;
+
+  // The large page title is ~48px tall at the top of the content; once the
+  // page has scrolled past it, the header carries the name instead.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    if (!title) return;
+    const onScroll = () => setScrolled(window.scrollY > 56);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [title]);
+
   return (
     <div className="ds-root min-h-screen bg-surface-page md:flex">
       {side ? (
@@ -104,15 +122,17 @@ export function NewUiShell({
             onAction={onHeaderAction}
             onAccount={onAccount}
             logo={side && logo ? <span className="md:hidden">{logo}</span> : logo}
+            title={title}
+            titleVisible={scrolled}
             unread={unread}
             initials={initials}
-            className="sticky top-0 z-10"
+            className="ds-glass sticky top-0 z-10"
           />
         ) : null}
 
         <main className={cn('flex-1 px-ds-4 py-ds-4 md:px-ds-8 md:py-ds-5', className)}>
-          <div className={cn('mx-auto w-full', width === 'wide' ? 'md:max-w-[1120px]' : 'md:max-w-[720px]')}>
-            {children}
+          <div className="mx-auto w-full md:max-w-[1280px]">
+            {width === 'wide' ? children : <div className="w-full md:max-w-[720px]">{children}</div>}
           </div>
         </main>
 

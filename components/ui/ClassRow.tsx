@@ -48,7 +48,7 @@ export function ClassRow({
       ? 'p-0 border-0 bg-transparent'
       : 'p-ds-card rounded-ds-card bw-hair border-border bg-surface-card',
     onClick &&
-      'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+      'ds-press cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
     className
   );
 
@@ -64,9 +64,9 @@ export function ClassRow({
       </span>
 
       {price ? (
-        <span className="flex-none pl-[6px] text-right">
+        <span className="flex-none pl-[6px] text-right tabular-nums lg:flex lg:items-baseline lg:gap-[2px] lg:whitespace-nowrap">
           <span className="block font-extrabold text-[15px] leading-[18px]">{price}</span>
-          <span className="block text-[12px] leading-4 text-ink-muted">{unit}</span>
+          <span className="block text-[12px] leading-4 text-ink-muted lg:text-[13px]">{unit}</span>
         </span>
       ) : null}
     </>

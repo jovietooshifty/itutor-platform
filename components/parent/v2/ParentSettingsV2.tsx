@@ -187,7 +187,7 @@ export function ParentSettingsV2() {
         Home
       </button>
 
-      <h1 className="font-display text-[30px] font-extrabold leading-[34px] text-ink">Settings</h1>
+      <h1 className="ds-page-title">Settings</h1>
 
       <AccountCard
         initials={initials || 'A'}

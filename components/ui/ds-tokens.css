@@ -124,3 +124,112 @@
   border-bottom-width: 1px;
   border-bottom-style: solid;
 }
+
+/*
+ * ── TYPE, MOTION AND PRESS FEEDBACK ─────────────────────────────────────
+ *
+ * PROVISIONAL: the system's frames are 390px and say nothing about desktop
+ * type or motion. These follow the review of the wide-screen layout
+ * (2026-11-07). Plain classes rather than Tailwind utilities for the same
+ * reason as bw-*: they are compound rules (media queries, :active, custom
+ * properties) that cn()/tailwind-merge has no group for.
+ */
+
+/* The ease-out every motion here uses. The built-in `ease-out`
+   (cubic-bezier(0,0,.2,1)) is too weak to read as a response. */
+.ds-root {
+  --ds-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ds-hover-surface: #f7f9f4;
+}
+
+/* Page title. 28px on a phone, exactly as the frames draw it, growing to 40px
+   on a wide screen; big type needs tighter tracking. */
+.ds-page-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(28px, 2.4vw, 40px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: rgb(var(--ds-ink));
+  margin: 0;
+}
+
+/* Anything pressable that is not a Button: rows and cards. Responds the
+   moment it is pressed; hover only where there is a real pointer, so a tap
+   on an iPad does not leave a hover stuck on. */
+.ds-press {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 160ms var(--ds-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.ds-press:active {
+  transform: scale(0.98);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ds-press:not([aria-pressed="true"]):not([aria-selected="true"]):not([aria-current]):hover {
+    background-color: var(--ds-hover-surface);
+    border-color: rgb(var(--ds-ink) / 0.35);
+  }
+}
+
+/* Text links such as "See all". */
+.ds-link {
+  transition: opacity 120ms ease;
+  text-underline-offset: 4px;
+}
+.ds-link:active {
+  opacity: 0.7;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ds-link:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Content arriving after a skeleton: fade and rise 6px, 40ms apart.
+   Set --i on each item to its index. */
+@keyframes ds-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ds-rise {
+  animation: ds-rise 320ms var(--ds-ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 40ms);
+}
+
+/* The sliding highlight in a segmented control. */
+.ds-seg-thumb {
+  transition: transform 200ms var(--ds-ease-out);
+}
+
+/* Header that content scrolls under, from tablet width up. The page colour
+   at 72% with a blur, so the header reads as a layer rather than a strip. */
+@media (min-width: 768px) {
+  .ds-glass {
+    background-color: rgb(242 244 239 / 0.72);
+    -webkit-backdrop-filter: saturate(1.4) blur(20px);
+    backdrop-filter: saturate(1.4) blur(20px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-press,
+  .ds-link,
+  .ds-seg-thumb {
+    transition: none;
+  }
+  .ds-press:active {
+    transform: none;
+  }
+  .ds-rise {
+    animation: none;
+  }
+}

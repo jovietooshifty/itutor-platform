@@ -136,52 +136,105 @@ export function ParentProfileV2() {
     setTimeout(() => setSaved(false), 2500);
   }
 
+  const childCards = children.map((c) => (
+    <button
+      key={c.id}
+      type="button"
+      onClick={() => router.push(`/parent/children/${c.id}`)}
+      className={cn(
+        'ds-press flex w-full items-center gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-left',
+        'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+      )}
+    >
+      <span className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-ds-sm bg-brand font-display text-[15px] font-extrabold text-ink">
+        {(c.name[0] ?? 'C').toUpperCase()}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="font-display text-[15px] font-extrabold leading-[19px] text-ink">{c.name}</span>
+        <span className="font-body text-[13px] text-ink-muted">Student account linked</span>
+      </span>
+      <span className="shrink-0 text-ink-muted">
+        <DsIcon name="chevron" size={18} />
+      </span>
+    </button>
+  ));
+
+  // Phone: the frame, one column with both buttons always shown. From lg up
+  // (PROVISIONAL, no wide frame): account on the left at a width that suits
+  // a name, linked children on the right, and Save / Cancel only once
+  // something has changed — a faded full-width button reads as broken, not
+  // as "nothing to save".
+  const showActions = dirty || saving || saved || Boolean(error);
   return (
-    <div className="flex flex-col gap-ds-3">
-      <h1 className="font-display text-[30px] font-extrabold leading-[34px] text-ink">Profile</h1>
-      <p className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">
-        Parent account
-      </p>
+    <div className="flex flex-col gap-ds-3 lg:gap-ds-5">
+      <h1 className="ds-page-title">Profile</h1>
 
-      <Field label="Display name" value={displayName} onChange={setDisplayName} autoComplete="name" />
-      <Field label="Username" value={username} onChange={setUsername} autoComplete="username" />
-      <Field label="Email" value={profile?.email ?? ''} readOnly />
+      <div className="flex flex-col gap-ds-3 lg:grid lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)] lg:items-start lg:gap-ds-8">
+        <section className="flex flex-col gap-ds-3">
+          <h2 className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">
+            Parent account
+          </h2>
+          <Field label="Display name" value={displayName} onChange={setDisplayName} autoComplete="name" />
+          <Field label="Username" value={username} onChange={setUsername} autoComplete="username" />
+          <Field label="Email" value={profile?.email ?? ''} readOnly />
 
-      {children.map((c) => (
-        <button
-          key={c.id}
-          type="button"
-          onClick={() => router.push(`/parent/children/${c.id}`)}
-          className={cn(
-            'flex w-full items-center gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-left',
-            'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+          {/* Phone: children sit between the fields and the buttons, as drawn. */}
+          {children.length > 0 ? <div className="flex flex-col gap-ds-3 lg:hidden">{childCards}</div> : null}
+
+          {error ? (
+            <p role="alert" className="font-body text-[13px] font-extrabold text-danger">
+              {error}
+            </p>
+          ) : null}
+
+          <div
+            className={cn(
+              'flex flex-col gap-ds-3 lg:flex-row-reverse lg:justify-start lg:gap-ds-2',
+              !showActions && 'lg:hidden'
+            )}
+          >
+            <Button onClick={save} disabled={!dirty || saving} block size="lg">
+              {saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // From lg up Cancel undoes the edit in place; on a phone it
+                // leaves the screen, as the frame's Cancel does.
+                if (window.matchMedia('(min-width: 1024px)').matches && profile) {
+                  setDisplayName(profile.display_name || profile.full_name || '');
+                  setUsername(profile.username || '');
+                  setError(null);
+                } else {
+                  router.push('/parent/dashboard');
+                }
+              }}
+              block
+              size="lg"
+            >
+              Cancel
+            </Button>
+          </div>
+        </section>
+
+        <section className="hidden flex-col gap-ds-3 lg:flex">
+          <h2 className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">
+            Linked children
+          </h2>
+          {children.length > 0 ? (
+            childCards
+          ) : (
+            <p className="font-body text-[14px] text-ink-muted">No child linked yet.</p>
           )}
-        >
-          <span className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-ds-sm bg-brand font-display text-[15px] font-extrabold text-ink">
-            {(c.name[0] ?? 'C').toUpperCase()}
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="font-display text-[15px] font-extrabold leading-[19px] text-ink">{c.name}</span>
-            <span className="font-body text-[13px] text-ink-muted">Student account linked</span>
-          </span>
-          <span className="shrink-0 text-ink-muted">
-            <DsIcon name="chevron" size={18} />
-          </span>
-        </button>
-      ))}
-
-      {error ? (
-        <p role="alert" className="font-body text-[13px] font-extrabold text-danger">
-          {error}
-        </p>
-      ) : null}
-
-      <Button onClick={save} disabled={!dirty || saving} block size="lg">
-        {saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}
-      </Button>
-      <Button variant="outline" onClick={() => router.push('/parent/dashboard')} block size="lg">
-        Cancel
-      </Button>
+          <button
+            type="button"
+            onClick={() => router.push('/parent/children')}
+            className="ds-link self-start border-0 bg-transparent p-0 font-display text-[15px] font-extrabold text-ink underline underline-offset-4 cursor-pointer"
+          >
+            Manage children
+          </button>
+        </section>
+      </div>
     </div>
   );
 }

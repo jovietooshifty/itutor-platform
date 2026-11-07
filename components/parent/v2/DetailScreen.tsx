@@ -28,10 +28,12 @@ export interface DetailScreenProps {
   title?: ReactNode;
   /** Sits on the title's line, right-aligned (e.g. "Mark all read"). */
   action?: ReactNode;
+  /** 'wide' for a detail page with its own two-column layout from lg up. */
+  width?: 'reading' | 'wide';
   children: ReactNode;
 }
 
-export function DetailScreen({ backLabel, fallbackHref, title, action, children }: DetailScreenProps) {
+export function DetailScreen({ backLabel, fallbackHref, title, action, width = 'reading', children }: DetailScreenProps) {
   const router = useRouter();
   const { profile } = useProfile();
 
@@ -41,12 +43,17 @@ export function DetailScreen({ backLabel, fallbackHref, title, action, children 
   };
 
   return (
-    <ParentV2Shell initials={parentInitials(profile)} nav={false}>
+    <ParentV2Shell
+      initials={parentInitials(profile)}
+      nav={false}
+      width={width}
+      title={typeof title === 'string' ? title : undefined}
+    >
       <div className="flex flex-col gap-ds-4">
         <button
           type="button"
           onClick={back}
-          className="flex items-center gap-ds-2 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+          className="ds-link flex items-center gap-ds-2 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
         >
           <span className="rotate-180">
             <DsIcon name="chevron" size={20} />
@@ -56,7 +63,7 @@ export function DetailScreen({ backLabel, fallbackHref, title, action, children 
         {title || action ? (
           <div className="flex items-end justify-between gap-ds-3">
             {title ? (
-              <h1 className="min-w-0 font-display text-[28px] font-extrabold leading-[32px] text-ink">{title}</h1>
+              <h1 className="ds-page-title min-w-0">{title}</h1>
             ) : (
               <span />
             )}

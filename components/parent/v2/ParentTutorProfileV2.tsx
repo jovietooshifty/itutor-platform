@@ -153,7 +153,7 @@ export default function ParentTutorProfileV2() {
           )}
         </span>
         <div className="flex min-w-0 flex-col gap-ds-1">
-          <h1 className="font-display text-[28px] font-extrabold leading-[32px] text-ink">{tutor.name}</h1>
+          <h1 className="ds-page-title">{tutor.name}</h1>
           <div className="flex flex-wrap gap-ds-2">
             {tutor.verified ? <Tag tone="brand">Verified</Tag> : null}
             {rating.avg != null && rating.count > 0 ? (
@@ -239,7 +239,7 @@ export default function ParentTutorProfileV2() {
         </section>
       ) : null}
 
-      <div className="sticky bottom-0 -mx-ds-4 bw-t-hair border-line-soft bg-surface-page px-ds-4 pb-ds-4 pt-ds-3">
+      <div className="sticky bottom-0 -mx-ds-4 bw-t-hair border-line-soft bg-surface-page px-ds-4 pb-ds-4 pt-ds-3 md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:pb-0 md:pt-0">
         <Button block size="lg" variant="dark" onClick={() => (window.location.href = `/parent/messages?tutor=${encodeURIComponent(tutor.id)}`)}>
           Message {first}
         </Button>

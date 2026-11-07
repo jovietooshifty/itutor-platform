@@ -55,7 +55,7 @@ export function SideNav({ items = DEFAULT_NAV, active, onSelect, logo, mark, cla
                 'relative flex flex-col items-center gap-ds-1 rounded-ds-sm py-ds-2',
                 'lg:flex-row lg:gap-ds-3 lg:px-ds-2',
                 'border-0 bg-transparent font-body cursor-pointer',
-                'hover:bg-ink-raised',
+                'transition-colors duration-150 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-ink-raised',
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
                 current ? 'text-ink' : 'text-on-ink-subtle'
               )}

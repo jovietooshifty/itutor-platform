@@ -69,7 +69,7 @@ export function Sheet({ open, onClose, title, label, children, footer }: SheetPr
           </h2>
           <div className="flex flex-col gap-ds-3 overflow-y-auto px-ds-card pb-ds-card">{children}</div>
           {footer ? (
-            <div className="flex flex-col gap-ds-2 bw-t-hair border-line-soft p-ds-card">{footer}</div>
+            <div className="flex flex-col gap-ds-2 bw-t-hair border-line-soft p-ds-card lg:items-end">{footer}</div>
           ) : null}
         </div>
       </div>

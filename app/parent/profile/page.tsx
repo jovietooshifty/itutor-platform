@@ -33,7 +33,7 @@ export default function ParentProfilePage() {
   if (!enabled) return null;
 
   return (
-    <ParentV2Shell initials={parentInitials(profile)}>
+    <ParentV2Shell initials={parentInitials(profile)} width="wide">
       <ParentProfileV2 />
     </ParentV2Shell>
   );

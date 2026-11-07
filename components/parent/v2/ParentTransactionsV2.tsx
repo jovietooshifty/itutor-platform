@@ -37,7 +37,11 @@ const STATUS: Record<string, { label: string; tone: 'brand' | 'warning' | 'dange
 };
 const statusOf = (s: string) => STATUS[s] ?? STATUS.PENDING;
 
-export default function ParentTransactionsV2() {
+/**
+ * The history itself, with its receipt sheet. Used by this screen and, from
+ * lg up, inline on Billing, so the two can never list different payments.
+ */
+export function PaymentHistory({ limit }: { limit?: number } = {}) {
   const { profile } = useProfile();
   const { txns, loading } = useParentTransactions(profile?.id);
   const [open, setOpen] = useState<TxnRow | null>(null);
@@ -53,8 +57,20 @@ export default function ParentTransactionsV2() {
     return out;
   }, [txns]);
 
+  const shownGroups = useMemo(() => {
+    if (!limit) return groups;
+    let left = limit;
+    const out: typeof groups = [];
+    for (const g of groups) {
+      if (left <= 0) break;
+      out.push({ month: g.month, rows: g.rows.slice(0, left) });
+      left -= g.rows.length;
+    }
+    return out;
+  }, [groups, limit]);
+
   return (
-    <DetailScreen backLabel="Billing" fallbackHref="/parent/billing" title="Payment history">
+    <>
       {loading && profile?.id ? (
         <DetailSkeleton rows={4} />
       ) : txns.length === 0 ? (
@@ -63,7 +79,7 @@ export default function ParentTransactionsV2() {
           body="Receipts appear here once one of your children joins a paid class."
         />
       ) : (
-        groups.map((g) => (
+        shownGroups.map((g) => (
           <section key={g.month} className="flex flex-col gap-ds-2">
             <h2 className="font-display text-[13px] font-extrabold uppercase tracking-[0.06em] text-ink-muted">
               {g.month}
@@ -79,7 +95,7 @@ export default function ParentTransactionsV2() {
                   title={
                     <span className="flex items-baseline justify-between gap-ds-2">
                       <span className="truncate">{t.class_name}</span>
-                      <span className="shrink-0">{refund ? '−' : ''}{money(t.amount_ttd)}</span>
+                      <span className="shrink-0 tabular-nums">{refund ? '−' : ''}{money(t.amount_ttd)}</span>
                     </span>
                   }
                   meta={
@@ -119,6 +135,14 @@ export default function ParentTransactionsV2() {
           </>
         ) : null}
       </Sheet>
+    </>
+  );
+}
+
+export default function ParentTransactionsV2() {
+  return (
+    <DetailScreen backLabel="Billing" fallbackHref="/parent/billing" title="Payment history">
+      <PaymentHistory />
     </DetailScreen>
   );
 }

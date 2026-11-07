@@ -28,6 +28,8 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { DsIcon } from '@/components/ui/icons';
 import { Tag } from '@/components/ui/Tag';
+import { Segmented } from '@/components/ui/Segmented';
+import { ClassCover } from './ClassCover';
 import '@/components/ui/ds-tokens.css';
 
 export type ExploreTab = 'lessons' | 'tutors';
@@ -162,38 +164,16 @@ function scheduleLine(lesson: ExploreLesson): string | null {
 /* ── pieces ──────────────────────────────────────────────────────────── */
 
 function SegmentedTabs({ tab, onTabChange }: Pick<ParentExploreV2Props, 'tab' | 'onTabChange'>) {
-  const options: Array<{ id: ExploreTab; label: string; icon: 'users' | 'classes' }> = [
-    { id: 'lessons', label: 'Group classes', icon: 'users' },
-    { id: 'tutors', label: '1:1 tutors', icon: 'classes' },
-  ];
   return (
-    <div
-      role="tablist"
-      aria-label="Explore"
-      className="flex gap-ds-1 rounded-ds-card bw-hair border-border bg-surface-card p-[4px]"
-    >
-      {options.map((o) => {
-        const active = tab === o.id;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onTabChange(o.id)}
-            className={cn(
-              'flex flex-1 items-center justify-center gap-ds-2 rounded-ds-btn px-ds-3 py-ds-2',
-              'font-body text-[14px] font-extrabold cursor-pointer',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
-              active ? 'bg-ink text-on-ink' : 'bg-transparent text-ink-muted'
-            )}
-          >
-            <DsIcon name={o.icon} size={18} />
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
+    <Segmented<ExploreTab>
+      label="Explore"
+      value={tab}
+      onChange={onTabChange}
+      options={[
+        { id: 'lessons', label: <><DsIcon name="users" size={18} />Group classes</> },
+        { id: 'tutors', label: <><DsIcon name="classes" size={18} />1:1 tutors</> },
+      ]}
+    />
   );
 }
 
@@ -255,7 +235,7 @@ function ChipRow({ chips, activeChip, onChipChange }: Pick<ParentExploreV2Props,
               aria-pressed={active}
               onClick={() => onChipChange(c)}
               className={cn(
-                'rounded-ds-full bw-hair px-ds-3 py-[7px] font-body text-[13px] font-extrabold cursor-pointer',
+                'ds-press rounded-ds-full bw-hair px-ds-3 py-[7px] font-body text-[13px] font-extrabold cursor-pointer',
                 'whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
                 active ? 'bg-ink border-ink text-on-ink' : 'bg-surface-card border-border text-ink'
               )}
@@ -282,29 +262,24 @@ function LessonCard({
   lesson,
   enrolled,
   href,
+  index = 0,
 }: {
   lesson: ExploreLesson;
   enrolled: boolean;
   href: string;
+  index?: number;
 }) {
   const schedule = scheduleLine(lesson);
   return (
     <Link
       href={href}
       className={cn(
-        'block overflow-hidden rounded-ds-card bw-hair border-border bg-surface-card',
+        'ds-press ds-rise block overflow-hidden rounded-ds-card bw-hair border-border bg-surface-card',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
       )}
+      style={{ ['--i' as string]: index }}
     >
-      {lesson.coverImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- class covers are
-        // user uploads on an allow-listed Supabase domain; next/image buys
-        // nothing here and would need a per-class size hint.
-        <img src={lesson.coverImage} alt="" className="h-[112px] w-full object-cover" />
-      ) : (
-        <div className={cn('h-[112px] w-full bg-gradient-to-br', lesson.color || 'from-brand to-brand-deep')} />
-      )}
-
+      <ClassCover image={lesson.coverImage} subject={lesson.subject || lesson.title} className="h-[112px] lg:h-[128px]" />
       <div className="flex flex-col gap-ds-2 p-ds-card">
         <div className="flex items-start justify-between gap-ds-3">
           <h3 className="font-display text-[16px] font-extrabold leading-[20px] text-ink">{lesson.title}</h3>
@@ -337,7 +312,7 @@ function LessonCard({
   );
 }
 
-function TutorCard({ tutor, href }: { tutor: ExploreTutor; href: string }) {
+function TutorCard({ tutor, href, index = 0 }: { tutor: ExploreTutor; href: string; index?: number }) {
   const rate = lowestRate(tutor);
   const subjects = subjectSummary(tutor);
   const credibility = credibilityLine(tutor);
@@ -348,9 +323,10 @@ function TutorCard({ tutor, href }: { tutor: ExploreTutor; href: string }) {
     <Link
       href={href}
       className={cn(
-        'flex gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card',
+        'ds-press ds-rise flex gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
       )}
+      style={{ ['--i' as string]: index }}
     >
       {tutor.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element -- see LessonCard
@@ -438,21 +414,27 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
 
   return (
     <div className="flex flex-col gap-ds-4">
-      <h1 className="font-display text-[30px] font-extrabold leading-[34px] text-ink">Explore</h1>
+      <h1 className="ds-page-title">Explore</h1>
 
-      <SegmentedTabs tab={tab} onTabChange={onTabChange} />
-
-      <SearchRow
-        searchQuery={searchQuery}
-        onSearchChange={onSearchChange}
-        filtersApplied={filtersApplied}
-        onOpenFilters={onOpenFilters}
-      />
+      {/* One control bar from lg up; a search box 1,200px wide is a stripe. */}
+      <div className="flex flex-col gap-ds-4 lg:flex-row lg:items-center">
+        <div className="lg:w-[420px] lg:shrink-0">
+          <SegmentedTabs tab={tab} onTabChange={onTabChange} />
+        </div>
+        <div className="min-w-0 lg:max-w-[560px] lg:flex-1">
+          <SearchRow
+            searchQuery={searchQuery}
+            onSearchChange={onSearchChange}
+            filtersApplied={filtersApplied}
+            onOpenFilters={onOpenFilters}
+          />
+        </div>
+      </div>
 
       <ChipRow chips={chips} activeChip={activeChip} onChipChange={onChipChange} />
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-ds-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
           <Skeleton height={showingLessons ? 210 : 96} />
           <Skeleton height={showingLessons ? 210 : 96} />
           <Skeleton height={showingLessons ? 210 : 96} />
@@ -470,14 +452,16 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
               onClear={narrowed ? onClearSearch : undefined}
             />
           ) : (
-            // One column on a phone, as drawn; a grid from md up (PROVISIONAL:
-            // no wide frame). The page asks the shell for its 'wide' column.
-            <div className="grid grid-cols-1 gap-ds-3 md:grid-cols-2 xl:grid-cols-3">
-              {lessons.map((l) => {
+            // One column on a phone, as drawn; from there as many 300px+
+            // columns as fit (PROVISIONAL: no wide frame), so a monitor gets
+            // three or four cards a row rather than two huge ones.
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
+              {lessons.map((l, i) => {
                 const enrolled = enrolledIds.has(l.id);
                 return (
                   <LessonCard
                     key={l.id}
+                    index={i}
                     lesson={l}
                     enrolled={enrolled}
                     href={enrolled ? enrolledClassHref(l.id) : classHref(l.id)}
@@ -497,9 +481,9 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
               onClear={narrowed ? onClearSearch : undefined}
             />
           ) : (
-            <div className="grid grid-cols-1 gap-ds-3 md:grid-cols-2 xl:grid-cols-3">
-              {tutors.map((t) => (
-                <TutorCard key={t.id} tutor={t} href={tutorHref(t.id)} />
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
+              {tutors.map((t, i) => (
+                <TutorCard key={t.id} index={i} tutor={t} href={tutorHref(t.id)} />
               ))}
             </div>
           )}

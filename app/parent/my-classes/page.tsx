@@ -35,7 +35,7 @@ export default function ParentMyClassesPage() {
   if (!enabled) return null;
 
   return (
-    <ParentV2Shell initials={parentInitials(profile)}>
+    <ParentV2Shell initials={parentInitials(profile)} width="wide">
       {/* useSearchParams (?request=, ?booking=) needs a Suspense boundary. */}
       <Suspense fallback={null}>
         <ParentClassesV2 />

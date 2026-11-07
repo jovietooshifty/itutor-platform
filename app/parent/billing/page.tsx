@@ -25,7 +25,7 @@ function BillingV2Route() {
   const initials = parentInitials(profile);
 
   return (
-    <ParentV2Shell initials={initials}>
+    <ParentV2Shell initials={initials} width="wide">
       <ParentBillingV2 />
     </ParentV2Shell>
   );

@@ -62,6 +62,18 @@ type UpcomingSession = {
   scheduledStartAt: string;
 };
 
+/** One occurrence from /api/parent/calendar: a group class or a 1:1 session. */
+type CalendarEvent = {
+  key: string;
+  childId: string;
+  title: string;
+  tutorName: string | null;
+  start: string;
+  type: '1:1' | 'group';
+  past: boolean;
+};
+type CalendarChild = { id: string; name: string; color: string };
+
 type Subscription = {
   /** The CLASS id. /parent/classes/[groupId] is keyed on the group. */
   groupId: string | null;
@@ -96,6 +108,20 @@ function whenLabel(iso: string): string {
   return `${date} · ${time}`;
 }
 
+const AST = 'America/Port_of_Spain';
+function dayKey(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: AST });
+}
+function dayLabel(iso: string): string {
+  if (isToday(iso)) return 'Today';
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+  if (dayKey(iso) === dayKey(tomorrow)) return 'Tomorrow';
+  return new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: AST });
+}
+function timeLabel(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: AST });
+}
+
 function isToday(iso: string): boolean {
   const fmt = (d: Date) =>
     d.toLocaleDateString('en-CA', { timeZone: 'America/Port_of_Spain' });
@@ -109,14 +135,21 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
   const [hasChildren, setHasChildren] = useState(false);
   const [sessions, setSessions] = useState<UpcomingSession[]>([]);
   const [subs, setSubs] = useState<Subscription[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [calendarChildren, setCalendarChildren] = useState<CalendarChild[]>([]);
 
   const load = useCallback(async () => {
     setStatus('loading');
     try {
-      const [attentionRes, dashRes, billingRes] = await Promise.all([
+      const [attentionRes, dashRes, billingRes, calendar] = await Promise.all([
         fetch('/api/parent/attention', { cache: 'no-store' }),
         fetch('/api/parent/dashboard', { cache: 'no-store' }),
         fetch('/api/parent/billing', { cache: 'no-store' }),
+        // Not fatal: without it Up next falls back to the dashboard's 1:1
+        // sessions and This week says nothing is scheduled.
+        fetch('/api/parent/calendar', { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
       // The three carry different halves of the screen; if any fails the page
       // would be quietly wrong rather than visibly broken, so treat it as an
@@ -131,6 +164,8 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
       setHasChildren(Boolean(attention.hasChildren));
       setSessions(dash?.dashboard?.upcomingSessions ?? []);
       setSubs(billing.subscriptions ?? []);
+      setEvents(calendar?.events ?? []);
+      setCalendarChildren(calendar?.children ?? []);
       setStatus('ready');
     } catch {
       setStatus('error');
@@ -143,7 +178,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
 
   if (status === 'loading') {
     return (
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-ds-card" aria-busy>
+      <div className="flex w-full max-w-[720px] flex-col gap-ds-card" aria-busy>
         <div className="h-[30px] w-1/2 animate-pulse rounded-ds-sm bg-surface-sunken" />
         <div className="h-[150px] animate-pulse rounded-ds-card bg-surface-sunken" />
         <div className="h-[170px] animate-pulse rounded-ds-card bg-surface-sunken" />
@@ -154,8 +189,8 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
 
   if (status === 'error') {
     return (
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-ds-card">
-        <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
+      <div className="flex w-full max-w-[720px] flex-col gap-ds-card">
+        <h1 className="ds-page-title">
           Something went wrong
         </h1>
         <Card
@@ -173,8 +208,8 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
   // No child linked at all — the state the Figma frames do not cover.
   if (!hasChildren) {
     return (
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-ds-card">
-        <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
+      <div className="flex w-full max-w-[720px] flex-col gap-ds-card">
+        <h1 className="ds-page-title">
           Welcome, {firstName}
         </h1>
         <Card
@@ -198,8 +233,8 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
   // New parent: a child is linked but has no classes yet — frame 160:2208.
   if (subs.length === 0) {
     return (
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-ds-card">
-        <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
+      <div className="flex w-full max-w-[720px] flex-col gap-ds-card">
+        <h1 className="ds-page-title">
           Find a class{headlineChild ? ` for ${headlineChild}` : ''}
         </h1>
 
@@ -229,164 +264,253 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
     );
   }
 
-  const nextSession = sessions[0] ?? null;
+  // Up next and This week read the calendar feed, which carries group-class
+  // occurrences as well as 1:1 sessions. The dashboard's upcomingSessions is
+  // 1:1 only, so a parent whose child is in group classes never saw "Up next";
+  // it is kept as the fallback for when the calendar fails to load.
+  const now = Date.now();
+  const weekEnd = now + 7 * 86_400_000;
+  const upcomingEvents = events
+    .filter((e) => !e.past && new Date(e.start).getTime() >= now - 60 * 60_000)
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  const childById = new Map(calendarChildren.map((c) => [c.id, c]));
+  const nextEvent = upcomingEvents[0] ?? null;
+  const nextSession = nextEvent ? null : sessions[0] ?? null;
+  const thisWeek = upcomingEvents.filter((e) => new Date(e.start).getTime() <= weekEnd);
+  const days: { key: string; label: string; items: CalendarEvent[] }[] = [];
+  for (const e of thisWeek) {
+    const key = dayKey(e.start);
+    const last = days[days.length - 1];
+    if (last && last.key === key) last.items.push(e);
+    else days.push({ key, label: dayLabel(e.start), items: [e] });
+  }
+
   const monthly = active.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
   const nextCharge = active.map((s) => s.nextCharge).filter(Boolean)[0] ?? null;
 
+  // An action card on a phone; from lg up a full-width banner with its button
+  // on the right. The Card's three text rows fill column 1 and the button is
+  // pinned to column 2 across them. PROVISIONAL: no wide frame.
+  const banner = 'lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-ds-6 lg:gap-y-[2px]';
+  const bannerAction = 'lg:col-start-2 lg:row-span-3 lg:row-start-1';
+
   return (
-    <div className="flex flex-col gap-ds-card">
-      <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
+    <div className="flex flex-col gap-ds-card lg:gap-ds-5">
+      <h1 className="ds-page-title">
         {headlineChild ? `${headlineChild}'s week` : 'Your week'}
       </h1>
 
-      {/* From lg up, two columns: what needs doing and what is next on the
-          left, money and classes on the right. PROVISIONAL: no wide frame.
-          On a phone the two stacks run one after the other, in the frame's
-          order. */}
-      <div className="flex flex-col gap-ds-card lg:grid lg:grid-cols-2 lg:items-start lg:gap-ds-5">
-      <div className="flex min-w-0 flex-col gap-ds-card">
-
       {/* Needs-action cards. Order is the API's: approvals first, because they
-          are the only items with a deadline. */}
-      {items.map((item) => {
-        if (item.kind === 'payment') {
-          return (
-            <Card
-              key={`${item.kind}:${item.id}`}
-              tone="alert"
-              tag={<Tag tone="danger">Needs action</Tag>}
-              title={item.title}
-              body={item.detail}
-            >
-              <Button variant="danger" size="sm" block onClick={() => router.push(withRequest(item))}>
-                {item.actionLabel}
-              </Button>
-            </Card>
-          );
-        }
-        if (item.kind === 'approval') {
-          return (
-            <Card
-              key={`${item.kind}:${item.id}`}
-              tag={
-                <Tag tone="outline">
-                  {item.childName
-                    ? `${item.childName.split(' ')[0]} asks to join`
-                    : 'Asks to join'}
-                </Tag>
-              }
-              title={item.title}
-              body={
-                item.closesAt
-                  ? `${item.detail} · No place is held. Closes ${item.closesAt}.`
-                  : `${item.detail} · No place is held while you decide.`
-              }
-            >
-              <Button variant="primary" block onClick={() => router.push(withRequest(item))}>
-                {item.actionLabel}
-              </Button>
-            </Card>
-          );
-        }
-        return (
-          <Card
-            key={`${item.kind}:${item.id}`}
-            tag={<Tag tone="warning">New feedback</Tag>}
-            title={item.title}
-            body={item.detail}
-          >
-            <Button variant="outline" size="sm" block onClick={() => router.push(withRequest(item))}>
-              {item.actionLabel}
-            </Button>
-          </Card>
-        );
-      })}
-
-      {/* All clear — frame 160:2057. */}
-      {items.length === 0 ? (
-        <IconNote
-          icon={<Check size={18} weight="bold" />}
-          title="All paid. Nothing needs your attention."
-          meta={nextCharge ? `Next payment ${nextCharge}` : undefined}
-        />
-      ) : null}
-
-      {nextSession ? (
-        <Card
-          tone="feature"
-          eyebrow={isToday(nextSession.scheduledStartAt) ? 'Up next · today' : 'Up next'}
-          title={nextSession.subjectName}
-          body={`${nextSession.tutorName} · ${whenLabel(nextSession.scheduledStartAt)}`}
-        >
-          <Button
-            variant="primary"
-            size="lg"
-            block
-            onClick={() => router.push('/parent/calendar')}
-          >
-            View class
-          </Button>
-        </Card>
-      ) : null}
-      </div>
-
-      <div className="flex min-w-0 flex-col gap-ds-card">
-      {active.length > 0 ? (
-        <>
-          <SectionHeader
-            title="Payments by child"
-            action="See all"
-            onAction={() => router.push('/parent/billing')}
-          />
-          <Card>
-            {childNames.map((name) => {
-              const forChild = active.filter((s) => s.childName === name);
-              const total = forChild.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+          are the only items with a deadline. Full width from lg up: the one
+          thing on the page that needs a decision should not share a column. */}
+      {items.length > 0 ? (
+        <div className="flex flex-col gap-ds-card">
+          {items.map((item) => {
+            if (item.kind === 'payment') {
               return (
-                <SummaryRow
-                  key={name}
-                  label={`${name.split(' ')[0]} · ${forChild.length} ${forChild.length === 1 ? 'class' : 'classes'}`}
-                  value={`${money(total)}/month`}
-                />
+                <Card
+                  key={`${item.kind}:${item.id}`}
+                  tone="alert"
+                  tag={<Tag tone="danger">Needs action</Tag>}
+                  title={item.title}
+                  body={item.detail}
+                  className={banner}
+                >
+                  <div className={bannerAction}>
+                    <Button variant="danger" size="sm" block onClick={() => router.push(withRequest(item))}>
+                      {item.actionLabel}
+                    </Button>
+                  </div>
+                </Card>
               );
-            })}
-            {nextCharge ? <SummaryRow label="Next charge" value={nextCharge} /> : null}
-            {childNames.length > 1 ? (
-              <SummaryRow label="Monthly total" value={`${money(monthly)}/month`} />
-            ) : null}
-          </Card>
-        </>
+            }
+            if (item.kind === 'approval') {
+              return (
+                <Card
+                  key={`${item.kind}:${item.id}`}
+                  tag={
+                    <Tag tone="outline">
+                      {item.childName ? `${item.childName.split(' ')[0]} asks to join` : 'Asks to join'}
+                    </Tag>
+                  }
+                  title={item.title}
+                  body={
+                    item.closesAt
+                      ? `${item.detail} · No place is held. Closes ${item.closesAt}.`
+                      : `${item.detail} · No place is held while you decide.`
+                  }
+                  className={banner}
+                >
+                  <div className={bannerAction}>
+                    <Button variant="primary" block onClick={() => router.push(withRequest(item))}>
+                      {item.actionLabel}
+                    </Button>
+                  </div>
+                </Card>
+              );
+            }
+            return (
+              <Card
+                key={`${item.kind}:${item.id}`}
+                tag={<Tag tone="warning">New feedback</Tag>}
+                title={item.title}
+                body={item.detail}
+                className={banner}
+              >
+                <div className={bannerAction}>
+                  <Button variant="outline" size="sm" block onClick={() => router.push(withRequest(item))}>
+                    {item.actionLabel}
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       ) : null}
 
-      {active.length > 0 ? (
-        <>
-          <SectionHeader
-            title={headlineChild ? `Classes for ${headlineChild}` : 'Classes'}
-            action="See all"
-            onAction={() => router.push('/parent/my-classes')}
-          />
-          {active.map((s) => (
-            <ClassRow
-              key={s.id}
-              code={subjectCode(s.className)}
-              color={subjectColor(s.className)}
-              title={s.className}
-              meta={[s.tutorName, childNames.length > 1 ? s.childName.split(' ')[0] : null]
+      {/* From lg up: the week on the left, money and classes in a 380px
+          column on the right. On a phone the two stacks run one after the
+          other, in the frame's order. PROVISIONAL: no wide frame. */}
+      <div className="flex flex-col gap-ds-card lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-ds-6">
+        <div className="flex min-w-0 flex-col gap-ds-card">
+          {/* All clear — frame 160:2057. */}
+          {items.length === 0 ? (
+            <IconNote
+              icon={<Check size={18} weight="bold" />}
+              title="All paid. Nothing needs your attention."
+              meta={nextCharge ? `Next payment ${nextCharge}` : undefined}
+            />
+          ) : null}
+
+          {nextEvent ? (
+            <Card
+              tone="feature"
+              eyebrow={isToday(nextEvent.start) ? 'Up next · today' : 'Up next'}
+              title={nextEvent.title}
+              body={[
+                childById.size > 1 ? childById.get(nextEvent.childId)?.name.split(' ')[0] : null,
+                nextEvent.tutorName,
+                whenLabel(nextEvent.start),
+              ]
                 .filter(Boolean)
                 .join(' · ')}
-              price={s.amount > 0 ? money(s.amount) : undefined}
-              // The class itself. These rows come from the same
-              // /api/parent/billing subscriptions[] as Billing, so they
-              // carry groupId; before this every row opened the Classes
-              // list, which is where the parent had just come from.
-              onClick={() =>
-                router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')
-              }
-            />
-          ))}
-        </>
-      ) : null}
-      </div>
+            >
+              <Button variant="primary" size="lg" block onClick={() => router.push('/parent/calendar')}>
+                View class
+              </Button>
+            </Card>
+          ) : nextSession ? (
+            <Card
+              tone="feature"
+              eyebrow={isToday(nextSession.scheduledStartAt) ? 'Up next · today' : 'Up next'}
+              title={nextSession.subjectName}
+              body={`${nextSession.tutorName} · ${whenLabel(nextSession.scheduledStartAt)}`}
+            >
+              <Button variant="primary" size="lg" block onClick={() => router.push('/parent/calendar')}>
+                View class
+              </Button>
+            </Card>
+          ) : null}
+
+          {/* The rest of the week, from lg up only: the phone frames stop at
+              Up next, and on a phone the Calendar is one tap away. */}
+          <section className="hidden flex-col gap-ds-3 lg:flex">
+            <SectionHeader title="This week" action="Calendar" onAction={() => router.push('/parent/calendar')} />
+            {days.length === 0 ? (
+              <p className="rounded-ds-card bw-hair border-border bg-surface-card p-ds-card font-body text-[14px] text-ink-muted">
+                Nothing scheduled in the next seven days.
+              </p>
+            ) : (
+              <div className="flex flex-col rounded-ds-card bw-hair border-border bg-surface-card px-ds-card py-ds-1">
+                {days.map((d) => (
+                  <div key={d.key} className="flex gap-ds-4 bw-b-hair border-line-soft py-ds-3 last:border-b-0">
+                    <span className="w-[92px] shrink-0 pt-[1px] font-display text-[14px] font-extrabold text-ink">
+                      {d.label}
+                    </span>
+                    <ul className="flex min-w-0 flex-1 flex-col gap-ds-2">
+                      {d.items.map((e) => {
+                        const child = childById.get(e.childId);
+                        return (
+                          <li key={e.key} className="flex items-baseline gap-ds-3">
+                            <span className="w-[72px] shrink-0 font-body text-[14px] font-extrabold tabular-nums text-ink">
+                              {timeLabel(e.start)}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-body text-[14px] font-extrabold text-ink">{e.title}</span>
+                              <span className="block truncate font-body text-[13px] text-ink">
+                                {[child?.name.split(' ')[0], e.tutorName, e.type === '1:1' ? '1:1' : null]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </span>
+                            </span>
+                            {child && childById.size > 1 ? (
+                              <span
+                                aria-hidden
+                                className="h-[10px] w-[10px] shrink-0 rounded-ds-full"
+                                style={{ backgroundColor: child.color }}
+                              />
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-ds-card">
+          {active.length > 0 ? (
+            <>
+              <SectionHeader title="Payments by child" action="See all" onAction={() => router.push('/parent/billing')} />
+              <Card>
+                {childNames.map((name) => {
+                  const forChild = active.filter((s) => s.childName === name);
+                  const total = forChild.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                  return (
+                    <SummaryRow
+                      key={name}
+                      label={
+                        <span className="text-ink">
+                          {name.split(' ')[0]} · {forChild.length} {forChild.length === 1 ? 'class' : 'classes'}
+                        </span>
+                      }
+                      value={`${money(total)}/month`}
+                    />
+                  );
+                })}
+                {nextCharge ? <SummaryRow label={<span className="text-ink">Next charge</span>} value={nextCharge} /> : null}
+                {childNames.length > 1 ? (
+                  <SummaryRow total label="Monthly total" value={`${money(monthly)}/month`} />
+                ) : null}
+              </Card>
+
+              <SectionHeader
+                title={headlineChild ? `Classes for ${headlineChild}` : 'Classes'}
+                action="See all"
+                onAction={() => router.push('/parent/my-classes')}
+              />
+              {active.map((s) => (
+                <ClassRow
+                  key={s.id}
+                  code={subjectCode(s.className)}
+                  color={subjectColor(s.className)}
+                  title={s.className}
+                  meta={[s.tutorName, childNames.length > 1 ? s.childName.split(' ')[0] : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  price={s.amount > 0 ? money(s.amount) : undefined}
+                  // The class itself. These rows come from the same
+                  // /api/parent/billing subscriptions[] as Billing, so they
+                  // carry groupId.
+                  onClick={() => router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')}
+                />
+              ))}
+            </>
+          ) : null}
+        </div>
       </div>
     </div>
   );

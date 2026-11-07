@@ -239,7 +239,7 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
   if (v2) {
     const kids = childCount ?? 0;
     return (
-      <DetailScreen backLabel="Back" fallbackHref="/parent/classes">
+      <DetailScreen backLabel="Back" fallbackHref="/parent/classes" width="wide">
         {error ? (
           <p role="alert" className="rounded-ds-card bg-danger-soft px-ds-card py-ds-2 font-body text-[14px] font-extrabold text-danger">
             {error}

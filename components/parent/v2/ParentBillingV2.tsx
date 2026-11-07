@@ -34,11 +34,13 @@ import {
   Card,
   NavRow,
   QuestProgress,
+  SectionHeader,
   SubjectTile,
   SummaryRow,
   Tag,
 } from '@/components/ui';
 import { subjectCode, subjectColor } from './subjectTile';
+import { PaymentHistory } from './ParentTransactionsV2';
 
 type Subscription = {
   id: string;
@@ -140,7 +142,7 @@ export default function ParentBillingV2() {
   if (status === 'error') {
     return (
       <div className="flex flex-col gap-ds-card">
-        <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
+        <h1 className="ds-page-title">
           Billing
         </h1>
         <Card
@@ -163,89 +165,116 @@ export default function ParentBillingV2() {
   const left = daysUntil(nextCharge);
   const elapsed = left === null ? null : Math.max(0, Math.min(PERIOD_DAYS, PERIOD_DAYS - left));
 
-  return (
-    <div className="flex flex-col gap-ds-card">
-      <h1 className="font-display text-[28px] font-extrabold leading-[29.4px] tracking-[-0.28px] text-ink">
-        Billing
-      </h1>
+  const totalCard =
+    active.length === 0 ? (
+      <Card
+        title="No classes to bill"
+        body="Once your child joins a class, what you pay and when appears here."
+      >
+        <Button variant="primary" block onClick={() => router.push('/parent/classes')}>
+          Explore classes
+        </Button>
+      </Card>
+    ) : (
+      <Card tone="feature" eyebrow="Monthly total">
+        <div className="font-display text-[36px] font-extrabold leading-[36px] tabular-nums text-on-ink">
+          {money(monthly)}
+        </div>
+        <div className="pb-ds-2 pt-[2px] text-[13px] leading-[18px] text-on-ink-muted">
+          across {active.length} {active.length === 1 ? 'class' : 'classes'}
+        </div>
 
-      {failed ? (
-        <Card tone="alert" tag={<Tag tone="danger">Payment failed</Tag>} title={failed.title} body={failed.detail}>
-          <Button variant="danger" block onClick={() => router.push(withRequest(failed))}>
-            {failed.actionLabel}
-          </Button>
-        </Card>
-      ) : null}
-
-      {active.length === 0 ? (
-        <Card
-          title="No classes to bill"
-          body="Once your child joins a class, what you pay and when appears here."
-        >
-          <Button variant="primary" block onClick={() => router.push('/parent/classes')}>
-            Explore classes
-          </Button>
-        </Card>
-      ) : (
-        <Card tone="feature" eyebrow="Monthly total">
-          <div className="font-display text-[36px] font-extrabold leading-[36px] text-on-ink">
-            {money(monthly)}
-          </div>
-          <div className="pb-ds-2 pt-[2px] text-[13px] leading-[18px] text-on-ink-muted">
-            across {active.length} {active.length === 1 ? 'class' : 'classes'}
-          </div>
-
-          {nextCharge ? (
-            <>
-              <div className="h-px w-full bg-ink-raised" />
-              <SummaryRow
-                tone="ink"
-                emphasis="label"
-                label={`Next charge ${nextCharge}`}
-                value={left === null ? '' : `${left} ${left === 1 ? 'day' : 'days'} left`}
-                className="pb-[5px] pt-[13px]"
+        {nextCharge ? (
+          <>
+            <div className="h-px w-full bg-ink-raised" />
+            <SummaryRow
+              tone="ink"
+              emphasis="label"
+              label={`Next charge ${nextCharge}`}
+              value={left === null ? '' : `${left} ${left === 1 ? 'day' : 'days'} left`}
+              className="pb-[5px] pt-[13px]"
+            />
+            {elapsed !== null ? (
+              <QuestProgress
+                variant="meter"
+                total={PERIOD_DAYS}
+                done={elapsed}
+                label={`${left} days until the next charge`}
+                className="pt-[6px]"
               />
-              {elapsed !== null ? (
-                <QuestProgress
-                  variant="meter"
-                  total={PERIOD_DAYS}
-                  done={elapsed}
-                  label={`${left} days until the next charge`}
-                  className="pt-[6px]"
-                />
-              ) : null}
-            </>
+            ) : null}
+          </>
+        ) : null}
+      </Card>
+    );
+
+  // Phone: one column in the frame's order. From lg up: what is billed, and
+  // the history of what was paid, on the left; the total, which is the number
+  // that matters most, fixed in a side column. PROVISIONAL: no wide frame.
+  return (
+    <div className="flex flex-col gap-ds-card lg:gap-ds-5">
+      <h1 className="ds-page-title">Billing</h1>
+
+      <div className="flex flex-col gap-ds-card lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-ds-6">
+        <aside className="flex flex-col gap-ds-card lg:sticky lg:top-[80px] lg:col-start-2 lg:row-start-1">
+          {failed ? (
+            <Card tone="alert" tag={<Tag tone="danger">Payment failed</Tag>} title={failed.title} body={failed.detail}>
+              <Button variant="danger" block="always" onClick={() => router.push(withRequest(failed))}>
+                {failed.actionLabel}
+              </Button>
+            </Card>
           ) : null}
-        </Card>
-      )}
+          {totalCard}
+          {/* NOT /help: that is the marketing site, which shows "Get started"
+              and "Log in" to a parent who is already signed in. /parent/help
+              is the in-app help screen, opened at its billing questions. */}
+          <NavRow title="Billing help" onClick={() => router.push('/parent/help#billing')} className="hidden lg:flex" />
+        </aside>
 
-      {active.map((s) => (
-        <NavRow
-          key={s.id}
-          tile={<SubjectTile code={subjectCode(s.className)} color={subjectColor(s.className)} />}
-          title={s.className}
-          meta={
-            <>
-              <span>
-                {s.amount > 0 ? `${money(s.amount)}/month` : 'Free'} ·
-              </span>
-              {statusTag(s)}
-            </>
-          }
-          // The class itself, not the old subscriptions list. Figma has a
-          // payment-detail screen here; until that exists the class page is
-          // the real destination rather than a list the parent just left.
-          onClick={() =>
-            router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')
-          }
-        />
-      ))}
+        <div className="flex min-w-0 flex-col gap-ds-card lg:col-start-1 lg:row-start-1">
+          {active.length > 0 ? (
+            <h2 className="hidden font-display text-[18px] font-extrabold text-ink lg:block">What you pay for</h2>
+          ) : null}
+          {active.map((s) => (
+            <NavRow
+              key={s.id}
+              tile={<SubjectTile code={subjectCode(s.className)} color={subjectColor(s.className)} />}
+              title={s.className}
+              meta={
+                <>
+                  <span className="tabular-nums text-ink">
+                    {s.amount > 0 ? `${money(s.amount)}/month` : 'Free'} ·
+                  </span>
+                  {statusTag(s)}
+                </>
+              }
+              // The class itself, not the old subscriptions list. Figma has a
+              // payment-detail screen here; until that exists the class page is
+              // the real destination rather than a list the parent just left.
+              onClick={() =>
+                router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')
+              }
+            />
+          ))}
 
-      <NavRow title="Payment history and receipts" onClick={() => router.push('/parent/transactions')} />
-      {/* NOT /help: that is the marketing site, which shows "Get started"
-          and "Log in" to a parent who is already signed in. /parent/help is
-          the in-app help screen, opened at its billing questions. */}
-      <NavRow title="Billing help" onClick={() => router.push('/parent/help#billing')} />
+          {/* On a phone the history is a row away; from lg up it is on the page. */}
+          <NavRow
+            title="Payment history and receipts"
+            onClick={() => router.push('/parent/transactions')}
+            className="lg:hidden"
+          />
+          <NavRow title="Billing help" onClick={() => router.push('/parent/help#billing')} className="lg:hidden" />
+
+          <section className="hidden flex-col gap-ds-3 pt-ds-2 lg:flex">
+            <SectionHeader
+              title="Payment history"
+              action="All receipts"
+              onAction={() => router.push('/parent/transactions')}
+            />
+            <PaymentHistory limit={8} />
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

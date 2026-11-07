@@ -20,6 +20,8 @@ export interface SummaryRowProps {
   tone?: 'default' | 'ink';
   /** Swap the weights: bold on the left, regular on the right. */
   emphasis?: 'value' | 'label';
+  /** A total: hairline rule above, heavier on both sides. */
+  total?: boolean;
   className?: string;
 }
 
@@ -28,6 +30,7 @@ export function SummaryRow({
   value,
   tone = 'default',
   emphasis = 'value',
+  total,
   className,
 }: SummaryRowProps) {
   const labelCls =
@@ -41,9 +44,22 @@ export function SummaryRow({
       : cn('font-extrabold', tone === 'ink' ? 'text-on-ink' : 'text-ink');
 
   return (
-    <div className={cn('flex items-start justify-between gap-ds-3 py-[5px]', className)}>
-      <span className={cn('min-w-0 text-[14px] leading-[20px]', labelCls)}>{label}</span>
-      <span className={cn('flex-none text-right text-[14px] leading-[20px]', valueCls)}>
+    <div
+      className={cn(
+        'flex items-start justify-between gap-ds-3 py-[5px]',
+        total && 'mt-ds-1 bw-t-hair pt-ds-2',
+        total && (tone === 'ink' ? 'border-ink-raised' : 'border-line-soft'),
+        className
+      )}
+    >
+      <span className={cn('min-w-0 text-[14px] leading-[20px]', labelCls, total && 'font-extrabold')}>{label}</span>
+      <span
+        className={cn(
+          'flex-none whitespace-nowrap text-right text-[14px] leading-[20px] tabular-nums',
+          valueCls,
+          total && 'text-[16px]'
+        )}
+      >
         {value}
       </span>
     </div>

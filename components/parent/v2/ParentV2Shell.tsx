@@ -61,6 +61,8 @@ export interface ParentV2ShellProps {
   header?: boolean;
   /** Content width from 768px up: 'wide' only for screens with a wide layout. */
   width?: 'reading' | 'wide';
+  /** Header title once scrolled, from md up. Defaults to the current tab's name. */
+  title?: string;
 }
 
 export default function ParentV2Shell({
@@ -69,6 +71,7 @@ export default function ParentV2Shell({
   nav = true,
   header = true,
   width = 'reading',
+  title,
 }: ParentV2ShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -106,10 +109,13 @@ export default function ParentV2Shell({
     t.id === 'billing' ? { ...t, badge: needsPayment } : { ...t }
   );
 
+  const active = activeFromPath(pathname);
+
   return (
     <>
     <NewUiShell
-      active={activeFromPath(pathname)}
+      active={active}
+      title={title ?? TABS.find((t) => t.id === active)?.label}
       items={items}
       nav={nav}
       header={header}
