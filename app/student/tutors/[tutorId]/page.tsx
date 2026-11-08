@@ -17,6 +17,9 @@ import {
   ThumbsUp, ThumbsDown, HeartHandshake, Lightbulb, BookOpen,
 } from 'lucide-react';
 import { getTutorPublicCalendar } from '@/lib/services/bookingService';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import { StudentTutorProfileV2, StudentTutorBookBar } from '@/components/student/v2/StudentTutorProfileV2';
 import ClassesSection from '@/components/tutor/public/ClassesSection';
 import BlurredBannerBackdrop from '@/components/tutor/BlurredBannerBackdrop';
 import TutorCredentials from '@/components/TutorCredentials';
@@ -588,7 +591,9 @@ export default function TutorProfilePage() {
     // calendar rendered beside the profile AND a modal thrown over it on load.
     // Desktop uses the sidebar; below lg the "Book a 1:1" button (which is not
     // mode-gated) still opens the sheet.
-    if (new URLSearchParams(window.location.search).get('book') === '1on1') {
+    // New UI (Figma D1): no booking sidebar to fight, so arriving on /book
+    // opens the sheet, which is what that route is for.
+    if (new URLSearchParams(window.location.search).get('book') === '1on1' || (isNewUiEnabled() && mode === 'book')) {
       autoOpenedRef.current = true;
       openBookingSheet();
     }
@@ -612,7 +617,23 @@ export default function TutorProfilePage() {
   const writtenGroupReviews = groupReviews.filter((r) => r.comment && r.comment.trim().length > 0);
   const priceLabel = !paidClassesEnabled ? 'Free' : (minPrice > 0 ? `TT$${minPrice}` : 'Rate not set');
 
+  // New UI (Figma 31:3796). Same state and handlers; only the profile view
+  // and its chrome change. The booking sheet below is shared by both.
+  const newUi = isNewUiEnabled();
+  const v2Rate = !paidClassesEnabled ? 'Free' : minPrice > 0 ? `TT${minPrice}` : null;
+
   if (profileLoading || loading || !profile) {
+    if (newUi) {
+      return (
+        <StudentV2Shell width="wide" title="Tutor">
+          <div className="flex flex-col gap-ds-4" aria-busy>
+            <div className="h-[104px] animate-pulse rounded-ds-card bg-surface-sunken" />
+            <div className="h-[72px] animate-pulse rounded-ds-card bg-surface-sunken" />
+            <div className="h-[160px] animate-pulse rounded-ds-card bg-surface-sunken" />
+          </div>
+        </StudentV2Shell>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-itutor-green" />
@@ -621,11 +642,47 @@ export default function TutorProfilePage() {
   }
 
   if (!tutor) {
+    if (newUi) {
+      return (
+        <StudentV2Shell width="wide" title="Tutor">
+          <div className="flex flex-col items-start gap-ds-3">
+            <h1 className="ds-page-title m-0 font-display font-extrabold text-ink">Tutor not found</h1>
+            <Link href="/student/find-tutors?tab=tutors" className="ds-link font-body text-[16px] font-extrabold text-brand-edge">
+              Back to Explore
+            </Link>
+          </div>
+        </StudentV2Shell>
+      );
+    }
     return <div className="text-center py-12"><p className="text-gray-600">Tutor not found</p></div>;
   }
 
-  return (
+  const body = (
     <>
+      {newUi ? (
+        <StudentTutorProfileV2
+          tutor={{
+            id: tutor.id,
+            name: getDisplayName(tutor),
+            avatarUrl: tutor.avatar_url,
+            verified: tutor.tutor_verification_status === 'VERIFIED',
+            bio: tutor.bio,
+            subjects: tutor.subjects.map((s) => ({ id: s.id, name: s.name, price: s.price_per_hour_ttd })),
+            averageRating: tutor.average_rating,
+            totalReviews: tutor.total_reviews,
+            completedSessions,
+          }}
+          reviews={reviews.map((r) => ({
+            id: r.id,
+            stars: r.stars,
+            comment: r.comment,
+            who: (r.student?.full_name || 'A student').split(' ')[0],
+            when: new Date(r.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+          }))}
+          rateLabel={v2Rate}
+          showBook={tutor.subjects.length > 0}
+        />
+      ) : (
       <div className="max-w-5xl mx-auto space-y-6">
         <Link href="/student/find-tutors" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-ink">
           <ArrowLeft className="size-4" /> Back to Explore
@@ -915,6 +972,7 @@ export default function TutorProfilePage() {
         )}
         </div>
       </div>
+      )}
 
       {/* Mobile booking sheet */}
       {showBookingSheet && (
@@ -1063,5 +1121,25 @@ export default function TutorProfilePage() {
         />
       )}
     </>
+  );
+
+  if (!newUi) return body;
+  return (
+    <StudentV2Shell
+      width="wide"
+      title={getDisplayName(tutor)}
+      bottomBar={
+        tutor.subjects.length > 0 ? (
+          <StudentTutorBookBar
+            rateLabel={v2Rate}
+            onBook={openBookingSheet}
+            disabled={v2Rate === null}
+            note={v2Rate === null ? 'This tutor has not set a rate yet' : undefined}
+          />
+        ) : null
+      }
+    >
+      {body}
+    </StudentV2Shell>
   );
 }

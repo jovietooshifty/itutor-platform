@@ -3,15 +3,23 @@
 /**
  * Which shell a student page gets.
  *
- * The parent new UI branches page by page, because parent pages render their
- * own shell. Student pages cannot: app/student/layout.tsx wraps EVERY page in
- * the old StudentShell, so a new screen that rendered StudentV2Shell itself
- * would come out with the new chrome nested inside the old sidebar.
+ * Student pages cannot each pick their own shell the way parent pages do:
+ * app/student/layout.tsx wraps EVERY student page. So this switch decides.
  *
- * So the layout steps aside for the routes that have a new screen, and those
- * pages render StudentV2Shell themselves (they need to pass width and title).
- * Everything else keeps the old shell until its flow is built. Add a route here
- * in the same commit as its V2 screen.
+ * Flag off: the old StudentShell, for every page, exactly as before.
+ *
+ * Flag on, two cases:
+ * - A route in V2_ROUTES has a new screen. The page renders StudentV2Shell
+ *   itself (it needs to pass width, title, nav or a bottomBar), so the layout
+ *   steps aside.
+ * - Every other student route — the pages whose flow is not rebuilt yet —
+ *   gets StudentV2Shell from here, with the old page content inside it. Before
+ *   this, those routes fell back to the old StudentShell, so opening one
+ *   (Messages, Payment history, a booking, Study tools…) flipped the whole app
+ *   back to the old sidebar and header mid-session. The content of those pages
+ *   is still the old design; the chrome no longer changes under the student.
+ *
+ * Add a route to V2_ROUTES in the same commit as its V2 screen.
  *
  * isNewUiEnabled() reads a NEXT_PUBLIC_ variable, fixed at build time, so the
  * branch never flips between renders.
@@ -20,6 +28,8 @@
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { StudentShell } from '@/components/student/StudentShell';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import { StudentStoreProvider } from '@/lib/student-store';
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 
 const V2_ROUTES: RegExp[] = [
@@ -29,6 +39,10 @@ const V2_ROUTES: RegExp[] = [
   /^\/student\/classes\/?$/,
   /^\/student\/notifications\/?$/,
   /^\/student\/subscriptions\/?$/,
+  /^\/student\/rewards\/?$/,
+  /^\/student\/settings\/?$/,
+  /^\/student\/settings\/profile\/?$/,
+  /^\/student\/tutors\/[^/]+(\/book)?\/?$/,
 ];
 
 export function isStudentV2Route(pathname: string | null): boolean {
@@ -38,6 +52,15 @@ export function isStudentV2Route(pathname: string | null): boolean {
 
 export default function StudentLayoutSwitch({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  if (!isNewUiEnabled()) return <StudentShell>{children}</StudentShell>;
   if (isStudentV2Route(pathname)) return <>{children}</>;
-  return <StudentShell>{children}</StudentShell>;
+  return (
+    <StudentStoreProvider>
+      <StudentV2Shell width="wide">
+        {/* Old page content. `ds-legacy` scopes the few fixes old markup needs
+            inside the new frame (see ds-tokens.css). */}
+        <div className="ds-legacy min-w-0">{children}</div>
+      </StudentV2Shell>
+    </StudentStoreProvider>
+  );
 }
