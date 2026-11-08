@@ -161,6 +161,11 @@ async function startFresh(
   // Attempts are counted IN TOTAL across providers (config maxTotalAttempts).
   const attempt = row.identity_attempts + 1;
   if (attempt > identityRouting.maxTotalAttempts) {
+    // The last session could not be resumed and no attempt is left: close it, so the teacher sees
+    // "contact support" instead of a Continue button that can only fail.
+    if (row.identity_status === 'pending' && previousRef) {
+      await setIdentityStatus({ tutorId, to: 'canceled', reason: null, providerCode: null, actor: 'system', sessionRef: previousRef, provider: current ?? undefined, db });
+    }
     return fail(429, 'attempt_limit', 'You have used all identity check attempts', { support: true });
   }
 
