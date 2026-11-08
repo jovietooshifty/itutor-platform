@@ -5,8 +5,9 @@ import { makeFakeDb } from '../helpers/fakeDb';
 const h = vi.hoisted(() => ({ db: null as any, guard: null as any }));
 
 vi.mock('@/lib/supabase/server', () => ({ getServiceClient: () => h.db }));
-vi.mock('@/lib/payments/stripeClient', () => ({
-  getStripeClient: () => ({ identity: { verificationSessions: { redact: async (id: string) => ({ id }) } } }),
+vi.mock('@/lib/identity/registry', async (orig) => ({
+  ...(await orig<typeof import('@/lib/identity/registry')>()),
+  getProvider: () => ({ redact: async () => ({ ok: true }) }) as any,
 }));
 vi.mock('@/lib/verificationV2/server', async (orig) => ({
   ...(await orig<typeof import('@/lib/verificationV2/server')>()),
@@ -47,7 +48,9 @@ function seed(o: { status?: string; profile?: string; creds?: any[]; identity?: 
     notifications: [],
   });
 }
-const csec = { kind: 'CSEC', subject: 'Physics', grade: 'I', examYear: 2020, proofUrl: 'https://example.com/proof' };
+const csec = { kind: 'CERTIFICATE', title: 'CSEC Physics, Grade I (2020)', proofPath: `${T}/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png`, proofFilename: 'physics.png' };
+/** The upload happens in the browser first; here the file is put in the fake bucket, then saved. */
+const add = () => { h.db.files['tutor-credential-proofs'] = [csec.proofPath]; return addCredential(json(csec)); };
 
 beforeEach(() => {
   process.env.VERIFICATION_V2_ENABLED = 'true';
@@ -58,9 +61,9 @@ afterEach(() => { delete process.env.VERIFICATION_V2_ENABLED; vi.restoreAllMocks
 describe('a verified teacher adds and edits', () => {
   it('a new credential is pending approval, and the Verified status and badge stay', async () => {
     const db = seed(); h.db = db;
-    const res = await addCredential(json(csec));
+    const res = await add();
     expect(res.status).toBe(201);
-    const added = db.tables.tutor_credentials_v2.find((c: any) => c.subject === 'Physics');
+    const added = db.tables.tutor_credentials_v2.find((c: any) => c.title === 'CSEC Physics, Grade I (2020)');
     expect(added!.pending_approval).toBe(true);
     expect(db.tables.tutor_verification_v2[0].status).toBe('VERIFIED');
     expect(db.tables.profiles[0].tutor_verification_status).toBe('VERIFIED');
@@ -72,7 +75,7 @@ describe('a verified teacher adds and edits', () => {
 
   it('before verification a new credential is part of the application, not pending', async () => {
     const db = seed({ status: 'IN_PROGRESS', creds: [] }); h.db = db;
-    expect((await addCredential(json(csec))).status).toBe(201);
+    expect((await add()).status).toBe(201);
     expect(db.tables.tutor_credentials_v2[0].pending_approval).toBe(false);
   });
 
@@ -92,24 +95,27 @@ describe('a verified teacher adds and edits', () => {
     expect((await addExtra(json({ title: 'Coach', description: 'Robotics club coach' }))).status).toBe(201);
     const locked = seed({ status: 'IN_REVIEW' }); h.db = locked;
     expect((await addExtra(json({ title: 'Coach', description: 'x' }))).status).toBe(409);
-    expect((await addCredential(json(csec))).status).toBe(409);
+    expect((await add()).status).toBe(409);
   });
 
   it('with no identity provider configured, qualifications and submitting are not blocked', async () => {
-    for (const k of ['DIDIT_API_KEY', 'STRIPE_SECRET_KEY', 'VERIFF_API_KEY']) vi.stubEnv(k, '');
+    for (const k of ['DIDIT_API_KEY', 'DIDIT_WORKFLOW_ID', 'DIDIT_WEBHOOK_SECRET']) vi.stubEnv(k, '');
     const db = seed({ status: 'IN_PROGRESS', identity: null, creds: [] }); h.db = db;
-    expect((await addCredential(json(csec))).status).toBe(201);
+    expect((await add()).status).toBe(201);
     expect((await submit()).status).toBe(200);
     expect(db.tables.tutor_verification_v2[0].status).toBe('IN_REVIEW');
     vi.unstubAllEnvs();
   });
 
-  it('with a provider configured, the identity check is still required first', async () => {
+  it('with a provider configured, credentials can be added first but submit waits for the ID check', async () => {
     vi.stubEnv('DIDIT_API_KEY', 'k');
+    vi.stubEnv('DIDIT_WORKFLOW_ID', 'w');
+    vi.stubEnv('DIDIT_WEBHOOK_SECRET', 's');
     const db = seed({ status: 'IN_PROGRESS', identity: null, creds: [] }); h.db = db;
-    const res = await addCredential(json(csec));
-    expect(res.status).toBe(409);
-    expect((await res.json()).code).toBe('identity_required');
+    expect((await add()).status).toBe(201);
+    const res = await submit();
+    expect(res.status).not.toBe(200);
+    expect(db.tables.tutor_verification_v2[0].status).toBe('IN_PROGRESS');
     vi.unstubAllEnvs();
   });
 });

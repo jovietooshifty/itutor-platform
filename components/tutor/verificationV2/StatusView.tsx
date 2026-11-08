@@ -1,11 +1,10 @@
 'use client';
 
 import type { VerificationV2StateDto } from '@/lib/verificationV2/constants';
-import { Card, PrimaryButton, SUPPORT_EMAIL } from './ui';
+import { Card, SUPPORT_EMAIL } from './ui';
 
 interface Props {
   state: VerificationV2StateDto;
-  onBegin: () => void;
 }
 
 /** DD Mon YYYY, the site's date format. */
@@ -36,7 +35,7 @@ function SupportLink({ subject, children }: { subject: string; children: React.R
   );
 }
 
-export default function StatusView({ state, onBegin }: Props) {
+export default function StatusView({ state }: Props) {
   const submitted = fmt(state.submittedAt);
   const by = expectedBy(state.submittedAt);
   const ref = state.reference;
@@ -47,12 +46,8 @@ export default function StatusView({ state, onBegin }: Props) {
         <Card>
           <h2 className="font-semibold text-ink">Get verified</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            It takes three steps: read and agree to how your information is used, check your identity, and add
-            your qualifications. It takes about five minutes.
+            Check your identity and add your qualifications, in any order. It takes about five minutes.
           </p>
-          <div className="mt-4">
-            <PrimaryButton onClick={onBegin}>Begin</PrimaryButton>
-          </div>
         </Card>
       );
 
@@ -86,10 +81,9 @@ export default function StatusView({ state, onBegin }: Props) {
               <p className="mt-1">{state.decisionReason}</p>
             </div>
           )}
-          <p className="mt-3 text-sm text-ink">You can fix the issues and submit again.</p>
+          <p className="mt-3 text-sm text-ink">Fix the step marked below, then send your application again. Nothing else has to change.</p>
           {ref && <p className="mt-2 text-xs text-muted-foreground">Reference {ref}</p>}
           <div className="mt-4 flex flex-wrap gap-3">
-            <PrimaryButton onClick={onBegin}>Update and resubmit</PrimaryButton>
             <SupportLink subject={`Verification ${ref ?? ''}`.trim()}>Contact support</SupportLink>
           </div>
         </Card>
@@ -103,9 +97,6 @@ export default function StatusView({ state, onBegin }: Props) {
             We have asked you to verify again. This is not a rejection. Check your details, add anything that is
             missing and submit for review.
           </p>
-          <div className="mt-4">
-            <PrimaryButton onClick={onBegin}>Start reverification</PrimaryButton>
-          </div>
         </Card>
       );
 

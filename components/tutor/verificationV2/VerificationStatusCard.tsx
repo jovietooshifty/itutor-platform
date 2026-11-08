@@ -20,29 +20,29 @@ interface View {
 
 /** Pure, so it can be tested: what the card says for a given state. */
 export function describeCard(s: VerificationV2StateDto): View {
-  const done = [s.consentAt, s.identity.status === 'verified', s.credentials.length > 0].filter(Boolean).length;
+  const done = [s.steps.identity, s.steps.credentials].filter((x) => x === 'done').length;
   switch (s.status) {
     case 'VERIFIED':
-      return { line: 'You are verified. Your Verified badge shows on your profile.', cta: 'View', state: 'complete' };
+      return { line: 'You are verified. Your Verified badge shows on your profile.', cta: 'View', state: 'done' };
     case 'IN_REVIEW': {
       const by = expectedBy(s.submittedAt);
-      return { line: `In review.${by ? ` We aim to decide by ${by}.` : ''}`, cta: 'View', state: 'incomplete' };
+      return { line: `In review.${by ? ` We aim to decide by ${by}.` : ''}`, cta: 'View', state: 'in_progress' };
     }
     case 'REJECTED':
-      return { line: 'Your application needs changes before it can be approved.', cta: 'See why', state: 'incomplete' };
+      return { line: 'Your application needs changes before it can be approved.', cta: 'See why', state: 'needs_changes' };
     case 'REVERIFICATION_REQUIRED':
-      return { line: 'Please verify again. This is not a rejection.', cta: 'Verify again', state: 'incomplete' };
+      return { line: 'Please verify again. This is not a rejection.', cta: 'Verify again', state: 'needs_changes' };
     case 'REVOKED':
-      return { line: 'Your verification was removed. Contact support to find out why.', cta: 'View', state: 'incomplete' };
+      return { line: 'Your verification was removed. Contact support to find out why.', cta: 'View', state: 'not_started' };
     case 'IN_PROGRESS':
       // A zero is never shown: with nothing done yet the card just says it is not finished.
       return {
-        line: done > 0 ? `In progress: ${done} of 3 steps done.` : 'Started, not finished yet.',
+        line: done > 0 ? `In progress: ${done} of 2 required steps done.` : 'Started, not finished yet.',
         cta: 'Continue',
-        state: 'incomplete',
+        state: done > 0 ? 'in_progress' : 'not_started',
       };
     default:
-      return { line: 'Verify your identity and qualifications so students and parents can trust your profile.', cta: 'Get verified', state: 'incomplete' };
+      return { line: 'Verify your identity and qualifications so students and parents can trust your profile.', cta: 'Get verified', state: 'not_started' };
   }
 }
 

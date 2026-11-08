@@ -93,14 +93,12 @@ const flag = await api.get(`${BASE}/api/verification-v2/flag`);
 ok('flag endpoint answers with a boolean', flag.ok() && typeof (await flag.json()).enabled === 'boolean');
 const cron = await api.get(`${BASE}/api/cron/verification-cleanup`);
 ok('cron endpoint refuses without the secret (401)', cron.status() === 401, cron.status());
-for (const [path, method] of [['/api/webhooks/stripe-identity', 'POST'], ['/api/webhooks/identity/didit', 'POST'], ['/api/webhooks/identity/veriff', 'POST']]) {
+for (const [path, method] of [['/api/webhooks/identity/didit', 'POST']]) {
   const r = await api.fetch(`${BASE}${path}`, { method, data: '{}', headers: { 'content-type': 'application/json' } });
   ok(`${path} never accepts an unsigned request (${r.status()})`, [400, 500].includes(r.status()), r.status());
 }
 const unknown = await api.post(`${BASE}/api/webhooks/identity/nonsense`, { data: '{}' });
 ok('unknown provider webhook is 404', unknown.status() === 404, unknown.status());
-const process_ = await api.post(`${BASE}/api/verification/request/abc/process`);
-ok('OCR endpoint without a session is 401', process_.status() === 401, process_.status());
 const adminApi = await api.get(`${BASE}/api/admin/verification-v2/queue`);
 ok('admin queue API without a session is not served (401/403/404)', [401, 403, 404, 500].includes(adminApi.status()), adminApi.status());
 await ctx.close();

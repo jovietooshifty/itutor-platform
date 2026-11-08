@@ -57,6 +57,8 @@ export function sanitizeFilename(name: unknown): string | null {
 
 export interface CredentialInput {
   kind: CredentialKind;
+  /** What the teacher calls it. Required for every new credential. */
+  title: string;
   subject: string | null;
   grade: string | null;
   exam_year: number | null;
@@ -65,62 +67,40 @@ export interface CredentialInput {
   field: string | null;
   graduation_year: number | null;
   proof_url: string | null;
-  proofPath: string | null;
+  proofPath: string;
   proof_filename: string | null;
 }
 
+const NEW_KINDS = ['CERTIFICATE', 'DEGREE', 'TEACHING', 'OTHER'];
+
+/**
+ * A new credential is a type, a title and an image. The old structured fields (subject, grade,
+ * school and so on) are no longer collected; they stay null.
+ */
 export function validateCredential(body: any): Result<CredentialInput> {
-  const thisYear = new Date().getFullYear();
   const kind = body?.kind;
-  if (kind !== 'CSEC' && kind !== 'CAPE' && kind !== 'DEGREE') {
-    return { ok: false, error: 'Choose CSEC, CAPE or Degree' };
-  }
-
-  const link = cleanLink(body?.proofUrl);
-  if (!link.ok) return link;
+  if (!NEW_KINDS.includes(kind)) return { ok: false, error: 'Choose what kind of qualification this is' };
+  const title = str(body?.title, 150);
+  if (!title) return { ok: false, error: 'Enter a title for the qualification (150 characters max)' };
   const proofPath = typeof body?.proofPath === 'string' && body.proofPath ? body.proofPath : null;
-  const filename = sanitizeFilename(body?.proofFilename);
-
-  const base = {
-    kind: kind as CredentialKind,
-    subject: null as string | null,
-    grade: null as string | null,
-    exam_year: null as number | null,
-    school: null as string | null,
-    degree: null as string | null,
-    field: null as string | null,
-    graduation_year: null as number | null,
-    proof_url: link.value,
-    proofPath,
-    proof_filename: proofPath ? filename : null,
+  if (!proofPath) return { ok: false, error: 'Upload a clear photo of the certificate' };
+  return {
+    ok: true,
+    value: {
+      kind: kind as CredentialKind,
+      title,
+      subject: null,
+      grade: null,
+      exam_year: null,
+      school: null,
+      degree: null,
+      field: null,
+      graduation_year: null,
+      proof_url: null,
+      proofPath,
+      proof_filename: sanitizeFilename(body?.proofFilename),
+    },
   };
-
-  if (kind === 'DEGREE') {
-    const school = str(body?.school, 150);
-    const degree = str(body?.degree, 150);
-    const field = optionalStr(body?.field, 150);
-    const gy = year(body?.graduationYear, 1950, thisYear);
-    if (!school) return { ok: false, error: 'Enter the school or university' };
-    if (!degree) return { ok: false, error: 'Enter the degree' };
-    if (!field.ok) return { ok: false, error: 'Field of study is too long' };
-    if (gy === null) return { ok: false, error: `Enter a graduation year between 1950 and ${thisYear}` };
-    if (!proofPath) return { ok: false, error: 'Upload a proof file for your degree' };
-    return {
-      ok: true,
-      value: { ...base, school, degree, field: field.value, graduation_year: gy, proof_url: null },
-    };
-  }
-
-  const subject = str(body?.subject, 100);
-  const grade = str(body?.grade, 20);
-  const ey = year(body?.examYear, 1950, thisYear);
-  if (!subject) return { ok: false, error: 'Enter the subject' };
-  if (!grade) return { ok: false, error: 'Enter the grade' };
-  if (ey === null) return { ok: false, error: `Enter an exam year between 1950 and ${thisYear}` };
-  if (!link.value && !proofPath) {
-    return { ok: false, error: 'Add a proof link or upload a proof file' };
-  }
-  return { ok: true, value: { ...base, subject, grade, exam_year: ey } };
 }
 
 export interface ExtraInput {

@@ -14,14 +14,16 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 const UUIDISH = /^[0-9a-zA-Z-]{1,64}$/;
 
-function describe(c: { kind: string; subject: string | null; grade: string | null; examYear: number | null; school: string | null; degree: string | null; field: string | null; graduationYear: number | null }) {
+function describe(c: { kind: string; title?: string | null; subject: string | null; grade: string | null; examYear: number | null; school: string | null; degree: string | null; field: string | null; graduationYear: number | null }) {
+  if (c.title) return c.title;
   if (c.kind === 'DEGREE') {
     return `${c.degree ?? ''}${c.field ? `, ${c.field}` : ''}`;
   }
   return `${c.kind} ${c.subject ?? ''}`;
 }
 
-function detail(c: { kind: string; grade: string | null; examYear: number | null; school: string | null; graduationYear: number | null }) {
+function detail(c: { kind: string; title?: string | null; grade: string | null; examYear: number | null; school: string | null; graduationYear: number | null }) {
+  if (c.title) return '';
   return c.kind === 'DEGREE'
     ? [c.school, c.graduationYear].filter(Boolean).join(' · ')
     : [c.grade ? `Grade ${c.grade}` : null, c.examYear].filter(Boolean).join(' · ');

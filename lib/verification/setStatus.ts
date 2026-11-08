@@ -224,7 +224,7 @@ export async function setV2Status(opts: {
 // identity (tutor_verification_v2.identity_status)
 // ---------------------------------------------------------------
 // Speaks the NEUTRAL outcomes only (lib/identity/types.ts). Old rows that still
-// hold Stripe's names are normalised on the way in, so they keep working.
+// hold another provider's names are normalised on the way in, so they keep working.
 export async function setIdentityStatus(opts: {
   tutorId: string;
   to: string;
@@ -250,7 +250,7 @@ export async function setIdentityStatus(opts: {
   const { data: cur, error } = await db
     .from('tutor_verification_v2')
     .select(
-      'identity_status, identity_error_code, identity_provider, identity_provider_session_ref, stripe_identity_session_id, identity_attempts, identity_country, identity_started_at'
+      'identity_status, identity_error_code, identity_provider, identity_provider_session_ref, identity_attempts, identity_country, identity_started_at'
     )
     .eq('tutor_id', opts.tutorId)
     .maybeSingle();
@@ -258,9 +258,9 @@ export async function setIdentityStatus(opts: {
   if (!cur) return fail('not_found', 'No verification in progress');
 
   // Rows from before provider-agnostic identity have no provider columns: their
-  // session is the old Stripe column.
-  const currentRef: string | null = cur.identity_provider_session_ref ?? cur.stripe_identity_session_id ?? null;
-  const currentProvider: string | null = cur.identity_provider ?? (cur.stripe_identity_session_id ? 'stripe' : null);
+  // session is the one recorded for this teacher.
+  const currentRef: string | null = cur.identity_provider_session_ref ?? null;
+  const currentProvider: string | null = cur.identity_provider ?? null;
 
   // An event for a session (or provider) we already replaced must not touch the current one.
   if (opts.sessionRef && currentRef !== opts.sessionRef) {

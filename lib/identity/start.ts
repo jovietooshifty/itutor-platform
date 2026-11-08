@@ -19,7 +19,6 @@ export interface IdentityRowLike {
   identity_attempts: number;
   identity_provider: string | null;
   identity_provider_session_ref: string | null;
-  stripe_identity_session_id: string | null;
   identity_session_refs: { provider: ProviderName; ref: string }[] | null;
   identity_session_history: string[] | null;
   identity_providers_tried: string[] | null;
@@ -61,13 +60,8 @@ export async function startIdentityCheck(opts: {
   if (!country) return fail(400, 'country_required', 'Choose the country your document is from');
 
   const status = (row.identity_status ?? null) as Parameters<typeof decideNextStep>[0]['status'];
-  const current: ProviderName | null =
-    row.identity_provider && isProviderName(row.identity_provider)
-      ? row.identity_provider
-      : row.stripe_identity_session_id
-        ? 'stripe'
-        : null;
-  const currentRef = row.identity_provider_session_ref ?? row.stripe_identity_session_id;
+  const current: ProviderName | null = isProviderName(row.identity_provider) ? row.identity_provider : null;
+  const currentRef = row.identity_provider_session_ref;
   const tried = (row.identity_providers_tried ?? []).filter(isProviderName);
 
   const step = decideNextStep({
@@ -82,11 +76,11 @@ export async function startIdentityCheck(opts: {
   // No identity provider is configured at all. Say so plainly to the teacher, and leave a
   // log line (names only) and the admin banner (lib/identity/configStatus.ts) for the admin.
   if (step.action === 'none' && step.reason === 'no_route' && routeForCountry(country).length === 0) {
-    console.error('[identity/start] no identity provider is configured; see the setup banner on /admin/verification-v2');
+    console.error('[identity/start] Didit is not fully configured; /admin/verification-v2 names the missing variable');
     return fail(
       503,
       'not_configured',
-      'Identity checks are temporarily unavailable. We have been told and are fixing it. Please try again later, or contact support.',
+      'Verification setup is not finished yet.',
       { support: true }
     );
   }
@@ -149,12 +143,7 @@ async function startFresh(
   _action: string | null
 ): Promise<StartResult> {
   const { db, tutorId, row } = opts;
-  const current: ProviderName | null =
-    row.identity_provider && isProviderName(row.identity_provider)
-      ? row.identity_provider
-      : row.stripe_identity_session_id
-        ? 'stripe'
-        : null;
+  const current: ProviderName | null = isProviderName(row.identity_provider) ? row.identity_provider : null;
 
   // After a failure the next move may be a different provider; re-decide with the
   // real state so the attempt count and the route are right.
@@ -193,14 +182,6 @@ async function startFresh(
   if (!refs.some((r) => r.provider === target && r.ref === created.sessionRef)) {
     refs.push({ provider: target, ref: created.sessionRef });
   }
-  const legacy =
-    target === 'stripe'
-      ? {
-          stripe_identity_session_id: created.sessionRef,
-          identity_session_history: Array.from(new Set([...(row.identity_session_history ?? []), created.sessionRef])),
-        }
-      : {};
-
   const started = await setIdentityStatus({
     tutorId,
     to: 'pending',
@@ -216,15 +197,14 @@ async function startFresh(
       identity_providers_tried: Array.from(new Set([...tried, target])),
       identity_country: country,
       identity_started_at: new Date().toISOString(),
-      ...legacy,
     },
     db,
   });
 
   if (!started.ok) {
     if (started.code === 'conflict') {
-      // A concurrent identical request saved first. Same session if the provider
-      // is idempotent (Stripe); otherwise ours is an orphan and is removed.
+      // A concurrent identical request saved first. Didit returns the same unfinished session for the
+      // same teacher, so it is usually ours; otherwise ours is an orphan and is removed.
       const { data: fresh } = await db
         .from('tutor_verification_v2')
         .select('identity_provider_session_ref')

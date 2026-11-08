@@ -6,7 +6,7 @@
 // nothing is said about verification. It never reads or returns the ID check, the selfie,
 // provider data, a rejection reason or an admin note: it does not even select them.
 
-import { PROOF_BUCKET } from './constants';
+import { PROOF_BUCKET, type CredentialKind } from './constants';
 import { loadPublicDetail } from './publicView';
 import type { Db } from '@/lib/verification/setStatus';
 
@@ -14,7 +14,8 @@ import type { Db } from '@/lib/verification/setStatus';
 export const PROOF_LINK_SECONDS = 600;
 
 export interface PublicCredentialWithProof {
-  kind: 'CSEC' | 'CAPE' | 'DEGREE';
+  kind: CredentialKind;
+  title: string | null;
   subject: string | null;
   grade: string | null;
   examYear: number | null;
@@ -49,7 +50,7 @@ export async function loadVerificationDetailsPage(db: Db, tutorId: string): Prom
   const [creds, profile] = await Promise.all([
     db
       .from('tutor_credentials_v2')
-      .select('kind, subject, grade, exam_year, school, degree, field, graduation_year, proof_path, proof_filename, proof_deleted_at')
+      .select('kind, title, subject, grade, exam_year, school, degree, field, graduation_year, proof_path, proof_filename, proof_deleted_at')
       .eq('tutor_id', tutorId)
       .eq('pending_approval', false)
       .order('created_at', { ascending: true }),
@@ -66,6 +67,7 @@ export async function loadVerificationDetailsPage(db: Db, tutorId: string): Prom
       }
       return {
         kind: c.kind,
+        title: c.title ?? null,
         subject: c.subject,
         grade: c.grade,
         examYear: c.exam_year,
@@ -80,5 +82,5 @@ export async function loadVerificationDetailsPage(db: Db, tutorId: string): Prom
   );
 
   const p = profile.data as { full_name?: string | null; display_name?: string | null } | null;
-  return { tutorId, name: p?.display_name || p?.full_name || null, verifiedAt: base.verifiedAt, credentials };
+  return { tutorId, name: p?.full_name || p?.display_name || null, verifiedAt: base.verifiedAt, credentials };
 }

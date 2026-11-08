@@ -35,7 +35,7 @@ export function mayDecideV2(
 
 export interface Under18Policy {
   /**
-   * TODO(policy, undecided): what happens to a tutor under 18. Stripe Identity
+   * TODO(policy, undecided): what happens to a tutor under 18. Didit
    * can return `under_supported_age`, which today sends the teacher to the
    * manual-verification path ("contact us"). Nothing else is enforced.
    * 'manual' = current behaviour. Other modes are NOT implemented yet.

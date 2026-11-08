@@ -52,6 +52,8 @@ describe('the identity step when no provider is configured', () => {
 
   it('is available when a provider is configured, and then identity gates the steps', () => {
     vi.stubEnv('DIDIT_API_KEY', 'k');
+    vi.stubEnv('DIDIT_WORKFLOW_ID', 'w');
+    vi.stubEnv('DIDIT_WEBHOOK_SECRET', 's');
     expect(identityAvailable(consented)).toBe(true);
     const s = buildState(consented, [{ id: 'c' } as any], [], null);
     expect(s.identity.available).toBe(true);
@@ -61,8 +63,6 @@ describe('the identity step when no provider is configured', () => {
 
   it('is not available with no key anywhere, and then the other steps are open', () => {
     vi.stubEnv('DIDIT_API_KEY', '');
-    vi.stubEnv('STRIPE_SECRET_KEY', '');
-    vi.stubEnv('VERIFF_API_KEY', '');
     expect(identityAvailable(consented)).toBe(false);
     const none = buildState(consented, [], [], null);
     expect(none.identity.available).toBe(false);
@@ -84,6 +84,7 @@ describe('the dashboard card', () => {
   const base = (over: any = {}) =>
     ({
       status: 'NOT_STARTED', consentAt: null, submittedAt: null, decisionReason: null, reference: null, editable: true, step: 1, credentials: [], extras: [],
+      steps: { identity: 'not_started', credentials: 'not_started', details: 'not_started' },
       identity: { status: null, reason: null, country: null, attempts: 0, maxAttempts: 3, canRetry: false, furtherRoute: false, countries: [], available: true },
       ...over,
     }) as any;
@@ -92,7 +93,7 @@ describe('the dashboard card', () => {
     const lines = [
       describeCard(base()),
       describeCard(base({ status: 'IN_PROGRESS' })),
-      describeCard(base({ status: 'IN_PROGRESS', consentAt: 'x' })),
+      describeCard(base({ status: 'IN_PROGRESS', consentAt: 'x', steps: { identity: 'done', credentials: 'not_started', details: 'not_started' } })),
       describeCard(base({ status: 'IN_REVIEW', submittedAt: '2026-10-01T00:00:00Z' })),
       describeCard(base({ status: 'VERIFIED' })),
       describeCard(base({ status: 'REJECTED' })),
@@ -101,9 +102,9 @@ describe('the dashboard card', () => {
     ];
     for (const l of lines) expect(l.line).not.toMatch(/\b0\b/);
     expect(lines[1].line).toBe('Started, not finished yet.');
-    expect(lines[2].line).toBe('In progress: 1 of 3 steps done.');
-    expect(lines[4].state).toBe('complete');
-    expect(lines[0].state).toBe('incomplete');
+    expect(lines[2].line).toBe('In progress: 1 of 2 required steps done.');
+    expect(lines[4].state).toBe('done');
+    expect(lines[0].state).toBe('not_started');
   });
 
   it('the expected-by date is 14 days after submission, as DD Mon YYYY, never a countdown', () => {

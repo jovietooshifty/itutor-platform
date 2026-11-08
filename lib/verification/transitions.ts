@@ -6,16 +6,16 @@
 //   profile   profiles.tutor_verification_status        (what the badge reads)
 //   request   tutor_verification_requests.status        (old flow, one per upload)
 //   v2        tutor_verification_v2.status              (new flow, one per teacher)
-//   identity  tutor_verification_v2.identity_status     (Stripe Identity result)
+//   identity  tutor_verification_v2.identity_status     (Didit result)
 //
 // RULES THE MAP ENCODES
 //   - VERIFIED is only ever left through REVOKED, and only by the actors in
 //     config/verificationPolicy.ts (admin). Nobody moves VERIFIED to REJECTED.
-//   - REVOKED has no way out. The old upload flow, the old reviewer flow and the
-//     new flow all hit this wall, so a revoked teacher cannot be moved back to
-//     "in review" or "not submitted" and resubmit.
+//   - REVOKED has one way out: an admin RE-APPROVES (REVOKED -> VERIFIED). Nothing else moves a
+//     revoked teacher, so the old upload flow, the old reviewer flow and a resubmission all hit
+//     the wall: a revoked teacher cannot be moved back to "in review" or "not submitted".
 //   - Only a tutor starts or restarts a submission (-> PENDING / IN_REVIEW).
-//   - Only the system (OCR, Stripe) moves a record through processing.
+//   - Only the system (OCR, Didit) moves a record through processing.
 //   - Only a reviewer or admin decides.
 
 import {
@@ -55,7 +55,7 @@ const MAPS: Record<TransitionEntity, Edges> = {
     // decision on an application) and REVOKED (verification taken away). The
     // teacher resubmits; staff then approve or reject as normal.
     REVERIFICATION_REQUIRED: { PENDING: ['tutor'], PROCESSING: ['system'], VERIFIED: STAFF, REJECTED: STAFF },
-    REVOKED: {},
+    REVOKED: { VERIFIED: ['admin'] },
   },
   request: {
     // Admin may decide any open request (the SUBMITTED uploads of the second
@@ -80,9 +80,10 @@ const MAPS: Record<TransitionEntity, Edges> = {
     VERIFIED: { REVOKED: REVOKE, REVERIFICATION_REQUIRED: ['admin'] },
     REJECTED: { IN_REVIEW: ['tutor'], REVERIFICATION_REQUIRED: ['admin'] },
     // TODO(policy, undecided): whether a teacher sent back here must redo the
-    // Stripe ID check. Today a passed check stays passed (it is never downgraded).
+    // Didit ID check. Today a passed check stays passed (it is never downgraded).
     REVERIFICATION_REQUIRED: { IN_REVIEW: ['tutor'] },
-    REVOKED: {},
+    // Re-approve: an admin restores a revoked teacher. All their data was kept.
+    REVOKED: { VERIFIED: ['admin'] },
   },
   // The NEUTRAL identity outcomes (lib/identity/types.ts). Provider-specific
   // names never reach this map: lib/identity/mapping.ts converts them first.
@@ -156,7 +157,7 @@ export function checkTransition(
 
   // A revoked teacher cannot be moved by anything. Said clearly, because this
   // is the wall the old upload and reviewer flows run into.
-  if (f === 'REVOKED') {
+  if (f === 'REVOKED' && !edges[f]?.[to]) {
     return {
       ok: false,
       code: 'locked_revoked',

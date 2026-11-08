@@ -5,8 +5,7 @@
 //   - applies only NEUTRAL outcomes, through setIdentityStatus
 //   - off unless VERIFICATION_V2_ENABLED=true (acknowledged, no database access)
 //
-// Routes: app/api/webhooks/stripe-identity (the original path, kept so the Stripe
-// endpoint does not move) and app/api/webhooks/identity/[provider].
+// Route: app/api/webhooks/identity/didit (the only provider).
 
 import { NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/server';
@@ -64,10 +63,6 @@ async function tutorForSession(db: Db, provider: ProviderName, ref: string): Pro
     .eq('identity_provider_session_ref', ref)
     .maybeSingle();
   if (data?.tutor_id) return data.tutor_id;
-  if (provider === 'stripe') {
-    const legacy = await db.from('tutor_verification_v2').select('tutor_id').eq('stripe_identity_session_id', ref).maybeSingle();
-    return legacy.data?.tutor_id ?? null;
-  }
   return null;
 }
 

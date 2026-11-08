@@ -7,41 +7,34 @@
 // does not already use.
 
 import type { ReactNode } from 'react';
-import { Check, Circle } from 'lucide-react';
+import { AlertCircle, Check, Circle } from 'lucide-react';
+import type { StepStatus } from '@/lib/verificationV2/constants';
 import { cn } from '@/lib/utils';
 
 export const SUPPORT_EMAIL = 'hello@myitutor.com';
 
-export type StepState = 'complete' | 'incomplete' | 'optional';
+export type StepState = StepStatus | 'optional';
 
-/** Titles and one-line descriptions, shared by the open step and the collapsed ones. */
-export const STEP_META = {
-  1: { title: 'Consent', subtitle: 'Read what we collect and how it is used.' },
-  2: { title: 'Identity check', subtitle: 'A quick check of your government ID and a selfie.' },
-  3: { title: 'Qualifications', subtitle: 'Add the CSEC, CAPE or degree results you teach from, with proof.' },
-  4: { title: 'Extras', subtitle: 'Optional: up to three more things students may want to know.' },
+/** The checklist's steps, in the order they are shown. They can be done in ANY order. */
+export const CHECKLIST_META = {
+  identity: { title: 'ID check', subtitle: 'A quick check of your government ID and a selfie.' },
+  credentials: { title: 'Credentials', subtitle: 'Add each qualification you teach from, with a photo of the certificate.' },
+  details: { title: 'Other details (optional)', subtitle: 'Up to three more things students may want to know.' },
 } as const;
 
-/** The status pill from the checklist: COMPLETE / INCOMPLETE, or OPTIONAL. */
+const PILL: Record<StepState, { label: string; cls: string }> = {
+  not_started: { label: 'Not started', cls: 'bg-muted text-muted-foreground' },
+  in_progress: { label: 'In progress', cls: 'bg-amber-100 text-amber-800' },
+  done: { label: 'Done', cls: 'bg-brand/15 text-brand-deep' },
+  // Red only for what needs the teacher to act.
+  needs_changes: { label: 'Needs changes', cls: 'bg-red-50 text-red-700' },
+  optional: { label: 'Optional', cls: 'bg-sky/20 text-sky-700' },
+};
+
+/** The status pill from the checklist, with the four step states. */
 export function StatePill({ state }: { state: StepState }) {
-  if (state === 'optional') {
-    return (
-      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full shrink-0 bg-sky/20 text-sky-700">
-        Optional
-      </span>
-    );
-  }
-  const done = state === 'complete';
-  return (
-    <span
-      className={cn(
-        'text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full shrink-0',
-        done ? 'bg-brand/15 text-brand-deep' : 'bg-muted text-muted-foreground'
-      )}
-    >
-      {done ? 'Complete' : 'Incomplete'}
-    </span>
-  );
+  const p = PILL[state];
+  return <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full shrink-0', p.cls)}>{p.label}</span>;
 }
 
 /**
@@ -70,16 +63,17 @@ export function Card({
     return <div className={cn('rounded-2xl border border-border bg-card p-5 text-ink', className)}>{children}</div>;
   }
 
-  const done = state === 'complete';
+  const done = state === 'done';
+  const needs = state === 'needs_changes';
   const head = (
     <>
       <span
         className={cn(
           'size-7 rounded-full grid place-items-center shrink-0',
-          done ? 'bg-brand text-white' : 'bg-muted text-muted-foreground'
+          done ? 'bg-brand text-white' : needs ? 'bg-red-50 text-red-700' : 'bg-muted text-muted-foreground'
         )}
       >
-        {done ? <Check className="size-4" aria-hidden /> : <Circle className="size-4" aria-hidden />}
+        {done ? <Check className="size-4" aria-hidden /> : needs ? <AlertCircle className="size-4" aria-hidden /> : <Circle className="size-4" aria-hidden />}
       </span>
       <span className="flex-1 text-left">
         <span className="block font-semibold text-ink">{title}</span>

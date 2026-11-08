@@ -3,7 +3,7 @@
 //   1. v2 applications REJECTED longer ago than rejectedDays   -> delete their v2 proof files
 //   2. v2 teachers REVOKED longer ago than revokedDays         -> delete ALL their verification files
 //   3. old-flow requests REJECTED longer ago than rejectedDays -> delete that request's file and OCR text
-//   4. any decided v2 record whose Stripe session is not yet redacted -> redact it (retry)
+//   4. any decided v2 record whose identity session is not yet redacted -> redact it (retry)
 //
 // Scheduled daily by vercel.json (/api/cron/verification-cleanup?apply=1), which does
 // nothing while VERIFICATION_V2_ENABLED is off. Also exposed through an admin-only
@@ -56,6 +56,8 @@ export async function runVerificationCleanup(opts: {
     ['REJECTED', policy.rejectedDays, 'v2RejectedFiles', 'v2', 'retention'],
     ['REVOKED', policy.revokedDays, 'v2RevokedFiles', 'all', 'retention'],
   ] as const) {
+    // Infinity = keep for ever (revoked teachers' data is kept).
+    if (!Number.isFinite(days)) continue;
     const { data, error } = await db
       .from('tutor_verification_v2')
       .select('tutor_id')
@@ -99,13 +101,13 @@ export async function runVerificationCleanup(opts: {
   }
 
   // 4: redaction retries, for any decided record.
-  if (policy.redactStripeSessionAfterDecision) {
+  if (policy.redactIdentitySessionAfterDecision) {
     const { data, error } = await db
       .from('tutor_verification_v2')
       .select('tutor_id')
       .in('status', ['VERIFIED', 'REJECTED', 'REVOKED'])
       .is('identity_redacted_at', null)
-      .not('stripe_identity_session_id', 'is', null)
+      .not('identity_provider_session_ref', 'is', null)
       .limit(limit);
     if (error) report.errors.push(`redactions: ${error.message}`);
     else {

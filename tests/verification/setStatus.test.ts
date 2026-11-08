@@ -117,8 +117,7 @@ describe('setV2Status and setIdentityStatus', () => {
     return makeFakeDb({
       tutor_verification_v2: [{
         tutor_id: TUTOR, status, identity_status: identity, identity_error_code: null,
-        stripe_identity_session_id: 'vs_current', identity_provider: 'stripe',
-        identity_provider_session_ref: 'vs_current', identity_attempts: 1,
+        identity_provider_session_ref: 'vs_current', identity_provider: 'didit', identity_attempts: 1,
       }],
     });
   }
@@ -160,12 +159,12 @@ describe('setV2Status and setIdentityStatus', () => {
   it('ignores a result from a different provider than the current session', async () => {
     const db = v2('IN_PROGRESS', 'pending');
     const r = await setIdentityStatus({
-      tutorId: TUTOR, to: 'verified', actor: 'system', sessionRef: 'vs_current', provider: 'didit', db: db as any,
+      tutorId: TUTOR, to: 'verified', actor: 'system', sessionRef: 'vs_current', provider: 'another-provider' as any, db: db as any,
     });
     expect(r).toMatchObject({ ok: false, code: 'stale_session' });
   });
 
-  it('reads an OLD row that still holds a Stripe status name as its neutral equivalent', async () => {
+  it('reads an OLD row that still holds a former provider status name as its neutral equivalent', async () => {
     const db = v2('IN_PROGRESS', 'requires_input');
     db.tables.tutor_verification_v2[0].identity_error_code = 'document_expired';
     // requires_input == retryable_failure, so verified is a legal next step and the write matches the stored value

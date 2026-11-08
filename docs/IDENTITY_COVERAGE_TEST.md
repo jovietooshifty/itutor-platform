@@ -1,3 +1,5 @@
+> Note: Didit is now the only identity provider. Any Stripe Identity or Veriff section below is out of date. Current setup: docs/staging-handoff.md.
+
 # Identity coverage test: which provider reads which Caribbean documents
 
 **Question:** for each provider, can it verify genuine Trinidad and Tobago, Guyana and Barbados passports, national ID cards and driver's permits? The answer decides `config/identityRouting.ts` (default provider, per-country routes, the fallback order).

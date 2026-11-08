@@ -9,7 +9,6 @@ import { isOwnProofPath, validateCredential } from '@/lib/verificationV2/validat
 import {
   blocked,
   guardV2,
-  identityStepDone,
   isVerifiedTeacher,
   isEditable,
   loadCredentials,
@@ -39,7 +38,6 @@ export async function POST(request: NextRequest) {
     // A verified teacher may add credentials: they start pending approval and the badge stays.
     const verified = isVerifiedTeacher(row);
     if (!isEditable(row) && !verified) return blocked('Your submission is locked while it is reviewed', 409, { code: 'locked' });
-    if (!identityStepDone(row)) return blocked('Complete the identity check first', 409, { code: 'identity_required' });
 
     const existing = await loadCredentials(db, tutorId);
     if (existing.length >= MAX_CREDENTIALS) {
@@ -76,6 +74,7 @@ export async function POST(request: NextRequest) {
       .insert({
         tutor_id: tutorId,
         kind: input.kind,
+        title: input.title,
         subject: input.subject,
         grade: input.grade,
         exam_year: input.exam_year,

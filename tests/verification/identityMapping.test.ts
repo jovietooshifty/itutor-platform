@@ -1,62 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   mapDiditDecision,
-  mapStripeSession,
   normalizeIdentityReason,
   normalizeIdentityStatus,
   outcomeToStored,
 } from '@/lib/identity/mapping';
 import { describeNotSupported, describeRetryReason } from '@/lib/identity/messages';
 import type { NotSupportedReason, RetryReason } from '@/lib/identity/types';
-
-describe('Stripe -> neutral outcomes', () => {
-  const stripe = (status: string, code?: string | null) => mapStripeSession({ status, last_error: code === undefined ? null : { code } });
-
-  it('maps the session statuses', () => {
-    expect(stripe('verified').outcome).toEqual({ kind: 'verified' });
-    expect(stripe('processing').outcome).toEqual({ kind: 'processing' });
-    expect(stripe('canceled').outcome).toEqual({ kind: 'canceled' });
-  });
-
-  it('requires_input with no error means the teacher has not finished: pending, not a failure', () => {
-    expect(stripe('requires_input').outcome).toEqual({ kind: 'pending' });
-    expect(stripe('requires_input', null).outcome).toEqual({ kind: 'pending' });
-  });
-
-  it('consent_declined stays its own outcome', () => {
-    expect(stripe('requires_input', 'consent_declined')).toEqual({
-      outcome: { kind: 'consent_declined' }, providerCode: 'consent_declined',
-    });
-  });
-
-  it('not-supported cases: minor, country, document type', () => {
-    expect(stripe('requires_input', 'under_supported_age').outcome).toEqual({ kind: 'not_supported', reason: 'minor' });
-    expect(stripe('requires_input', 'country_not_supported').outcome).toEqual({ kind: 'not_supported', reason: 'country' });
-    expect(stripe('requires_input', 'document_type_not_supported').outcome).toEqual({ kind: 'not_supported', reason: 'document_type' });
-  });
-
-  it('retryable failures carry a NEUTRAL reason and keep the raw code separately', () => {
-    const table: Array<[string, RetryReason]> = [
-      ['document_expired', 'document_expired'],
-      ['selfie_face_mismatch', 'face_mismatch'],
-      ['selfie_manipulated', 'selfie_issue'],
-      ['selfie_unverified_other', 'selfie_issue'],
-      ['document_unverified_other', 'document_invalid'],
-      ['selfie_document_missing_photo', 'document_invalid'],
-      ['device_not_supported', 'device_unsupported'],
-      ['abandoned', 'abandoned'],
-    ];
-    for (const [raw, neutral] of table) {
-      expect(stripe('requires_input', raw)).toEqual({ outcome: { kind: 'retryable_failure', reason: neutral }, providerCode: raw });
-    }
-  });
-
-  it('an unknown code is retryable/unknown, never a confident guess, and the code is kept', () => {
-    expect(stripe('requires_input', 'some_new_code_2030')).toEqual({
-      outcome: { kind: 'retryable_failure', reason: 'unknown' }, providerCode: 'some_new_code_2030',
-    });
-  });
-});
 
 describe('Didit -> neutral outcomes', () => {
   const opts = { minimumAge: 18 };
@@ -138,15 +88,14 @@ describe('stored form', () => {
     expect(outcomeToStored({ kind: 'consent_declined' })).toEqual({ status: 'consent_declined', reason: null });
   });
 
-  it('reads old Stripe-named rows as neutral', () => {
+  it('reads old development rows that hold another provider\'s status names as neutral', () => {
     expect(normalizeIdentityStatus('requires_input')).toBe('retryable_failure');
     expect(normalizeIdentityStatus('under_supported_age')).toBe('not_supported');
     expect(normalizeIdentityStatus('verified')).toBe('verified');
     expect(normalizeIdentityStatus(null)).toBeNull();
     expect(normalizeIdentityStatus('garbage')).toBeNull();
     expect(normalizeIdentityReason('under_supported_age', null)).toBe('minor');
-    expect(normalizeIdentityReason('requires_input', 'selfie_face_mismatch')).toBe('face_mismatch');
-    expect(normalizeIdentityReason('requires_input', 'weird')).toBe('unknown');
+    expect(normalizeIdentityReason('requires_input', 'selfie_face_mismatch')).toBe('unknown');
     expect(normalizeIdentityReason('retryable_failure', 'document_expired')).toBe('document_expired');
   });
 });

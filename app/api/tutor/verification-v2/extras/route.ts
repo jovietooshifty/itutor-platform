@@ -9,7 +9,6 @@ import { validateExtra } from '@/lib/verificationV2/validation';
 import {
   blocked,
   guardV2,
-  identityStepDone,
   isVerifiedTeacher,
   isEditable,
   loadExtras,
@@ -39,10 +38,6 @@ export async function POST(request: NextRequest) {
   try {
     const row = await loadRow(db, tutorId);
     if (!isEditable(row) && !isVerifiedTeacher(row)) return blocked('Your submission is locked while it is reviewed', 409, { code: 'locked' });
-    if (!identityStepDone(row)) return blocked('Complete the identity check first', 409, { code: 'identity_required' });
-    if ((await loadCredentials(db, tutorId)).length === 0) {
-      return blocked('Add at least one credential first', 409, { code: 'credentials_required' });
-    }
 
     if ((await loadExtras(db, tutorId)).length >= MAX_EXTRAS) {
       return blocked(LIMIT_MESSAGE, 409, { code: 'extras_limit' });

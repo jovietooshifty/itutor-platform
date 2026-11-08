@@ -11,19 +11,16 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase/server', () => ({ getServiceClient: () => h.db }));
-vi.mock('@/lib/payments/stripeClient', () => ({
-  getStripeClient: () => ({
-    identity: {
-      verificationSessions: {
-        redact: async (id: string) => {
-          if (h.hang) return new Promise(() => undefined); // never settles
-          if (h.stripeThrowsAlways || h.failIds.has(id)) throw new Error('stripe says no');
-          h.redacted.push(id);
-          return { id };
-        },
-      },
+vi.mock('@/lib/identity/registry', async (orig) => ({
+  ...(await orig<typeof import('@/lib/identity/registry')>()),
+  getProvider: () => ({
+    redact: async (ref: string) => {
+      if (h.hang) return new Promise(() => undefined); // never settles
+      if (h.stripeThrowsAlways || h.failIds.has(ref)) return { ok: false, error: 'the provider says no' };
+      h.redacted.push(ref);
+      return { ok: true };
     },
-  }),
+  }) as any,
 }));
 
 import { redactIdentitySessions } from '@/lib/verificationV2/redaction';
@@ -44,7 +41,7 @@ function seed(over: Record<string, any[]> = {}, files = FILES()) {
     {
       profiles: [{ id: T }],
       tutor_verification_v2: [
-        { tutor_id: T, status: 'REJECTED', stripe_identity_session_id: 'vs_b', identity_session_history: ['vs_a', 'vs_b'],
+        { tutor_id: T, status: 'REJECTED', identity_provider_session_ref: 'vs_b', identity_session_refs: [{ provider: 'didit', ref: 'vs_a' }, { provider: 'didit', ref: 'vs_b' }],
           identity_redacted_at: null, files_deleted_at: null, decided_at: '2026-01-01T00:00:00.000Z' },
       ],
       tutor_credentials_v2: [
@@ -70,8 +67,8 @@ beforeEach(() => {
   h.hang = false;
   h.db = seed();
   retentionPolicy.rejectedDays = 30;
-  retentionPolicy.revokedDays = 30;
-  retentionPolicy.redactStripeSessionAfterDecision = true;
+  retentionPolicy.revokedDays = Infinity;
+  retentionPolicy.redactIdentitySessionAfterDecision = true;
 });
 
 describe('redactIdentitySessions', () => {
@@ -89,7 +86,7 @@ describe('redactIdentitySessions', () => {
     expect(h.db.tables.tutor_verification_v2[0].identity_redacted_at).toBeNull();
   });
 
-  it('never throws, even when Stripe is down', async () => {
+  it('never throws, even when the provider is down', async () => {
     h.stripeThrowsAlways = true;
     await expect(redactIdentitySessions({ tutorId: T, db: h.db })).resolves.toMatchObject({ ok: false });
   });
@@ -98,17 +95,17 @@ describe('redactIdentitySessions', () => {
     h.db.tables.tutor_verification_v2[0].identity_redacted_at = '2026-02-01';
     expect(await redactIdentitySessions({ tutorId: T, db: h.db })).toMatchObject({ ok: true, skipped: 'already_redacted' });
 
-    h.db = seed({ tutor_verification_v2: [{ tutor_id: T, stripe_identity_session_id: null, identity_session_history: [] }] });
+    h.db = seed({ tutor_verification_v2: [{ tutor_id: T, identity_provider_session_ref: null, identity_session_refs: [] }] });
     expect(await redactIdentitySessions({ tutorId: T, db: h.db })).toMatchObject({ ok: true, skipped: 'no_session' });
 
     h.db = seed();
-    retentionPolicy.redactStripeSessionAfterDecision = false;
+    retentionPolicy.redactIdentitySessionAfterDecision = false;
     expect(await redactIdentitySessions({ tutorId: T, db: h.db })).toMatchObject({ ok: true, skipped: 'disabled' });
     expect(h.redacted).toEqual([]);
   });
 
   it('force overrides the post-decision setting (account deletion)', async () => {
-    retentionPolicy.redactStripeSessionAfterDecision = false;
+    retentionPolicy.redactIdentitySessionAfterDecision = false;
     const r = await redactIdentitySessions({ tutorId: T, db: h.db, force: true });
     expect(r.ok).toBe(true);
     expect(h.redacted).toHaveLength(2);
@@ -212,12 +209,20 @@ describe('runVerificationCleanup (retention sweep)', () => {
     expect(r.v2RejectedFiles.due).toBe(0);
   });
 
-  it('revoked teachers lose ALL verification files after their period', async () => {
+  it('revoked teachers keep ALL their files (so an admin can re-approve); the sweep never deletes them', async () => {
     h.db.tables.tutor_verification_v2[0].status = 'REVOKED';
+    const keep = () => JSON.stringify([h.db.files['tutor-credential-proofs'], h.db.files['verification_uploads'], h.db.files['degree-documents']]);
+    const before = keep();
     const r = await runVerificationCleanup({ db: h.db, now: NOW, dryRun: false });
+    expect(r.v2RevokedFiles).toEqual({ due: 0, done: 0 });
+    expect(keep()).toBe(before);
+  });
+
+  it('a finite revoked period still deletes after it (the policy is a setting)', async () => {
+    h.db.tables.tutor_verification_v2[0].status = 'REVOKED';
+    const r = await runVerificationCleanup({ db: h.db, now: NOW, dryRun: false, policy: { ...retentionPolicy, revokedDays: 30 } });
     expect(r.v2RevokedFiles.done).toBe(1);
     expect(h.db.files['degree-documents']).toEqual([]);
-    expect(h.db.files['verification_uploads']).toEqual([]);
   });
 
   it('retries a redaction that failed earlier, and reports a failure', async () => {
@@ -229,7 +234,7 @@ describe('runVerificationCleanup (retention sweep)', () => {
 });
 
 describe('cleanupVerificationDataForAccountDeletion', () => {
-  it('redacts Stripe and deletes every verification file', async () => {
+  it('redacts the identity sessions and deletes every verification file', async () => {
     const r = await cleanupVerificationDataForAccountDeletion(T);
     expect(r.ok).toBe(true);
     expect(h.redacted).toHaveLength(2);
@@ -238,12 +243,12 @@ describe('cleanupVerificationDataForAccountDeletion', () => {
   });
 
   it('redacts even when the post-decision setting is off', async () => {
-    retentionPolicy.redactStripeSessionAfterDecision = false;
+    retentionPolicy.redactIdentitySessionAfterDecision = false;
     await cleanupVerificationDataForAccountDeletion(T);
     expect(h.redacted).toHaveLength(2);
   });
 
-  it('NEVER throws when Stripe and Storage both fail', async () => {
+  it('NEVER throws when the provider and Storage both fail', async () => {
     h.stripeThrowsAlways = true;
     h.db.failOn.storageList = true;
     h.db.failOn.storageRemove = true;

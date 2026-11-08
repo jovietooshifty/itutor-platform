@@ -77,9 +77,18 @@ describe('profile status transitions', () => {
 
   describe('REVOKED is a wall', () => {
     it('cannot go back to in-review or not-submitted, for any actor (old upload and review flows)', () => {
-      for (const to of ['PENDING', 'PROCESSING', 'UNVERIFIED', 'VERIFIED', 'REJECTED']) {
+      for (const to of ['PENDING', 'PROCESSING', 'UNVERIFIED', 'REJECTED']) {
         for (const actor of ACTORS) {
           expect(code(checkTransition('profile', 'REVOKED', to, actor))).toBe('locked_revoked');
+        }
+      }
+    });
+
+    it('the one way out is an admin re-approving (REVOKED -> VERIFIED)', () => {
+      for (const entity of ['profile', 'v2'] as const) {
+        expect(checkTransition(entity, 'REVOKED', 'VERIFIED', 'admin').ok).toBe(true);
+        for (const actor of ['reviewer', 'tutor', 'system'] as const) {
+          expect(code(checkTransition(entity, 'REVOKED', 'VERIFIED', actor))).toBe('actor_not_allowed');
         }
       }
     });
@@ -194,12 +203,13 @@ describe('identity status transitions (neutral outcomes)', () => {
 });
 
 describe('map-wide properties', () => {
-  it('no actor can move anything out of REVOKED', () => {
+  it('no actor can move anything out of REVOKED except an admin re-approving', () => {
     for (const entity of ['profile', 'v2'] as const) {
       for (const to of knownStatuses(entity)) {
         if (to === 'REVOKED') continue;
         for (const actor of ACTORS) {
-          expect(checkTransition(entity, 'REVOKED', to, actor).ok).toBe(false);
+          const expected = to === 'VERIFIED' && actor === 'admin';
+          expect(checkTransition(entity, 'REVOKED', to, actor).ok).toBe(expected);
         }
       }
     }

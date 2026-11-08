@@ -5,7 +5,7 @@
 // reverify, or revoked looks exactly like a teacher who never applied.
 //
 // Columns are listed explicitly. Never returned: proof files or paths, a proof
-// link, Stripe references, the identity result detail, attempts, reviewer
+// link, provider references, the identity result detail, attempts, reviewer
 // reasons, email. The three labels are separate facts:
 //   idChecked            the identity provider passed this teacher's ID check
 //   credentialsReviewed  a reviewer approved the credentials
@@ -13,6 +13,7 @@
 
 import { isMissingSchemaError } from './schemaReady';
 import type { Db } from '@/lib/verification/setStatus';
+import type { CredentialKind } from './constants';
 
 export interface PublicSummary {
   idChecked: boolean;
@@ -21,7 +22,9 @@ export interface PublicSummary {
 }
 
 export interface PublicCredential {
-  kind: 'CSEC' | 'CAPE' | 'DEGREE';
+  kind: CredentialKind;
+  /** What the teacher called it. Old rows have none. */
+  title: string | null;
   subject: string | null;
   grade: string | null;
   examYear: number | null;
@@ -96,7 +99,7 @@ export async function loadPublicDetail(db: Db, tutorId: string): Promise<PublicD
   const [creds, extras] = await Promise.all([
     db
       .from('tutor_credentials_v2')
-      .select('kind, subject, grade, exam_year, school, degree, field, graduation_year')
+      .select('kind, title, subject, grade, exam_year, school, degree, field, graduation_year')
       .eq('tutor_id', tutorId)
       .eq('pending_approval', false)
       .order('created_at', { ascending: true }),
@@ -117,6 +120,7 @@ export async function loadPublicDetail(db: Db, tutorId: string): Promise<PublicD
     verifiedAt: row.decided_at ?? null,
     credentials: (creds.data ?? []).map((c: any) => ({
       kind: c.kind,
+      title: c.title ?? null,
       subject: c.subject,
       grade: c.grade,
       examYear: c.exam_year,

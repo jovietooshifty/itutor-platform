@@ -7,9 +7,11 @@
 // status or error codes. Switching or adding a provider is a change inside
 // lib/identity/ plus config/identityRouting.ts, not a rewrite of the flow.
 
-export type ProviderName = 'stripe' | 'didit' | 'veriff';
+// Didit is the only identity provider. The type stays a union so the neutral layer does not
+// have to change if one is ever added again.
+export type ProviderName = 'didit';
 
-export const PROVIDER_NAMES: ProviderName[] = ['stripe', 'didit', 'veriff'];
+export const PROVIDER_NAMES: ProviderName[] = ['didit'];
 
 /** Why a failed check may be tried again. Neutral: no provider's own codes. */
 export type RetryReason =

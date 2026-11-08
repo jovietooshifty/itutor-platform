@@ -24,7 +24,23 @@ export type IdentityStatus =
   | 'consent_declined'
   | 'canceled';
 
-export type CredentialKind = 'CSEC' | 'CAPE' | 'DEGREE';
+/** CSEC and CAPE are the old structured kinds, still read from old rows; new credentials use the other four. */
+export type CredentialKind = 'CSEC' | 'CAPE' | 'DEGREE' | 'CERTIFICATE' | 'TEACHING' | 'OTHER';
+
+/** The four types a teacher picks from, each with the example shown as the title's placeholder. */
+export const CREDENTIAL_TYPES = [
+  { kind: 'CERTIFICATE', label: 'CSEC or CAPE certificate', placeholder: 'e.g. CSEC Chemistry, Grade I (2019)' },
+  { kind: 'DEGREE', label: 'College or university degree', placeholder: 'e.g. BSc Chemistry, UWI (2023)' },
+  { kind: 'TEACHING', label: 'Teaching qualification or licence', placeholder: 'e.g. Diploma in Education' },
+  { kind: 'OTHER', label: 'Other', placeholder: 'e.g. tutoring award or training certificate' },
+] as const satisfies ReadonlyArray<{ kind: CredentialKind; label: string; placeholder: string }>;
+
+/** The clues shown in small grey text under the fields. */
+export const CREDENTIAL_TITLE_CLUE = 'Name the qualification, the result if it has one, and the year.';
+export const CREDENTIAL_UPLOAD_CLUE = 'Upload a clear photo of the certificate. Make sure your name is visible.';
+
+/** How far one step of the checklist has got. Each step has its own state; none depends on another. */
+export type StepStatus = 'not_started' | 'in_progress' | 'done' | 'needs_changes';
 
 /** Bump when the consent wording changes; stored with the consent timestamp. */
 export const CONSENT_VERSION = '2026-10-v1';
@@ -50,6 +66,8 @@ export const PROOF_TYPES: Record<string, string> = {
 export interface CredentialDto {
   id: string;
   kind: CredentialKind;
+  /** What the teacher called it (new credentials). Old rows have none and are described from their fields. */
+  title: string | null;
   subject: string | null;
   grade: string | null;
   examYear: number | null;
@@ -100,6 +118,14 @@ export interface VerificationV2StateDto {
   editable: boolean;
   /** A verified teacher may add credentials (pending approval) and edit their extras. */
   canAddCredentials: boolean;
+  /** The checklist: each step's own state, in any order. */
+  steps: { identity: StepStatus; credentials: StepStatus; details: StepStatus };
+  /** A plain sentence for a step that needs changes (the admin's reason, or why the ID check failed). */
+  stepNotes: { identity: string | null; credentials: string | null };
+  /** Submit is possible: every required step is done. */
+  canSubmit: boolean;
+  /** Names of the required steps still to do, for the line under the Submit button. */
+  missing: string[];
   /** Furthest step the teacher may be on, computed from saved data. 1..4 */
   step: 1 | 2 | 3 | 4;
   credentials: CredentialDto[];

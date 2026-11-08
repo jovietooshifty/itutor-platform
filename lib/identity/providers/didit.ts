@@ -1,16 +1,10 @@
 // Didit behind the provider interface. Built from https://docs.didit.me
-// (Sessions API, Webhooks, Delete Session), read 2026-10. SANDBOX CREDENTIALS
-// ONLY until the coverage test says otherwise.
+// (Sessions API, Webhooks, Delete Session), read and re-checked 2026-10.
 //
-// Env (names only):
+// Env (names only), and NOTHING else is read:
 //   DIDIT_API_KEY              application API key, sent as the x-api-key header
-//   DIDIT_WORKFLOW_ID          the workflow (UUID) sessions are created from. Outside production
-//                              it falls back to the sandbox workflow (lib/identity/diditConfig.ts)
+//   DIDIT_WORKFLOW_ID          the workflow (UUID) sessions are created from. No default.
 //   DIDIT_WEBHOOK_SECRET       signing secret of the webhook destination
-//   DIDIT_BASE_URL             optional, default https://verification.didit.me
-//   DIDIT_EXPECT_ENVIRONMENT   optional 'sandbox' | 'live': webhooks whose
-//                              `environment` differs are ignored
-//   DIDIT_SANDBOX_SCENARIO     optional, passed as `sandbox_scenario` on create
 //
 // What is implemented from the docs, and what is deliberately NOT:
 //   createSession   POST /v3/session/            implemented
@@ -22,8 +16,8 @@
 //   verifyWebhook   X-Signature-V2 (recommended), then X-Signature (raw bytes), in
 //                   Didit's own order, both HMAC-SHA256 hex with the destination
 //                   secret, plus X-Timestamp within 300 s. The "-Previous" headers
-//                   Didit sends for 24 h after a secret rotation are accepted against
-//                   DIDIT_WEBHOOK_SECRET_PREVIOUS when that is set. The deprecated
+//                   Didit sends for 24 h after a secret rotation are not used: only
+//                   DIDIT_WEBHOOK_SECRET is read, so change it when rotating. The deprecated
 //                   X-Signature-Simple (it does not cover the decision) is NOT accepted.
 //
 //   V2 (checked against the docs again): parse the body, sort keys recursively in
@@ -73,7 +67,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 /** The decision is fetched inside a webhook, and Didit abandons a webhook after 5 s. */
 const DECISION_TIMEOUT_MS = 4_500;
 
-const baseUrl = () => (process.env.DIDIT_BASE_URL || 'https://verification.didit.me').replace(/\/+$/, '');
+const BASE_URL = 'https://verification.didit.me';
+const baseUrl = () => BASE_URL;
 
 async function diditFetch(path: string, init: { method: string; body?: unknown; timeoutMs?: number }): Promise<Response> {
   const controller = new AbortController();
@@ -234,7 +229,7 @@ export interface DiditConnectionTest extends DiditPing {
  * Nothing is verified: nobody opens the link. It returns pass or fail and a plain sentence,
  * never the key, the session token or the URL.
  *
- * In production, or when DIDIT_EXPECT_ENVIRONMENT is "live", it will NOT create a session
+ * In production it will NOT create a session
  * and falls back to the read-only check (diditPing).
  */
 export async function diditConnectionTest(): Promise<DiditConnectionTest> {
@@ -243,7 +238,7 @@ export async function diditConnectionTest(): Promise<DiditConnectionTest> {
     return { ...ping, message: note ? `${note} ${ping.message}` : ping.message, sessionCreated: false, hostedUrlReceived: false };
   };
   if (!process.env.DIDIT_API_KEY) return { ok: false, status: null, message: 'DIDIT_API_KEY is not set.', sessionCreated: false, hostedUrlReceived: false };
-  if (isProductionRuntime() || process.env.DIDIT_EXPECT_ENVIRONMENT === 'live') {
+  if (isProductionRuntime()) {
     return readOnly('Production or live mode: no test session is created, so only the key was checked.');
   }
 
@@ -287,8 +282,10 @@ export async function diditConnectionTest(): Promise<DiditConnectionTest> {
 export const diditProvider: IdentityProvider = {
   name: 'didit',
 
-  isConfigured: () => !!process.env.DIDIT_API_KEY && !!diditWorkflowId(),
-  webhookConfigured: () => !!process.env.DIDIT_WEBHOOK_SECRET,
+  // All three settings, or the check is "not available" (the teacher sees "Verification setup is not
+  // finished yet." and an admin sees which variable is missing).
+  isConfigured: () => !!process.env.DIDIT_API_KEY?.trim() && !!diditWorkflowId() && !!process.env.DIDIT_WEBHOOK_SECRET?.trim(),
+  webhookConfigured: () => !!process.env.DIDIT_WEBHOOK_SECRET?.trim(),
 
   async createSession(input: CreateSessionInput): Promise<CreatedSession> {
     const res = await diditFetch('/v3/session/', {
@@ -299,7 +296,6 @@ export const diditProvider: IdentityProvider = {
         vendor_data: input.tutorId,
         callback: input.returnUrl,
         metadata: { tutor_id: input.tutorId },
-        ...(process.env.DIDIT_SANDBOX_SCENARIO ? { sandbox_scenario: process.env.DIDIT_SANDBOX_SCENARIO } : {}),
       },
     });
     if (!res.ok) throw new Error(`Didit create session failed (${res.status})${await safeDetail(res)}`);
@@ -310,8 +306,9 @@ export const diditProvider: IdentityProvider = {
 
   async verifyWebhook(rawBody: string, headers: HeaderReader): Promise<ProviderWebhookEvent> {
     const secret = process.env.DIDIT_WEBHOOK_SECRET ?? '';
-    const previous = process.env.DIDIT_WEBHOOK_SECRET_PREVIOUS || null;
-    if (!verifyDiditWebhookSignature(rawBody, headers, { current: secret, previous })) {
+    // During a secret rotation Didit signs with the NEW secret as well as the old one, so the
+    // current secret is enough.
+    if (!verifyDiditWebhookSignature(rawBody, headers, { current: secret })) {
       throw new WebhookSignatureError();
     }
 
@@ -323,16 +320,14 @@ export const diditProvider: IdentityProvider = {
       return { eventId: 'unparseable', sessionRef: null, tutorId: null, ignore: true, outcome: null, livemode: null };
     }
 
-    const expected = process.env.DIDIT_EXPECT_ENVIRONMENT;
     const environment: string | undefined = payload.environment;
-    const wrongEnvironment = !!expected && !!environment && environment !== expected;
 
     const sessionRef: string | null = payload.session_id ?? null;
     return {
       eventId: payload.event_id ?? `${sessionRef}:${payload.status}:${payload.timestamp}`,
       sessionRef,
       tutorId: payload.vendor_data ?? payload.metadata?.tutor_id ?? null,
-      ignore: payload.webhook_type !== 'status.updated' || !sessionRef || wrongEnvironment,
+      ignore: payload.webhook_type !== 'status.updated' || !sessionRef,
       // Not authoritative: the handler re-fetches with getOutcome().
       outcome: null,
       livemode: environment ? environment === 'live' : null,

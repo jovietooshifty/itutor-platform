@@ -9,8 +9,9 @@ const h = vi.hoisted(() => ({
 
 vi.mock('@/lib/middleware/adminAuth', () => ({ requireAdmin: async () => h.auth }));
 vi.mock('@/lib/supabase/server', () => ({ getServiceClient: () => h.db }));
-vi.mock('@/lib/payments/stripeClient', () => ({
-  getStripeClient: () => ({ identity: { verificationSessions: { redact: async (id: string) => ({ id }) } } }),
+vi.mock('@/lib/identity/registry', async (orig) => ({
+  ...(await orig<typeof import('@/lib/identity/registry')>()),
+  getProvider: () => ({ redact: async () => ({ ok: true }) }) as any,
 }));
 
 import { GET as queueGET } from '@/app/api/admin/verification-v2/queue/route';

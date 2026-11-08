@@ -89,7 +89,7 @@ describe('loadPublicDetail', () => {
     const d = await loadPublicDetail(h.db, 'ok');
     expect(d).toMatchObject({ idChecked: true, credentialsReviewed: true, hasExtras: true, verifiedAt: '2026-02-01T00:00:00.000Z' });
     expect(d!.credentials).toEqual([
-      { kind: 'CSEC', subject: 'Maths', grade: 'I', examYear: 2020, school: null, degree: null, field: null, graduationYear: null },
+      { kind: 'CSEC', title: null, subject: 'Maths', grade: 'I', examYear: 2020, school: null, degree: null, field: null, graduationYear: null },
     ]);
     expect(d!.extras.map((e) => e.title)).toEqual(['E1', 'E2', 'E3']);
   });

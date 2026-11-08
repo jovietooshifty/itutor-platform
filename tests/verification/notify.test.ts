@@ -4,8 +4,9 @@ import { makeFakeDb } from '../helpers/fakeDb';
 const h = vi.hoisted(() => ({ db: null as any }));
 
 vi.mock('@/lib/supabase/server', () => ({ getServiceClient: () => h.db }));
-vi.mock('@/lib/payments/stripeClient', () => ({
-  getStripeClient: () => ({ identity: { verificationSessions: { redact: async (id: string) => ({ id }) } } }),
+vi.mock('@/lib/identity/registry', async (orig) => ({
+  ...(await orig<typeof import('@/lib/identity/registry')>()),
+  getProvider: () => ({ redact: async () => ({ ok: true }) }) as any,
 }));
 vi.mock('@/lib/verificationV2/server', async (orig) => ({
   ...(await orig<typeof import('@/lib/verificationV2/server')>()),
@@ -30,7 +31,7 @@ function seed(o: { profile?: string; v2?: string; extra?: Record<string, any>; c
     tutor_verification_v2: [
       {
         tutor_id: T, status: o.v2 ?? 'IN_REVIEW', identity_status: 'verified', consent_at: '2026-10-01T00:00:00Z',
-        stripe_identity_session_id: 'vs_2', identity_session_history: ['vs_2'], identity_redacted_at: null,
+        identity_provider_session_ref: 'vs_2', identity_session_refs: [{ provider: 'didit', ref: 'vs_2' }], identity_redacted_at: null,
         files_deleted_at: null, decided_at: null, submitted_at: null, ...(o.extra ?? {}),
       },
     ],
@@ -369,6 +370,10 @@ describe('the status page and the badge cache refresh by themselves', () => {
     reference: null,
     editable: false,
     canAddCredentials: false,
+    steps: { identity: 'done', credentials: 'done', details: 'not_started' },
+    stepNotes: { identity: null, credentials: null },
+    canSubmit: false,
+    missing: [],
     step: 4,
     credentials: [],
     extras: [],

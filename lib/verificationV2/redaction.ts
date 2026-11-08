@@ -4,7 +4,7 @@
 //
 // Provider-agnostic: every session ever created is recorded as {provider, ref}
 // (identity_session_refs), because a failed attempt still leaves the uploaded ID
-// at the provider. Rows from before that column fall back to the Stripe columns.
+// at the provider.
 // Nothing is logged from a provider's response; only our tutor id and a count.
 
 import { getServiceClient } from '@/lib/supabase/server';
@@ -19,12 +19,8 @@ export type RedactResult =
 
 type SessionRef = { provider: ProviderName; ref: string };
 
-/** Every session recorded for a row, new column first, legacy Stripe columns as a fallback. */
-export function sessionRefsOf(row: {
-  identity_session_refs?: unknown;
-  identity_session_history?: string[] | null;
-  stripe_identity_session_id?: string | null;
-}): SessionRef[] {
+/** Every session recorded for a row. */
+export function sessionRefsOf(row: { identity_session_refs?: unknown }): SessionRef[] {
   const out = new Map<string, SessionRef>();
   const add = (provider: unknown, ref: unknown) => {
     if (isProviderName(provider) && typeof ref === 'string' && ref) out.set(`${provider}:${ref}`, { provider, ref });
@@ -32,8 +28,6 @@ export function sessionRefsOf(row: {
   if (Array.isArray(row.identity_session_refs)) {
     for (const r of row.identity_session_refs as any[]) add(r?.provider, r?.ref);
   }
-  for (const ref of row.identity_session_history ?? []) add('stripe', ref);
-  add('stripe', row.stripe_identity_session_id);
   return Array.from(out.values());
 }
 
@@ -45,7 +39,7 @@ export async function redactIdentitySessions(opts: {
   /** Account deletion redacts regardless of the post-decision setting. */
   force?: boolean;
 }): Promise<RedactResult> {
-  if (!opts.force && !retentionPolicy.redactStripeSessionAfterDecision) {
+  if (!opts.force && !retentionPolicy.redactIdentitySessionAfterDecision) {
     return { ok: true, redacted: 0, skipped: 'disabled' };
   }
 
@@ -54,7 +48,7 @@ export async function redactIdentitySessions(opts: {
     const { data: row, error } = await db
       .from('tutor_verification_v2')
       .select(
-        'stripe_identity_session_id, identity_session_history, identity_session_refs, identity_redacted_at'
+        'identity_session_refs, identity_redacted_at'
       )
       .eq('tutor_id', opts.tutorId)
       .maybeSingle();

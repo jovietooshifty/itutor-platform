@@ -1,4 +1,4 @@
-// Applies the verification migrations (270-275) to an EMBEDDED Postgres (PGlite) with
+// Applies the verification migrations (270-276) to an EMBEDDED Postgres (PGlite) with
 // stubs of the Supabase pieces they lean on, then asserts the behaviour they promise:
 // RLS as teacher / student / admin / service role, the guard triggers, the 3-extras
 // limit, the append-only audit, the legacy-status mapping, and that every rollback
@@ -114,7 +114,20 @@ await db.exec(`
            ('${T2}', now(), 'vs_b', 'under_supported_age', 'under_supported_age', 1);
   RESET ROLE;
 `);
-for (const f of ['274_identity_providers.sql', '275_identity_outcomes.sql']) {
+// Teachers verified under the OLD system, before 276: one with no v2 record, one with only an unsent draft,
+// one still pending (must be left alone).
+const L1 = '55555555-5555-5555-5555-555555555555';
+const L2 = '66666666-6666-6666-6666-666666666666';
+const P3 = '77777777-7777-7777-7777-777777777777';
+await db.exec(`
+  INSERT INTO auth.users (id, email) VALUES ('${L1}','l1@x'),('${L2}','l2@x'),('${P3}','p3@x');
+  INSERT INTO public.profiles (id, role, email, tutor_verification_status, tutor_verified_at) VALUES
+    ('${L1}','tutor','l1@x','VERIFIED','2025-03-04T10:00:00Z'),
+    ('${L2}','tutor','l2@x','VERIFIED','2024-11-20T08:30:00Z'),
+    ('${P3}','tutor','p3@x','PENDING',NULL);
+  INSERT INTO public.tutor_verification_v2 (tutor_id) VALUES ('${L2}');
+`);
+for (const f of ['274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql']) {
   const e = await run(read(mig(f)), f);
   ok(`applies on a clean database: ${f}`, !e, e ?? '');
 }
@@ -301,7 +314,7 @@ await expectError(`DELETE FROM public.tutor_verification_v2_decisions`, /append-
 await expectError(`INSERT INTO public.tutor_verification_v2_decisions (tutor_id, actor_role, action) VALUES ('${T}','admin','BOGUS')`, /check/i, '272 the audit action is constrained');
 await asRole('authenticated', ADM, async () => {
   const seen = await q(`SELECT id FROM public.tutor_verification_v2_decisions`);
-  ok('272 an admin/reviewer can read the audit', seen.length === 1, JSON.stringify(seen));
+  ok('272 an admin/reviewer can read the audit', seen.length >= 1, JSON.stringify(seen));
 });
 await asRole('authenticated', STU, async () => {
   const seen = await q(`SELECT id FROM public.tutor_verification_v2_decisions`);
@@ -351,18 +364,60 @@ await db.exec(`DELETE FROM auth.users WHERE id='${T}'`).catch(() => {});
 const after = await q(`SELECT count(*)::int AS n, count(tutor_id)::int AS linked FROM public.identity_outcomes`);
 ok('275 deleting the account keeps the statistic and drops the link', after[0].n === 1 && after[0].linked === 0, JSON.stringify(after));
 
+// ---------- 276 ----------
+const legacy = await q(`SELECT tutor_id, status, source, decided_at FROM public.tutor_verification_v2 WHERE tutor_id IN ('${L1}','${L2}','${P3}') ORDER BY tutor_id`);
+ok('276 a teacher verified under the old system has a VERIFIED v2 record, source legacy, with the original date', legacy[0]?.tutor_id === L1 && legacy[0].status === 'VERIFIED' && legacy[0].source === 'legacy' && new Date(legacy[0].decided_at).toISOString() === '2025-03-04T10:00:00.000Z', JSON.stringify(legacy[0]));
+ok('276 an unsent draft of a verified teacher becomes VERIFIED legacy with their date', legacy[1]?.tutor_id === L2 && legacy[1].status === 'VERIFIED' && legacy[1].source === 'legacy' && new Date(legacy[1].decided_at).toISOString() === '2024-11-20T08:30:00.000Z', JSON.stringify(legacy[1]));
+ok('276 a pending teacher is left alone (no v2 record made)', legacy.length === 2, JSON.stringify(legacy));
+const kept = await q(`SELECT id, tutor_verification_status FROM public.profiles WHERE id IN ('${L1}','${L2}') ORDER BY id`);
+ok('276 the profile status (the badge) is unchanged', kept.every((r) => r.tutor_verification_status === 'VERIFIED'), JSON.stringify(kept));
+const mine = await q(`SELECT source FROM public.tutor_verification_v2 WHERE tutor_id = '${T2}'`);
+ok('276 other records keep source v2', mine[0]?.source === 'v2', JSON.stringify(mine));
+const audit = await q(`SELECT tutor_id, action, actor_role FROM public.tutor_verification_v2_decisions WHERE reason = 'Carried over from the previous verification system' ORDER BY tutor_id`);
+ok('276 each carried-over teacher has one audit row', audit.length === 2 && audit.every((a) => a.action === 'APPROVE' && a.actor_role === 'system'), JSON.stringify(audit));
+{
+  const again = await run(read(mig('276_verification_any_order_and_legacy.sql')), '276 again');
+  ok('276 is safe to run twice', !again, again ?? '');
+  const n = await q(`SELECT count(*)::int AS n FROM public.tutor_verification_v2_decisions WHERE reason = 'Carried over from the previous verification system'`);
+  ok('276 running twice does not duplicate the audit rows', n[0].n === 2, JSON.stringify(n));
+}
+await expectError(`UPDATE public.tutor_verification_v2 SET source = 'bogus' WHERE tutor_id = '${L1}'`, /check/i, '276 source is constrained');
+await asRole('service_role', null, async () => {
+  const r = await q(`INSERT INTO public.tutor_credentials_v2 (tutor_id, kind, title, proof_path, proof_filename) VALUES ('${L1}','OTHER','Tutoring award','${L1}/a.png','a.png') RETURNING id`);
+  ok('276 a credential is a type, a title and an image', r.length === 1);
+});
+await expectError(`INSERT INTO public.tutor_credentials_v2 (tutor_id, kind, proof_path) VALUES ('${L1}','OTHER','${L1}/b.png')`, /check|shape/i, '276 a new credential needs a title');
+await expectError(`INSERT INTO public.tutor_credentials_v2 (tutor_id, kind, title) VALUES ('${L1}','TEACHING','Diploma in Education')`, /check|shape/i, '276 a new credential needs an image');
+await expectError(`INSERT INTO public.tutor_credentials_v2 (tutor_id, kind, title, proof_path) VALUES ('${L1}','BOGUS','x','${L1}/c.png')`, /check/i, '276 the kind is constrained');
+await asRole('service_role', null, async () => {
+  const r = await q(`INSERT INTO public.tutor_credentials_v2 (tutor_id, kind, subject, grade, exam_year, proof_url) VALUES ('${L1}','CSEC','Maths','I',2019,'https://example.com/p') RETURNING id`);
+  ok('276 old-shape credentials are still accepted', r.length === 1);
+});
+await asRole('authenticated', T2, async () => {
+  const r = await q(`INSERT INTO public.tutor_credentials_v2 (tutor_id, kind, title, proof_path) VALUES ('${T2}','CERTIFICATE','CSEC Chemistry, Grade I (2019)','${T2}/x.png') RETURNING id`);
+  ok('276 a teacher can add their own titled credential', r.length === 1);
+  await expectError(`INSERT INTO public.tutor_credentials_v2 (tutor_id, kind, title, proof_path, approved_at) VALUES ('${T2}','OTHER','Sneaky','${T2}/y.png', now())`, /server only|approval/, '276 a teacher cannot stamp their own approval');
+  await expectError(`UPDATE public.tutor_credentials_v2 SET approved_at = now() WHERE tutor_id = '${T2}'`, /server only|approval/, '276 a teacher cannot change the approval date');
+});
+await asRole('service_role', null, async () => {
+  const r = await q(`UPDATE public.tutor_credentials_v2 SET approved_at = now(), approved_by = '${ADM}' WHERE tutor_id = '${T2}' RETURNING id`);
+  ok('276 the server can stamp an approval', r.length >= 1);
+  const d = await q(`INSERT INTO public.tutor_verification_v2_decisions (tutor_id, actor_id, actor_role, action, from_status, to_status) VALUES ('${L1}','${ADM}','admin','REAPPROVE','REVOKED','VERIFIED') RETURNING id`);
+  ok('276 the audit accepts REAPPROVE', d.length === 1);
+});
+
 // ---------- rollbacks ----------
-for (const f of ['275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql']) {
+for (const f of ['276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql']) {
   const e = await run(read(rb(f)), f);
   ok(`rollback runs: ${f}`, !e, e ?? '');
 }
 const afterRb = await q(`SELECT column_name FROM information_schema.columns WHERE table_name='tutor_verification_v2' AND column_name IN ('identity_provider','identity_started_at','files_deleted_at')`);
 ok('rollbacks removed the added columns', afterRb.length === 0, JSON.stringify(afterRb));
-for (const f of ['272_verification_v2_review.sql', '273_verification_v2_redaction_deletion.sql', '274_identity_providers.sql', '275_identity_outcomes.sql']) {
+for (const f of ['272_verification_v2_review.sql', '273_verification_v2_redaction_deletion.sql', '274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql']) {
   const e = await run(read(mig(f)), f);
   ok(`re-applies after rollback: ${f}`, !e, e ?? '');
 }
-for (const f of ['275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql', '271_verification_security_hardening_rollback.sql', '270_teacher_verification_v2_rollback.sql']) {
+for (const f of ['276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql', '271_verification_security_hardening_rollback.sql', '270_teacher_verification_v2_rollback.sql']) {
   const f2 = existsSync(`${REPO}/${rb(f)}`) ? f : null;
   if (!f2) { ok(`rollback file exists: ${f}`, false); continue; }
   const e = await run(read(rb(f)), f);

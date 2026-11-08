@@ -1,49 +1,29 @@
-// Which identity-provider settings are missing, for the admin screen. NAMES ONLY: this
-// never returns, logs or echoes a value. A missing setting makes the provider skip itself
-// (see isConfigured on each provider), so the teacher sees a plain "contact support" path
-// instead of an error; this is how an admin finds out why.
-
-import { primaryProviderFromEnv } from '@/config/identityRouting';
-import { diditWorkflowId } from './diditConfig';
-import type { ProviderName } from './types';
+// Which Didit settings are missing, for the admin screen. NAMES ONLY: this never returns, logs or
+// echoes a value. A missing setting makes the identity check "not available": the teacher sees
+// "Verification setup is not finished yet." and this tells an admin which variable to set.
 
 type Env = Record<string, string | undefined>;
 
-const REQUIRED: Record<ProviderName, string[]> = {
-  didit: ['DIDIT_API_KEY', 'DIDIT_WORKFLOW_ID', 'DIDIT_WEBHOOK_SECRET'],
-  stripe: ['STRIPE_SECRET_KEY', 'STRIPE_IDENTITY_WEBHOOK_SECRET'],
-  veriff: ['VERIFF_API_KEY', 'VERIFF_SHARED_SECRET'],
-};
+/** The only three settings Didit needs. */
+export const DIDIT_VARIABLES = ['DIDIT_API_KEY', 'DIDIT_WORKFLOW_ID', 'DIDIT_WEBHOOK_SECRET'] as const;
 
 export interface IdentitySetupProblem {
-  provider: ProviderName;
-  primary: boolean;
+  provider: 'didit';
+  primary: true;
   /** Variable names, never values. */
   missing: string[];
   message: string;
 }
 
-const set = (env: Env, name: string) =>
-  name === 'DIDIT_WORKFLOW_ID' ? diditWorkflowId(env).length > 0 : (env[name] ?? '').trim().length > 0;
-
 export function identitySetupProblems(env: Env = process.env): IdentitySetupProblem[] {
-  const primary = primaryProviderFromEnv(env);
-  const out: IdentitySetupProblem[] = [];
-  for (const provider of Object.keys(REQUIRED) as ProviderName[]) {
-    const missing = REQUIRED[provider].filter((n) => !set(env, n));
-    if (missing.length === 0) continue;
-    const isPrimary = provider === primary;
-    const partlyConfigured = missing.length < REQUIRED[provider].length;
-    // The first provider must be complete. A backup is reported only when half set up.
-    if (!isPrimary && !partlyConfigured) continue;
-    out.push({
-      provider,
-      primary: isPrimary,
-      missing,
-      message: isPrimary
-        ? `The first identity provider (${provider}) is not fully set up, so teachers cannot start an identity check with it. Missing: ${missing.join(', ')}.`
-        : `The backup identity provider (${provider}) is only partly set up and will be skipped. Missing: ${missing.join(', ')}.`,
-    });
-  }
-  return out;
+  const missing = DIDIT_VARIABLES.filter((name) => (env[name] ?? '').trim().length === 0);
+  if (missing.length === 0) return [];
+  return [
+    {
+      provider: 'didit',
+      primary: true,
+      missing: [...missing],
+      message: `Teachers cannot start an identity check: ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} not set.`,
+    },
+  ];
 }

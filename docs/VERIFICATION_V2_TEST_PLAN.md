@@ -1,3 +1,5 @@
+> Note: Didit is now the only identity provider. Any Stripe Identity or Veriff section below is out of date. Current setup: docs/staging-handoff.md.
+
 # Teacher verification v2: Stripe test-mode test plan
 
 Run on **staging / a Vercel Preview only**, never production. Everything below uses Stripe **test mode**.

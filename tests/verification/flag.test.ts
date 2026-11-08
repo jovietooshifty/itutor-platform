@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isVerificationV2Enabled } from '@/lib/featureFlags/verificationV2';
-import { SANDBOX_WORKFLOW_ID, diditWorkflowId } from '@/lib/identity/diditConfig';
+import { diditWorkflowId } from '@/lib/identity/diditConfig';
 
 const STAGING = { VERCEL_ENV: 'preview', NODE_ENV: 'production' };
 const PRODUCTION = { VERCEL_ENV: 'production', NODE_ENV: 'production' };
@@ -46,10 +46,10 @@ describe('the Didit workflow id', () => {
     expect(diditWorkflowId({ ...STAGING, DIDIT_WORKFLOW_ID: ' abc ' })).toBe('abc');
     expect(diditWorkflowId({ ...PRODUCTION, DIDIT_WORKFLOW_ID: 'abc' })).toBe('abc');
   });
-  it('falls back to the sandbox workflow outside production only', () => {
-    expect(diditWorkflowId({ ...STAGING })).toBe(SANDBOX_WORKFLOW_ID);
-    expect(diditWorkflowId({ NODE_ENV: 'development', DIDIT_WORKFLOW_ID: '  ' })).toBe(SANDBOX_WORKFLOW_ID);
-    expect(diditWorkflowId({ ...PRODUCTION })).toBe('');
-    expect(SANDBOX_WORKFLOW_ID).toBe('9bfa64cd-4fc0-446d-b971-4a9277bb4978');
+  it('has NO fallback anywhere: unset or blank is empty, in every environment', () => {
+    for (const env of [STAGING, PRODUCTION, { NODE_ENV: 'development' }, {}]) {
+      expect(diditWorkflowId({ ...env })).toBe('');
+      expect(diditWorkflowId({ ...env, DIDIT_WORKFLOW_ID: '   ' })).toBe('');
+    }
   });
 });

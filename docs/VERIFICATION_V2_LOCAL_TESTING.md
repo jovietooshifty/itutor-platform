@@ -1,3 +1,5 @@
+> Note: Didit is now the only identity provider. Any Stripe Identity or Veriff section below is out of date. Current setup: docs/staging-handoff.md.
+
 # Teacher verification v2: local testing
 
 Everything here runs on **your machine**, against **your own empty Supabase project** (or a local one), with **Stripe test mode**. Nothing in this guide touches staging, production or live keys, and the scripts refuse to.

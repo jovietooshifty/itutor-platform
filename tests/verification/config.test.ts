@@ -64,7 +64,7 @@ describe('open policy decisions are config, with safe defaults', () => {
   it('retention has placeholder numbers, not hardcoded behaviour', () => {
     expect(typeof retentionPolicy.rejectedDays).toBe('number');
     expect(typeof retentionPolicy.revokedDays).toBe('number');
-    expect(typeof retentionPolicy.redactStripeSessionAfterDecision).toBe('boolean');
+    expect(typeof retentionPolicy.redactIdentitySessionAfterDecision).toBe('boolean');
   });
 });
 

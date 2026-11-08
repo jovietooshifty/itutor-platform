@@ -11,6 +11,7 @@ import { isVerificationV2Enabled } from '@/lib/featureFlags/verificationV2';
 import { isRuleRefusal, setIdentityStatus } from '@/lib/verification/setStatus';
 import { identityRouting } from '@/config/identityRouting';
 import { notifyIdentityOutcome } from './notify';
+import { describeNotSupported, describeRetryReason } from '@/lib/identity/messages';
 import { nameMatchExtra } from '@/lib/identity/nameMatch';
 import { normalizeIdentityReason, normalizeIdentityStatus, outcomeToStored } from '@/lib/identity/mapping';
 import { getProvider, routeForCountry } from '@/lib/identity/registry';
@@ -21,6 +22,7 @@ import {
   type ExtraDto,
   type IdentityStatus,
   type VerificationV2StateDto,
+  type StepStatus,
   type VerificationV2Status,
 } from './constants';
 
@@ -31,14 +33,12 @@ export interface VerificationRow {
   status: VerificationV2Status;
   consent_at: string | null;
   consent_version: string | null;
-  /** Legacy Stripe column. New code reads identity_provider_session_ref. */
-  stripe_identity_session_id: string | null;
   identity_status: IdentityStatus | null;
   /** The NEUTRAL reason (retry reason / not-supported reason), not a provider code. */
   identity_error_code: string | null;
   identity_attempts: number;
   identity_verified_at: string | null;
-  /** Legacy Stripe history. New code reads identity_session_refs. */
+  /** Every session ever created, for redaction. */
   identity_session_history: string[] | null;
   identity_provider: ProviderName | null;
   identity_provider_session_ref: string | null;
@@ -50,10 +50,10 @@ export interface VerificationRow {
 }
 
 const ROW_COLUMNS =
-  'tutor_id, status, consent_at, consent_version, stripe_identity_session_id, identity_status, identity_error_code, identity_attempts, identity_verified_at, identity_session_history, identity_provider, identity_provider_session_ref, identity_session_refs, identity_providers_tried, identity_country, submitted_at, decision_reason';
+  'tutor_id, status, consent_at, consent_version, identity_status, identity_error_code, identity_attempts, identity_verified_at, identity_session_history, identity_provider, identity_provider_session_ref, identity_session_refs, identity_providers_tried, identity_country, submitted_at, decision_reason';
 
 /**
- * Rows written before provider-agnostic identity hold Stripe's status names.
+ * Old development rows hold another provider's status names.
  * Everything downstream of here only ever sees the neutral ones.
  */
 function normalizeRow(raw: any): VerificationRow {
@@ -161,9 +161,8 @@ export function blocked(error: string, status = 409, extra: Record<string, unkno
  * ever sees neutral outcomes.
  */
 export async function refreshIdentity(db: Db, row: VerificationRow): Promise<VerificationRow> {
-  const provider: ProviderName | null =
-    row.identity_provider ?? (row.stripe_identity_session_id ? 'stripe' : null);
-  const ref = row.identity_provider_session_ref ?? row.stripe_identity_session_id;
+  const provider: ProviderName | null = row.identity_provider;
+  const ref = row.identity_provider_session_ref;
   const open: Array<IdentityStatus | null> = [null, 'pending', 'processing', 'retryable_failure'];
   if (!provider || !ref || !open.includes(row.identity_status)) return row;
   try {
@@ -204,7 +203,7 @@ export async function loadCredentials(db: Db, tutorId: string): Promise<Credenti
   const { data, error } = await db
     .from('tutor_credentials_v2')
     .select(
-      'id, kind, subject, grade, exam_year, school, degree, field, graduation_year, proof_url, proof_path, proof_filename, pending_approval'
+      'id, kind, subject, grade, exam_year, school, degree, field, graduation_year, proof_url, proof_path, proof_filename, pending_approval, title'
     )
     .eq('tutor_id', tutorId)
     .order('created_at', { ascending: true });
@@ -212,6 +211,7 @@ export async function loadCredentials(db: Db, tutorId: string): Promise<Credenti
   return (data ?? []).map((c: any) => ({
     id: c.id,
     kind: c.kind,
+    title: c.title ?? null,
     subject: c.subject,
     grade: c.grade,
     examYear: c.exam_year,
@@ -241,6 +241,14 @@ export async function loadExtras(db: Db, tutorId: string): Promise<ExtraDto[]> {
   }));
 }
 
+/** Which checklist step an admin's reason is about. 'Other' is about neither, so it flags no step. */
+export function stepForReason(reason: string | null | undefined): 'identity' | 'credentials' | null {
+  if (!reason) return null;
+  if (reason === 'ID could not be read' || reason === 'ID details did not match your profile name') return 'identity';
+  if (reason === 'Credentials unclear or incomplete' || reason === 'Credentials could not be confirmed') return 'credentials';
+  return null;
+}
+
 export function buildState(
   row: VerificationRow | null,
   credentials: CredentialDto[],
@@ -250,12 +258,7 @@ export function buildState(
   const revokedProfile = profileStatus === 'REVOKED';
   const identityStatus = row?.identity_status ?? null;
   const attempts = row?.identity_attempts ?? 0;
-  const currentProvider: ProviderName | null =
-    row?.identity_provider && isProviderName(row.identity_provider)
-      ? row.identity_provider
-      : row?.stripe_identity_session_id
-        ? 'stripe'
-        : null;
+  const currentProvider: ProviderName | null = isProviderName(row?.identity_provider) ? (row!.identity_provider as ProviderName) : null;
 
   // What the buttons offer, from the same routing the server uses to act.
   const nextStep = decideNextStep({
@@ -272,6 +275,34 @@ export function buildState(
   // up the qualifications or the submission. An admin cannot approve until it is done.
   const available = routeForCountry(row?.identity_country).length > 0;
   const identityDone = hasIdentity(row) || (hasConsent(row) && !available);
+
+  // ---- the checklist: each step's own state, in any order ----
+  const reasonText = row?.status === 'REJECTED' || (row?.status === 'IN_PROGRESS' && row.decision_reason) ? row.decision_reason : null;
+  const reasonStep = stepForReason(reasonText);
+  const idFailed = ['retryable_failure', 'not_supported', 'consent_declined', 'canceled'].includes(identityStatus ?? '');
+  const identityStep: StepStatus =
+    row?.status === 'VERIFIED' || (identityStatus === 'verified' && reasonStep !== 'identity')
+      ? 'done'
+      : idFailed || reasonStep === 'identity'
+        ? 'needs_changes'
+        : identityStatus === 'pending' || identityStatus === 'processing' || hasConsent(row)
+          ? 'in_progress'
+          : 'not_started';
+  const credentialsStep: StepStatus =
+    row?.status === 'VERIFIED' && credentials.length === 0
+      ? 'done'
+      : credentials.length === 0
+        ? 'not_started'
+        : reasonStep === 'credentials'
+          ? 'needs_changes'
+          : 'done';
+  const detailsStep: StepStatus = extras.length > 0 ? 'done' : 'not_started';
+  // The ID check cannot be done on an environment with no Didit: then it must not hold anything up.
+  const idOk = hasConsent(row) && (identityStatus === 'verified' || !available);
+  const missing: string[] = [];
+  if (!idOk) missing.push('ID check');
+  if (credentials.length === 0) missing.push('Credentials');
+  const canSubmit = !revokedProfile && isEditable(row) && missing.length === 0;
 
   let step: 1 | 2 | 3 | 4 = 1;
   if (hasConsent(row)) step = 2;
@@ -310,6 +341,20 @@ export function buildState(
     reference: row ? `VR-${row.tutor_id.replace(/-/g, '').slice(0, 8).toUpperCase()}` : null,
     editable: !revokedProfile && isEditable(row),
     canAddCredentials: !revokedProfile && (isEditable(row) || isVerifiedTeacher(row)),
+    steps: { identity: identityStep, credentials: credentialsStep, details: detailsStep },
+    stepNotes: {
+      identity:
+        reasonStep === 'identity'
+          ? reasonText
+          : identityStatus === 'retryable_failure'
+            ? describeRetryReason(row?.identity_error_code ?? null)
+            : identityStatus === 'not_supported'
+              ? describeNotSupported(row?.identity_error_code ?? null)
+              : null,
+      credentials: reasonStep === 'credentials' ? reasonText : null,
+    },
+    canSubmit,
+    missing,
     step,
     credentials,
     extras,
@@ -322,7 +367,7 @@ export async function loadState(
   profileStatus: string | null = null
 ): Promise<VerificationV2StateDto> {
   let row = await loadRow(db, tutorId);
-  // A revoked teacher's state is read-only: do not call Stripe on their behalf.
+  // A revoked teacher's state is read-only: do not call the provider on their behalf.
   if (row && profileStatus !== 'REVOKED') row = await refreshIdentity(db, row);
   const [credentials, extras] = await Promise.all([
     loadCredentials(db, tutorId),

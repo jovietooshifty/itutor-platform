@@ -1,6 +1,6 @@
 // GET /api/tutor/verification-v2/state
 // Everything the page needs to resume where the teacher left off. Refreshes the
-// Stripe session result on the way, so returning from Stripe works without
+// identity session result on the way, so returning from Didit works without
 // waiting for the webhook.
 
 import { schemaNotReady } from '@/lib/verificationV2/schemaReady';

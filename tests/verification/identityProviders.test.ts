@@ -1,4 +1,6 @@
 import { createHmac } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { makeFakeDb } from '../helpers/fakeDb';
@@ -6,22 +8,9 @@ import { makeFakeDb } from '../helpers/fakeDb';
 const h = vi.hoisted(() => ({ db: null as any }));
 
 vi.mock('@/lib/supabase/server', () => ({ getServiceClient: () => h.db }));
-vi.mock('@/lib/payments/stripeClient', () => ({
-  getStripeClient: () => ({
-    webhooks: {
-      constructEvent: (body: string, sig: string, secret: string) => {
-        if (sig !== 'good' || secret !== 'whsec_stripe') throw new Error('bad signature');
-        return JSON.parse(body);
-      },
-    },
-  }),
-}));
 
 import { POST as genericPOST, GET as genericGET } from '@/app/api/webhooks/identity/[provider]/route';
-import { POST as stripePOST } from '@/app/api/webhooks/stripe-identity/route';
 import { diditCanonicalJson, diditProvider, verifyDiditSignature, verifyDiditWebhookSignature } from '@/lib/identity/providers/didit';
-import { stripeProvider } from '@/lib/identity/providers/stripe';
-import { veriffProvider } from '@/lib/identity/providers/veriff';
 import { WebhookSignatureError } from '@/lib/identity/types';
 
 const SECRET = 'didit-test-secret';
@@ -57,10 +46,6 @@ beforeEach(() => {
   process.env.DIDIT_WEBHOOK_SECRET = SECRET;
   process.env.DIDIT_API_KEY = 'test-api-key-never-printed';
   process.env.DIDIT_WORKFLOW_ID = 'wf-123';
-  process.env.STRIPE_IDENTITY_WEBHOOK_SECRET = 'whsec_stripe';
-  delete process.env.DIDIT_EXPECT_ENVIRONMENT;
-  delete process.env.DIDIT_BASE_URL;
-  delete process.env.DIDIT_SANDBOX_SCENARIO;
   seed();
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
@@ -234,14 +219,6 @@ describe('Didit webhook: handling', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('ignores a webhook from the wrong environment when one is expected', async () => {
-    process.env.DIDIT_EXPECT_ENVIRONMENT = 'sandbox';
-    const res = await call(good(diditPayload({ environment: 'live' })));
-    expect(await res.json()).toMatchObject({ status: 'ignored' });
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(row().identity_status).toBe('pending');
-  });
-
   it('a session for a replaced attempt does not touch the current one', async () => {
     fetchMock.mockResolvedValueOnce(approved());
     const res = await call(good(diditPayload({ session_id: 'old-session' })));
@@ -289,13 +266,6 @@ describe('Didit API calls', () => {
     });
   });
 
-  it('passes a sandbox scenario only when one is configured', async () => {
-    process.env.DIDIT_SANDBOX_SCENARIO = 'approved';
-    fetchMock.mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ session_id: 's', url: 'https://x' }) });
-    await diditProvider.createSession({ tutorId: 't', attempt: 1, returnUrl: 'r' });
-    expect(JSON.parse(fetchMock.mock.calls[0]![1].body).sandbox_scenario).toBe('approved');
-  });
-
   it('createSession fails without leaking the response body', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 403, json: async () => ({ detail: 'secret detail' }) });
     await expect(diditProvider.createSession({ tutorId: 't', attempt: 1, returnUrl: 'r' })).rejects.toThrow(/403/);
@@ -323,65 +293,50 @@ describe('Didit API calls', () => {
     expect(await diditProvider.redact('s', 'decision')).toMatchObject({ ok: false });
   });
 
-  it('only talks to the configured base URL', async () => {
-    process.env.DIDIT_BASE_URL = 'https://sandbox.example.test/';
-    fetchMock.mockResolvedValueOnce(approved());
-    await diditProvider.getOutcome('abc');
-    expect(String(fetchMock.mock.calls[0]![0])).toBe('https://sandbox.example.test/v3/session/abc/decision/');
+  it('is configured only with ALL THREE of DIDIT_API_KEY, DIDIT_WORKFLOW_ID and DIDIT_WEBHOOK_SECRET', () => {
+    expect(diditProvider.isConfigured()).toBe(true);
+    for (const name of ['DIDIT_API_KEY', 'DIDIT_WORKFLOW_ID', 'DIDIT_WEBHOOK_SECRET']) {
+      const saved = process.env[name];
+      delete process.env[name];
+      expect(diditProvider.isConfigured(), name).toBe(false);
+      process.env[name] = saved;
+    }
   });
 
-  it('is not configured without an API key or workflow, so routing skips it', () => {
-    expect(diditProvider.isConfigured()).toBe(true);
-    delete process.env.DIDIT_API_KEY;
-    expect(diditProvider.isConfigured()).toBe(false);
+  it('always talks to Didit at its one address, whatever else is set', async () => {
+    fetchMock.mockResolvedValueOnce(approved());
+    await diditProvider.getOutcome('abc');
+    expect(String(fetchMock.mock.calls[0]![0])).toBe('https://verification.didit.me/v3/session/abc/decision/');
+  });
+
+  it('creates a session with no sandbox scenario and the configured workflow id only', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ session_id: 's', url: 'https://x' }) });
+    await diditProvider.createSession({ tutorId: 't', attempt: 1, returnUrl: 'r' });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.sandbox_scenario).toBeUndefined();
+    expect(body.workflow_id).toBe('wf-123');
   });
 });
 
 // ---------------------------------------------------------------
-describe('Stripe webhook: signature failures (original path)', () => {
-  const event = {
-    id: 'evt_s1', type: 'identity.verification_session.verified', livemode: false,
-    data: { object: { id: 'sess-1', status: 'verified', last_error: null, metadata: { tutor_id: 'tutor-A' } } },
-  };
-  const req = (sig?: string) =>
-    new NextRequest('http://localhost/api/webhooks/stripe-identity', {
-      method: 'POST', body: JSON.stringify(event), headers: sig ? { 'stripe-signature': sig } : {},
-    });
-
-  it('400 on a forged signature, 400 when missing, 500 when no secret', async () => {
-    expect((await stripePOST(req('forged'))).status).toBe(400);
-    expect((await stripePOST(req())).status).toBe(400);
-    delete process.env.STRIPE_IDENTITY_WEBHOOK_SECRET;
-    expect((await stripePOST(req('good'))).status).toBe(500);
-    expect(h.db.calls).toHaveLength(0);
-  });
-
-  it('provider.verifyWebhook throws WebhookSignatureError', async () => {
-    await expect(stripeProvider.verifyWebhook('{}', { get: () => 'forged' })).rejects.toBeInstanceOf(WebhookSignatureError);
-  });
-
-  it('a good signature is applied as a neutral outcome', async () => {
-    row().stripe_identity_session_id = 'sess-1';
-    row().identity_provider = 'stripe';
-    row().identity_provider_session_ref = 'sess-1';
-    const res = await stripePOST(req('good'));
-    expect(res.status).toBe(200);
-    expect(row().identity_status).toBe('verified');
-  });
-});
-
-describe('the generic route', () => {
-  it('has no route for stripe (original path) or an unknown provider, and none for veriff until it is built', async () => {
+describe('the webhook route', () => {
+  it('has a route for didit only: any other name is a 404', async () => {
     const r = diditRequest('{}', {});
-    expect((await call(r, 'stripe')).status).toBe(404);
-    expect((await call(r, 'nonsense')).status).toBe(404);
-    expect((await genericGET(r, { params: { provider: 'stripe' } })).status).toBe(404);
+    for (const name of ['stripe', 'veriff', 'nonsense']) {
+      expect((await call(r, name)).status, name).toBe(404);
+      expect((await genericGET(r, { params: { provider: name } })).status, name).toBe(404);
+    }
     expect((await genericGET(r, { params: { provider: 'didit' } })).status).toBe(200);
   });
 
-  it('veriff reports "not configured" (500) until its secret is set, never accepts an unsigned request', async () => {
-    const res = await call(diditRequest('{}', {}), 'veriff');
-    expect(res.status).toBe(500);
-    expect(veriffProvider.isConfigured()).toBe(false);
+  it('the old Stripe identity webhook route no longer exists', () => {
+    expect(fs.existsSync(path.resolve(__dirname, '../../app/api/webhooks/stripe-identity/route.ts'))).toBe(false);
+  });
+
+  it('answers 500 (not a crash) when the signing secret is not set, and never accepts an unsigned request', async () => {
+    delete process.env.DIDIT_WEBHOOK_SECRET;
+    expect((await call(diditRequest('{}', {}))).status).toBe(500);
+    process.env.DIDIT_WEBHOOK_SECRET = SECRET;
+    expect((await call(diditRequest('{}', {}))).status).toBe(400);
   });
 });

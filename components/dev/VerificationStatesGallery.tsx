@@ -8,10 +8,9 @@
 import { useCallback, useState } from 'react';
 import type { ProviderName } from '@/lib/identity/types';
 import AdminAndBadges from './AdminAndBadges';
-import FallbackExplorer from './FallbackExplorer';
 import TeacherStates from './TeacherStates';
 
-const PROVIDERS: ProviderName[] = ['stripe', 'didit', 'veriff'];
+const PROVIDERS: ProviderName[] = ['didit'];
 const NAV = [
   ['teacher-status', 'Teacher status'],
   ['steps', 'Steps'],
@@ -23,7 +22,7 @@ const NAV = [
 ] as const;
 
 export default function VerificationStatesGallery() {
-  const [provider, setProvider] = useState<ProviderName>('stripe');
+  const [provider, setProvider] = useState<ProviderName>('didit');
   const [lastAction, setLastAction] = useState('none yet');
   const onAction = useCallback((t: string) => setLastAction(t), []);
 
@@ -49,7 +48,6 @@ export default function VerificationStatesGallery() {
           Last action: {lastAction}
         </p>
         <TeacherStates onAction={onAction} />
-        <FallbackExplorer provider={provider} />
         <AdminAndBadges provider={provider} onAction={onAction} />
       </main>
     </div>

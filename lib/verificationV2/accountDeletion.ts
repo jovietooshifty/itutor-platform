@@ -1,13 +1,13 @@
 // Verification clean-up for account deletion.
 //
 // Called by app/api/delete-account/route.ts BEFORE the profile row is deleted,
-// because the cascade would remove the Stripe session ids and file ownership
+// because the cascade would remove the identity session ids and file ownership
 // that locate this data.
 //
 // IT MUST NEVER BLOCK OR BREAK ACCOUNT DELETION. It cannot throw (everything is
-// caught), and it gives up after a time limit, so a hanging Stripe or Storage
+// caught), and it gives up after a time limit, so a hanging Didit or Storage
 // call cannot hold the request. A failure is logged with the user id and the
-// residue (a Stripe session, a file) then needs removing by hand or by the
+// residue (an identity session, a file) then needs removing by hand or by the
 // retention sweep. Runs whatever the VERIFICATION_V2_ENABLED setting: privacy
 // does not depend on a feature flag.
 
@@ -31,9 +31,9 @@ export async function cleanupVerificationDataForAccountDeletion(
 
   const work = (async () => {
     try {
-      // Stripe first: the ID data is the most sensitive.
+      // The identity provider first: the ID data is the most sensitive.
       const redaction = await redactIdentitySessions({ tutorId: userId, force: true });
-      if (!redaction.ok) details.push(`stripe: ${redaction.error}`);
+      if (!redaction.ok) details.push(`identity: ${redaction.error}`);
 
       // Rows go with the profile cascade, so skip the row clean-up.
       const files = await deleteVerificationFiles({

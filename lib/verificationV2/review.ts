@@ -59,7 +59,7 @@ const fail = (
   httpStatus = 409
 ): ReviewFailure => ({ ok: false, code, message, httpStatus });
 
-type AuditAction = 'APPROVE' | 'REJECT' | 'REVOKE' | 'REQUIRE_REVERIFICATION' | 'REQUEST_INFO' | 'APPROVE_CREDENTIAL' | 'REJECT_CREDENTIAL';
+type AuditAction = 'APPROVE' | 'REAPPROVE' | 'REJECT' | 'REVOKE' | 'REQUIRE_REVERIFICATION' | 'REQUEST_INFO' | 'APPROVE_CREDENTIAL' | 'REJECT_CREDENTIAL';
 
 /** Appends to the audit table. Returns an error string, or null. */
 export async function recordDecision(
@@ -168,6 +168,15 @@ export async function approveV2(ctx: ReviewCtx, tutorId: string): Promise<Review
     return { ...moved, partial: true };
   }
 
+  // The credentials this decision signs off carry its date and the admin. Best effort: the decision stands.
+  const { error: stampError } = await db
+    .from('tutor_credentials_v2')
+    .update({ approved_at: new Date().toISOString(), approved_by: ctx.actorId })
+    .eq('tutor_id', tutorId)
+    .eq('pending_approval', false)
+    .is('approved_at', null);
+  if (stampError) console.error(`[verification-v2/review] ${tutorId}: approved but credential dates not saved: ${stampError.message}`);
+
   // Saved: tell the teacher now, even if the audit write below fails.
   const notified = await notifyTeacher(db, tutorId, { kind: 'verified' });
 
@@ -180,7 +189,7 @@ export async function approveV2(ctx: ReviewCtx, tutorId: string): Promise<Review
     return { ok: false, code: 'db_error', message: 'Approved, but the decision record could not be saved.', httpStatus: 500, partial: true };
   }
 
-  // After the decision is saved: Stripe stops holding the ID. Never blocks it.
+  // After the decision is saved: the provider stops holding the ID. Never blocks it.
   const { redaction } = await afterApproval(tutorId, db);
   return {
     ok: true,
@@ -291,7 +300,7 @@ export async function approveCredentialV2(ctx: ReviewCtx, tutorId: string, crede
 
   const { data, error: upErr } = await db
     .from('tutor_credentials_v2')
-    .update({ pending_approval: false })
+    .update({ pending_approval: false, approved_at: new Date().toISOString(), approved_by: ctx.actorId })
     .eq('id', credentialId)
     .eq('pending_approval', true)
     .select('id');
@@ -467,6 +476,53 @@ export async function revokeV2(
     profile: { from: normalizeStatus('profile', prof.status), to: 'REVOKED', changed: moved.changed },
     redaction,
     files,
+    notification: notified.status,
+  };
+}
+
+// ---------------------------------------------------------------
+// re-approve (a revoked teacher is restored; every submitted item was kept)
+// ---------------------------------------------------------------
+export async function reapproveV2(ctx: ReviewCtx, tutorId: string): Promise<ReviewSuccess | ReviewFailure> {
+  const db = ctx.db ?? (getServiceClient() as Db);
+  const prof = await loadProfileStatus(db, tutorId);
+  if (prof.error) return dbFail('Could not read the teacher');
+  if (!prof.found) return notFound('Teacher not found');
+  const { row, error } = await loadV2(db, tutorId);
+  if (error) return dbFail('Could not read the application');
+  if (!row) return notFound('No application found for this teacher');
+  if (normalizeStatus('profile', prof.status) !== 'REVOKED' || row.status !== 'REVOKED') {
+    return { ok: false, code: 'transition_not_allowed', message: 'Only a revoked teacher can be re-approved.', httpStatus: 409 };
+  }
+
+  // Check both before writing. REVOKED -> VERIFIED, admin only.
+  const vc = checkTransition('v2', row.status, 'VERIFIED', ctx.actor);
+  if (!vc.ok) return refusal(vc);
+  const pc = checkTransition('profile', prof.status, 'VERIFIED', ctx.actor);
+  if (!pc.ok) return refusal(pc);
+
+  const v2 = await setV2Status({ tutorId, to: 'VERIFIED', actor: ctx.actor, reviewerId: ctx.actorId, db });
+  if (!v2.ok) return v2;
+  const moved = await setProfileStatus({ tutorId, to: 'VERIFIED', actor: ctx.actor, db });
+  if (!moved.ok) {
+    console.error(`[verification-v2/review] ${tutorId}: v2 re-approved but profile not updated: ${moved.message}`);
+    return { ...moved, partial: true };
+  }
+
+  const notified = await notifyTeacher(db, tutorId, { kind: 'verified' });
+  const auditError = await recordDecision(db, {
+    tutorId, actor: ctx.actor, actorId: ctx.actorId, action: 'REAPPROVE',
+    from: 'REVOKED', to: 'VERIFIED', profileFrom: 'REVOKED', profileTo: 'VERIFIED',
+  });
+  if (auditError) {
+    console.error(`[verification-v2/review] ${tutorId}: re-approved but the audit record failed: ${auditError}`);
+    return { ok: false, code: 'db_error', message: 'Re-approved, but the decision record could not be saved.', httpStatus: 500, partial: true };
+  }
+  return {
+    ok: true,
+    from: 'REVOKED',
+    to: 'VERIFIED',
+    profile: { from: 'REVOKED', to: 'VERIFIED', changed: moved.changed },
     notification: notified.status,
   };
 }

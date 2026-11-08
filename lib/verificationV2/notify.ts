@@ -182,7 +182,6 @@ interface V2Stamp {
   identity_attempts: number | null;
   identity_provider: string | null;
   identity_provider_session_ref: string | null;
-  stripe_identity_session_id: string | null;
 }
 
 /**
@@ -204,7 +203,7 @@ export async function notifyTeacher(
   try {
     const { data } = await db
       .from('tutor_verification_v2')
-      .select('submitted_at, decided_at, identity_attempts, identity_provider, identity_provider_session_ref, stripe_identity_session_id')
+      .select('submitted_at, decided_at, identity_attempts, identity_provider, identity_provider_session_ref')
       .eq('tutor_id', tutorId)
       .maybeSingle();
     const row = (data as V2Stamp | null) ?? null;
@@ -215,7 +214,7 @@ export async function notifyTeacher(
         stamp = row?.submitted_at ?? '';
         break;
       case 'identity_failed':
-        stamp = `${row?.identity_provider_session_ref ?? row?.stripe_identity_session_id ?? ''}:${notice.status}`;
+        stamp = `${row?.identity_provider_session_ref ?? ''}:${notice.status}`;
         break;
       default:
         stamp = row?.decided_at ?? '';

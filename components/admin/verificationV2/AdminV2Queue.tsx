@@ -11,6 +11,7 @@ const TABS: { status: string; label: string }[] = [
   { status: 'review', label: 'Needs review' },
   { status: 'waiting', label: 'Waiting on teacher' },
   { status: 'done', label: 'Done' },
+  { status: 'all', label: 'Everyone' },
 ];
 
 export interface Item {

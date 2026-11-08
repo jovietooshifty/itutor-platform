@@ -107,7 +107,7 @@ export default function ManageVerifiedSubjectsPage() {
               Upload your CXC results slip to get verified subjects added to your profile.
             </p>
             <button
-              onClick={() => router.push('/tutor/verification/upload')}
+              onClick={() => router.push('/tutor/verification-v2')}
               className="inline-block bg-gradient-to-r from-itutor-green to-emerald-600 hover:from-emerald-600 hover:to-itutor-green text-white py-3 px-8 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-itutor-green/50"
             >
               Upload Verification

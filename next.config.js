@@ -14,6 +14,13 @@ const nextConfig = {
       imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
       minimumCacheTTL: 60, // Cache images for 60 seconds
     },
+    // Old teacher verification URLs go to the one verification page.
+    async redirects() {
+      return [
+        { source: '/tutor/verification', destination: '/tutor/verification-v2', permanent: false },
+        { source: '/tutor/verification/upload', destination: '/tutor/verification-v2', permanent: false },
+      ]
+    },
     // Webpack configuration to handle Firebase
     webpack: (config, { isServer, dev }) => {
       // Disable filesystem cache in dev to prevent OneDrive EBUSY/ENOENT errors

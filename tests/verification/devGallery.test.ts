@@ -48,7 +48,7 @@ describe('/dev/verification-states is a preview for non-production environments'
 
   it('the gallery and its fixtures make no network requests and read no environment secrets', () => {
     const dir = path.resolve(__dirname, '../../components/dev');
-    for (const f of ['VerificationStatesGallery.tsx', 'TeacherStates.tsx', 'AdminAndBadges.tsx', 'FallbackExplorer.tsx', 'galleryData.ts', 'GalleryParts.tsx']) {
+    for (const f of ['VerificationStatesGallery.tsx', 'TeacherStates.tsx', 'AdminAndBadges.tsx', 'galleryData.ts', 'GalleryParts.tsx']) {
       const src = readFileSync(path.join(dir, f), 'utf8');
       expect(src, f).not.toMatch(/\bfetch\s*\(/);
       expect(src, f).not.toMatch(/process\.env/);

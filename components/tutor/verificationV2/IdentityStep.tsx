@@ -3,14 +3,25 @@
 import { useEffect, useState } from 'react';
 import type { VerificationV2StateDto } from '@/lib/verificationV2/constants';
 import { describeNotSupported, describeRetryReason } from '@/lib/identity/messages';
-import { Card, ErrorBanner, Notice, PrimaryButton, SecondaryButton, STEP_META, SupportNote, inputClass, readError } from './ui';
+import ConsentNotice from './ConsentStep';
+import { CHECKLIST_META, Card, ErrorBanner, Notice, PrimaryButton, SupportNote, inputClass, readError } from './ui';
 
 export interface IdentityApi {
+  /** Records the teacher's agreement. Needed once, before the first check. */
+  consent?(): Promise<{ error?: string }>;
   /** Starts, continues or falls back. Resolves with where to send the teacher, or an error. */
   start(country: string): Promise<{ url?: string; status?: string; error?: string }>;
 }
 
 const defaultApi: IdentityApi = {
+  async consent() {
+    const res = await fetch('/api/tutor/verification-v2/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accepted: true }),
+    });
+    return res.ok ? {} : { error: await readError(res, 'Could not save your agreement') };
+  },
   async start(country) {
     const res = await fetch('/api/tutor/verification-v2/identity', {
       method: 'POST',
@@ -25,8 +36,9 @@ const defaultApi: IdentityApi = {
 interface Props {
   state: VerificationV2StateDto;
   onChange: () => Promise<void>;
-  onBack: () => void;
-  onNext: () => void;
+  /** The checklist card: open or folded, and how to toggle it. Defaults to open (the gallery). */
+  open?: boolean;
+  onToggle?: () => void;
   /** Replaced in the dev states gallery so no request is made. */
   api?: IdentityApi;
   /** The gallery sets this so "go to the provider" does not leave the page. */
@@ -38,9 +50,10 @@ interface Props {
  * not_supported, consent_declined, canceled): no provider is named anywhere, so
  * switching providers changes nothing on this screen.
  */
-export default function IdentityStep({ state, onChange, onBack, onNext, api = defaultApi, navigate }: Props) {
+export default function IdentityStep({ state, onChange, open = true, onToggle, api = defaultApi, navigate }: Props) {
   const { identity } = state;
   const [country, setCountry] = useState<string>(identity.country ?? '');
+  const [agreed, setAgreed] = useState(!!state.consentAt);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +68,13 @@ export default function IdentityStep({ state, onChange, onBack, onNext, api = de
     setBusy(true);
     setError(null);
     try {
+      if (!state.consentAt && api.consent) {
+        const c = await api.consent();
+        if (c.error) {
+          setError(c.error);
+          return;
+        }
+      }
       const body = await api.start(country);
       if (body.url) {
         // The provider's hosted flow. It sends the teacher back to this page.
@@ -100,16 +120,9 @@ export default function IdentityStep({ state, onChange, onBack, onNext, api = de
     body = (
       <>
         <Notice>
-          <p className="font-semibold">Identity check is not available yet.</p>
-          <p className="mt-1">
-            We are setting it up. You can add your qualifications and send your application now. We will ask you to do
-            the identity check as soon as it is ready.
-          </p>
+          <p className="font-semibold">Verification setup is not finished yet.</p>
+          <p className="mt-1">The identity check cannot be started right now. You can work on the other steps meanwhile; come back to this one later.</p>
         </Notice>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <SecondaryButton onClick={onBack}>Back</SecondaryButton>
-          <PrimaryButton onClick={onNext}>Continue to qualifications</PrimaryButton>
-        </div>
       </>
     );
   } else if (status === 'verified') {
@@ -117,10 +130,6 @@ export default function IdentityStep({ state, onChange, onBack, onNext, api = de
       <>
         <div className="rounded-xl border border-brand/30 bg-brand/5 p-4 text-sm text-ink">
           Your identity has been verified.
-        </div>
-        <div className="mt-6 flex gap-3">
-          <SecondaryButton onClick={onBack}>Back</SecondaryButton>
-          <PrimaryButton onClick={onNext}>Continue</PrimaryButton>
         </div>
       </>
     );
@@ -131,18 +140,12 @@ export default function IdentityStep({ state, onChange, onBack, onNext, api = de
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand border-t-transparent" />
           We are checking your documents. This usually takes a minute. You can leave this page open.
         </div>
-        <div className="mt-6">
-          <SecondaryButton onClick={onBack}>Back</SecondaryButton>
-        </div>
       </>
     );
   } else if (status === 'consent_declined') {
     body = (
       <>
         <SupportNote reason="The identity check was declined." />
-        <div className="mt-6">
-          <SecondaryButton onClick={onBack}>Back</SecondaryButton>
-        </div>
       </>
     );
   } else {
@@ -194,9 +197,14 @@ export default function IdentityStep({ state, onChange, onBack, onNext, api = de
                 <li>You will come back here automatically when you are done.</li>
               </ul>
             )}
+            {!state.consentAt && (
+              <div className="mb-5 rounded-xl border border-border bg-muted p-4">
+                <ConsentNotice checked={agreed} onChange={setAgreed} />
+              </div>
+            )}
             {countrySelect}
             <ErrorBanner message={error} />
-            <PrimaryButton onClick={start} busy={busy} disabled={!country}>
+            <PrimaryButton onClick={start} busy={busy} disabled={!country || (!state.consentAt && !agreed)}>
               {unsupported || (failed && !identity.canRetry && identity.furtherRoute)
                 ? 'Try another way'
                 : unfinished
@@ -212,15 +220,18 @@ export default function IdentityStep({ state, onChange, onBack, onNext, api = de
             )}
           </>
         )}
-        <div className="mt-6">
-          <SecondaryButton onClick={onBack}>Back</SecondaryButton>
-        </div>
       </>
     );
   }
 
   return (
-    <Card title={STEP_META[2].title} subtitle={STEP_META[2].subtitle} state={status === 'verified' ? 'complete' : 'incomplete'}>
+    <Card
+      title={CHECKLIST_META.identity.title}
+      subtitle={state.stepNotes.identity ?? CHECKLIST_META.identity.subtitle}
+      state={state.steps.identity}
+      collapsed={!open}
+      onOpen={onToggle}
+    >
       {body}
     </Card>
   );

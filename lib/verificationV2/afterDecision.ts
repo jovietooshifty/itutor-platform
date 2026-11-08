@@ -31,7 +31,7 @@ export async function afterRevocation(tutorId: string, db?: Db): Promise<AfterDe
   return { redaction, files };
 }
 
-/** An approval keeps the files (they were the evidence) but ID data leaves Stripe. */
+/** An approval keeps the files (they were the evidence) but ID data leaves Didit. */
 export async function afterApproval(tutorId: string, db?: Db): Promise<AfterDecision> {
   return { redaction: await redactIdentitySessions({ tutorId, db }) };
 }

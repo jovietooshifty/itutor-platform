@@ -8,8 +8,9 @@ vi.mock('@/lib/verificationV2/adminGuard', async (orig) => ({
   guardAdminV2: async () => h.guard,
 }));
 vi.mock('@/lib/supabase/server', () => ({ getServiceClient: () => h.guard?.db }));
-vi.mock('@/lib/payments/stripeClient', () => ({
-  getStripeClient: () => ({ identity: { verificationSessions: { redact: async (id: string) => ({ id }) } } }),
+vi.mock('@/lib/identity/registry', async (orig) => ({
+  ...(await orig<typeof import('@/lib/identity/registry')>()),
+  getProvider: () => ({ redact: async () => ({ ok: true }) }) as any,
 }));
 
 import { requestInfoV2, rejectV2 } from '@/lib/verificationV2/review';
@@ -155,9 +156,12 @@ describe('the queue tabs', () => {
     expect(await ids('done')).toEqual(['g', 'h']);
   });
 
-  it('returns the three counts, and a teacher part-way through the form is in none of them', async () => {
+  it('returns the tab counts: a teacher part-way through the form is in none of the three, but is in Everyone', async () => {
     const { body } = await get('?tab=review');
-    expect(body.counts).toEqual({ review: 2, waiting: 3, done: 2 });
+    expect(body.counts).toMatchObject({ review: 2, waiting: 3, done: 2 });
+    expect(body.counts.all).toBe(8);
+    const everyone = await get('?tab=all');
+    expect(everyone.body.items).toHaveLength(8);
   });
 
   it('an unknown tab is 400, and the old ?status= filter still works', async () => {

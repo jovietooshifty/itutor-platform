@@ -47,37 +47,35 @@ export default function TeacherStates({ onAction }: { onAction: (text: string) =
   return (
     <>
       <Section id="teacher-status" title="Teacher status screens" note="What a teacher sees on /tutor/verification-v2 for each overall status.">
-        <Cell label="NOT_STARTED"><StatusView state={mkState({ status: 'NOT_STARTED', consentAt: null })} onBegin={() => onAction('Begin pressed')} /></Cell>
-        <Cell label="IN_REVIEW (submitted)"><StatusView state={mkState({ status: 'IN_REVIEW', submittedAt: '2026-10-02T09:00:00.000Z', editable: false })} onBegin={() => {}} /></Cell>
-        <Cell label="VERIFIED"><StatusView state={mkState({ status: 'VERIFIED', editable: false })} onBegin={() => {}} /></Cell>
-        <Cell label="REJECTED (with reason)"><StatusView state={mkState({ status: 'REJECTED', decisionReason: 'The results slip is cropped. Please upload the full page.' })} onBegin={() => onAction('Update and resubmit pressed')} /></Cell>
-        <Cell label="REVERIFICATION_REQUIRED"><StatusView state={mkState({ status: 'REVERIFICATION_REQUIRED' })} onBegin={() => onAction('Start reverification pressed')} /></Cell>
-        <Cell label="REVOKED"><StatusView state={mkState({ status: 'REVOKED', editable: false })} onBegin={() => {}} /></Cell>
+        <Cell label="NOT_STARTED"><StatusView state={mkState({ status: 'NOT_STARTED', consentAt: null })} /></Cell>
+        <Cell label="IN_REVIEW (submitted)"><StatusView state={mkState({ status: 'IN_REVIEW', submittedAt: '2026-10-02T09:00:00.000Z', editable: false })} /></Cell>
+        <Cell label="VERIFIED"><StatusView state={mkState({ status: 'VERIFIED', editable: false })} /></Cell>
+        <Cell label="REJECTED (with reason)"><StatusView state={mkState({ status: 'REJECTED', decisionReason: 'The results slip is cropped. Please upload the full page.' })} /></Cell>
+        <Cell label="REVERIFICATION_REQUIRED"><StatusView state={mkState({ status: 'REVERIFICATION_REQUIRED' })} /></Cell>
+        <Cell label="REVOKED"><StatusView state={mkState({ status: 'REVOKED', editable: false })} /></Cell>
       </Section>
 
       <Section id="steps" title="The four steps" note="Progress is saved. Consent, credentials and extras (identity has its own section).">
-        <Cell label="1. Consent (not yet accepted)"><ConsentStep state={mkState({ consentAt: null, step: 1 })} onChange={noop} onNext={() => {}} /></Cell>
-        <Cell label="1. Consent (accepted)"><ConsentStep state={mkState()} onChange={noop} onNext={() => {}} /></Cell>
-        <Cell label="3. Credentials (empty)"><CredentialsStep state={mkState({ step: 3, identity: { status: 'verified' } })} onChange={noop} onBack={() => {}} onNext={() => {}} /></Cell>
-        <Cell label="3. Credentials (two added)"><CredentialsStep state={mkState({ step: 3, credentials: CREDENTIALS, identity: { status: 'verified' } })} onChange={noop} onBack={() => {}} onNext={() => {}} /></Cell>
-        <Cell label="4. Extras (none)"><ExtrasStep state={mkState({ step: 4, credentials: CREDENTIALS, identity: { status: 'verified' } })} onChange={noop} onBack={() => {}} /></Cell>
-        <Cell label="4. Extras (3 of 3, limit reached)"><ExtrasStep state={mkState({ step: 4, credentials: CREDENTIALS, extras: EXTRAS, identity: { status: 'verified' } })} onChange={noop} onBack={() => {}} /></Cell>
+                <Cell label="3. Credentials (empty)"><CredentialsStep state={mkState({ step: 3, identity: { status: 'verified' } })} onChange={noop} /></Cell>
+        <Cell label="3. Credentials (two added)"><CredentialsStep state={mkState({ step: 3, credentials: CREDENTIALS, identity: { status: 'verified' } })} onChange={noop} /></Cell>
+        <Cell label="4. Extras (none)"><ExtrasStep state={mkState({ step: 4, credentials: CREDENTIALS, identity: { status: 'verified' } })} onChange={noop} /></Cell>
+        <Cell label="4. Extras (3 of 3, limit reached)"><ExtrasStep state={mkState({ step: 4, credentials: CREDENTIALS, extras: EXTRAS, identity: { status: 'verified' } })} onChange={noop} /></Cell>
       </Section>
 
       <Section id="identity" title="Identity step: every neutral outcome" note="The screen never names a provider. The same screens appear whichever provider did the check.">
         {identityCases.map(([label, identity]) => (
           <Cell key={label} label={label}>
-            <IdentityStep state={mkState({ identity })} onChange={noop} onBack={() => {}} onNext={() => {}} api={api} navigate={(u) => onAction(`Would redirect to ${u}`)} />
+            <IdentityStep state={mkState({ identity })} onChange={noop} api={api} navigate={(u) => onAction(`Would redirect to ${u}`)} />
           </Cell>
         ))}
         {RETRY_REASONS.map((reason) => (
           <Cell key={`retry-${reason}`} label={`retryable_failure / ${reason}`}>
-            <IdentityStep state={mkState({ identity: { status: 'retryable_failure', reason, country: 'TT', attempts: 1, canRetry: true } })} onChange={noop} onBack={() => {}} onNext={() => {}} api={api} />
+            <IdentityStep state={mkState({ identity: { status: 'retryable_failure', reason, country: 'TT', attempts: 1, canRetry: true } })} onChange={noop} api={api} />
           </Cell>
         ))}
         {NOT_SUPPORTED.map((reason) => (
           <Cell key={`ns-${reason}`} label={`not_supported / ${reason} (next provider offered automatically)`}>
-            <IdentityStep state={mkState({ identity: { status: 'not_supported', reason, country: 'TT', attempts: 1, furtherRoute: true } })} onChange={noop} onBack={() => {}} onNext={() => {}} api={api} />
+            <IdentityStep state={mkState({ identity: { status: 'not_supported', reason, country: 'TT', attempts: 1, furtherRoute: true } })} onChange={noop} api={api} />
           </Cell>
         ))}
       </Section>

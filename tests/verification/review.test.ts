@@ -7,18 +7,15 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase/server', () => ({ getServiceClient: () => { throw new Error('not used'); } }));
-vi.mock('@/lib/payments/stripeClient', () => ({
-  getStripeClient: () => ({
-    identity: {
-      verificationSessions: {
-        redact: async (id: string) => {
-          if (h.failRedact) throw new Error('stripe unavailable');
-          h.redacted.push(id);
-          return { id };
-        },
-      },
+vi.mock('@/lib/identity/registry', async (orig) => ({
+  ...(await orig<typeof import('@/lib/identity/registry')>()),
+  getProvider: () => ({
+    redact: async (ref: string) => {
+      if (h.failRedact) return { ok: false, error: 'the provider is unavailable' };
+      h.redacted.push(ref);
+      return { ok: true };
     },
-  }),
+  }) as any,
 }));
 
 import { approveV2, rejectV2, requireReverification, revokeV2 } from '@/lib/verificationV2/review';
@@ -34,7 +31,7 @@ function seed(opts: { profile?: string | null; v2?: string; identity?: string | 
     tutor_verification_v2: [
       {
         tutor_id: T, status: opts.v2 ?? 'IN_REVIEW', identity_status: opts.identity === undefined ? 'verified' : opts.identity,
-        stripe_identity_session_id: 'vs_2', identity_session_history: ['vs_1', 'vs_2'], identity_redacted_at: null,
+        identity_provider_session_ref: 'vs_2', identity_session_refs: [{ provider: 'didit', ref: 'vs_1' }, { provider: 'didit', ref: 'vs_2' }], identity_redacted_at: null,
         files_deleted_at: null, decided_at: null, ...(opts.extra ?? {}),
       },
     ],
@@ -56,7 +53,7 @@ beforeEach(() => {
 });
 
 describe('approveV2', () => {
-  it('verifies the application and the teacher, records the decision, redacts every Stripe session', async () => {
+  it('verifies the application and the teacher, records the decision, redacts every identity session', async () => {
     const db = seed();
     const r = await approveV2(ctx(db, 'reviewer'), T);
     expect(r.ok).toBe(true);
@@ -100,7 +97,7 @@ describe('approveV2', () => {
     expect(writes(db)).toEqual([]);
   });
 
-  it('a failed Stripe redaction does not undo the approval', async () => {
+  it('a failed redaction does not undo the approval', async () => {
     h.failRedact = true;
     const db = seed();
     const r = await approveV2(ctx(db), T);

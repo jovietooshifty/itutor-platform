@@ -1,41 +1,33 @@
 'use client';
 
 // The teacher's verification page. It copies the "Complete your profile" checklist
-// (app/tutor/get-listed/page.tsx): back link, title, progress card, then one card per step
-// with a COMPLETE / INCOMPLETE pill. The open step shows its form; the others are a header
-// the teacher can open once the saved data allows it.
+// (app/tutor/get-listed/page.tsx): back link, title, progress card, then one card per step with a
+// status pill. The steps can be done in ANY order: nothing is locked or greyed out because another
+// step is unfinished. Progress is saved as the teacher goes, so they can leave and come back.
+// "Send for review" is enabled once every required step is done.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SETUP_CODE, SETUP_MESSAGE, type VerificationV2StateDto } from '@/lib/verificationV2/constants';
 import { pollIntervalMs, stateSignature } from '@/lib/verificationV2/poll';
-import ConsentStep from './ConsentStep';
 import IdentityStep from './IdentityStep';
 import CredentialsStep from './CredentialsStep';
 import ExtrasStep from './ExtrasStep';
 import StatusView from './StatusView';
-import { Card, ErrorBanner, Notice, ProgressCard, STEP_META, type StepState } from './ui';
+import { Card, ErrorBanner, Notice, PrimaryButton, ProgressCard, readError } from './ui';
 
-/** The three steps that must be done. Extras are optional and are not counted. */
-const REQUIRED = 3;
-
-function stepState(n: 1 | 2 | 3 | 4, s: VerificationV2StateDto): StepState {
-  if (n === 1) return s.consentAt ? 'complete' : 'incomplete';
-  if (n === 2) return s.identity.status === 'verified' ? 'complete' : 'incomplete';
-  if (n === 3) return s.credentials.length > 0 ? 'complete' : 'incomplete';
-  return s.extras.length > 0 ? 'complete' : 'optional';
-}
+type StepKey = 'identity' | 'credentials' | 'details';
 
 export default function VerificationV2Flow() {
   const router = useRouter();
   const [state, setState] = useState<VerificationV2StateDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [setupMissing, setSetupMissing] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  // True once the teacher has chosen to work on the form from the status view.
-  const [working, setWorking] = useState(false);
-  const resumed = useRef(false);
+  const [open, setOpen] = useState<Record<StepKey, boolean>>({ identity: false, credentials: false, details: false });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const firstLoad = useRef(true);
   const latest = useRef<VerificationV2StateDto | null>(null);
   latest.current = state;
 
@@ -62,11 +54,11 @@ export default function VerificationV2Flow() {
       setSetupMissing(false);
       setState(next);
       setError(null);
-      // Resume where the teacher left off, once. After that they navigate themselves.
-      if (!resumed.current) {
-        resumed.current = true;
-        setStep(next.step);
-        if (next.status === 'IN_PROGRESS') setWorking(true);
+      // The first time only: open the first step that still needs the teacher. After that they decide.
+      if (firstLoad.current) {
+        firstLoad.current = false;
+        const first = (['identity', 'credentials'] as StepKey[]).find((k) => next.steps[k] !== 'done');
+        if (first) setOpen((o) => ({ ...o, [first]: true }));
       }
     } catch {
       setError('Could not load your verification. Please refresh.');
@@ -75,16 +67,15 @@ export default function VerificationV2Flow() {
 
   useEffect(() => {
     void load();
-    // Back from the provider: drop the marker so a refresh does not look like a return.
+    // Back from Didit: drop the marker so a refresh does not look like a return.
     if (typeof window !== 'undefined' && window.location.search.includes('identity=return')) {
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, [load]);
 
-  // Live status: while a change can still arrive from outside (in review, in progress),
-  // ask again every few seconds, only while the tab is visible, and apply the answer
-  // only if something the teacher cares about changed. It stops by itself once the
-  // status is final (verified, rejected, revoked, verify-again): no manual refresh.
+  // Live status: while a change can still arrive from outside (in review, in progress), ask again
+  // every few seconds, only while the tab is visible, and apply the answer only if something the
+  // teacher cares about changed. It stops by itself once the status is final.
   const status = state?.status ?? null;
   useEffect(() => {
     const every = pollIntervalMs(status);
@@ -94,7 +85,7 @@ export default function VerificationV2Flow() {
       if (stopped || document.visibilityState !== 'visible') return;
       try {
         const res = await fetch('/api/tutor/verification-v2/state', { cache: 'no-store' });
-        if (!res.ok || stopped) return; // a failed poll is silent: the next one tries again
+        if (!res.ok || stopped) return;
         const next = (await res.json()) as VerificationV2StateDto;
         const cur = latest.current;
         if (!cur || stateSignature(next) !== stateSignature(cur)) setState(next);
@@ -112,6 +103,20 @@ export default function VerificationV2Flow() {
     };
   }, [status]);
 
+  async function submit() {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch('/api/tutor/verification-v2/submit', { method: 'POST' });
+      if (!res.ok) throw new Error(await readError(res, 'Could not send your application'));
+      await load();
+    } catch (e) {
+      setSubmitError((e as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   const header = (
     <header>
       <Link href="/tutor/dashboard" className="text-xs text-muted-foreground hover:text-ink">
@@ -119,7 +124,7 @@ export default function VerificationV2Flow() {
       </Link>
       <h1 className="mt-2 text-2xl lg:text-3xl font-bold text-ink">Get verified</h1>
       <p className="text-sm text-muted-foreground mt-1">
-        Verify your identity and qualifications so students and parents can trust your profile. Your progress is saved.
+        Do the steps in any order. Your progress is saved, so you can leave and come back.
       </p>
     </header>
   );
@@ -154,74 +159,61 @@ export default function VerificationV2Flow() {
     );
   }
 
-  const showWizard = state.status === 'IN_PROGRESS' || (working && state.editable);
-  // A step is reachable only up to the furthest one the saved data allows.
-  const reach = state.step;
-  const go = (n: number) => setStep(Math.min(Math.max(n, 1), reach, 4) as 1 | 2 | 3 | 4);
-  const completed = ([1, 2, 3] as const).filter((n) => stepState(n, state) === 'complete').length;
+  const toggle = (k: StepKey) => setOpen((o) => ({ ...o, [k]: !o[k] }));
+  const editable = state.editable;
+  const requiredDone = (['identity', 'credentials'] as StepKey[]).filter((k) => state.steps[k] === 'done').length;
 
   return (
     <div className="max-w-4xl space-y-6">
       {header}
-
       {error && <ErrorBanner message={error} />}
 
-      {!showWizard ? (
-        <>
-          <StatusView
-            state={state}
-            onBegin={() => {
-              setStep(state.step);
-              setWorking(true);
-            }}
-          />
-          {/* A verified teacher can keep their profile up to date. New credentials wait for an admin;
-              the Verified badge stays. */}
-          {state.status === 'VERIFIED' && state.canAddCredentials && (
-            <>
-              <CredentialsStep state={{ ...state, editable: true }} onChange={load} afterVerified />
-              <ExtrasStep state={{ ...state, editable: true }} onChange={load} afterVerified />
-            </>
-          )}
-        </>
-      ) : (
+      {/* The decision, when there is one to show (in review, verified, not approved, removed). */}
+      {state.status !== 'IN_PROGRESS' && state.status !== 'NOT_STARTED' && <StatusView state={state} />}
+
+      {editable && (
         <>
           <ProgressCard
-            completed={completed}
-            total={REQUIRED}
-            hint={completed === REQUIRED ? 'Ready to send for review' : `${REQUIRED - completed} more to go`}
+            completed={requiredDone}
+            total={2}
+            hint={state.canSubmit ? 'Ready to send for review' : `${2 - requiredDone} more to go`}
           />
 
-          {(state.status === 'REJECTED' || state.status === 'IN_PROGRESS') && state.decisionReason && (
+          {state.status === 'IN_PROGRESS' && state.decisionReason && (
             <Notice>
-              <p className="font-semibold">{state.status === 'REJECTED' ? 'Previous decision' : 'We need more information'}</p>
+              <p className="font-semibold">We need more information</p>
               <p className="mt-1">{state.decisionReason}</p>
-              {state.status === 'IN_PROGRESS' && <p className="mt-1">Update your application, then send it again.</p>}
+              <p className="mt-1">Update that step, then send your application again.</p>
             </Notice>
           )}
 
-          {([1, 2, 3, 4] as const).map((n) => {
-            if (n === step) {
-              if (n === 1) return <ConsentStep key={n} state={state} onChange={load} onNext={() => setStep(2)} />;
-              if (n === 2) {
-                return <IdentityStep key={n} state={state} onChange={load} onBack={() => setStep(1)} onNext={() => setStep(3)} />;
-              }
-              if (n === 3) {
-                return <CredentialsStep key={n} state={state} onChange={load} onBack={() => setStep(2)} onNext={() => setStep(4)} />;
-              }
-              return <ExtrasStep key={n} state={state} onChange={load} onBack={() => setStep(3)} />;
-            }
-            return (
-              <Card
-                key={n}
-                title={STEP_META[n].title}
-                subtitle={STEP_META[n].subtitle}
-                state={stepState(n, state)}
-                collapsed
-                onOpen={n <= reach ? () => go(n) : undefined}
-              />
-            );
-          })}
+          <IdentityStep state={state} onChange={load} open={open.identity} onToggle={() => toggle('identity')} />
+          <CredentialsStep state={state} onChange={load} open={open.credentials} onToggle={() => toggle('credentials')} />
+          <ExtrasStep state={state} onChange={load} open={open.details} onToggle={() => toggle('details')} />
+
+          <Card>
+            <h2 className="font-semibold text-ink">Send for review</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {state.canSubmit
+                ? 'Everything required is done. We aim to decide within 14 days and will tell you here.'
+                : `Still to do: ${state.missing.join(' and ')}.`}
+            </p>
+            <div className="mt-4">
+              <ErrorBanner message={submitError} />
+              <PrimaryButton onClick={submit} busy={submitting} disabled={!state.canSubmit}>
+                Send for review
+              </PrimaryButton>
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* A verified teacher can keep their profile up to date. New credentials wait for an admin; the
+          Verified badge stays. */}
+      {state.status === 'VERIFIED' && state.canAddCredentials && (
+        <>
+          <CredentialsStep state={{ ...state, editable: true }} onChange={load} afterVerified />
+          <ExtrasStep state={{ ...state, editable: true }} onChange={load} afterVerified />
         </>
       )}
     </div>

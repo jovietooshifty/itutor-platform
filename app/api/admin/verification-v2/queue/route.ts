@@ -24,6 +24,8 @@ const TABS: Record<string, (r: Row, pending: number) => boolean> = {
   waiting: (r) =>
     r.status === 'REJECTED' || r.status === 'REVERIFICATION_REQUIRED' || (r.status === 'IN_PROGRESS' && !!r.decision_reason),
   done: (r, pending) => (r.status === 'VERIFIED' && pending === 0) || r.status === 'REVOKED',
+  // Every teacher with any verification record, including those part-way through the form.
+  all: () => true,
 };
 
 export async function GET(request: NextRequest) {
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
       g.db.from('tutor_credentials_v2').select('tutor_id').in('tutor_id', ids),
       g.db.from('tutor_extras_v2').select('tutor_id').in('tutor_id', ids),
     ]);
-    for (const p of profiles.data ?? []) names[p.id] = { name: p.display_name || p.full_name, email: p.email };
+    for (const p of profiles.data ?? []) names[p.id] = { name: p.full_name || p.display_name, email: p.email };
     for (const c of creds.data ?? []) credCount[c.tutor_id] = (credCount[c.tutor_id] ?? 0) + 1;
     for (const e of extras.data ?? []) extraCount[e.tutor_id] = (extraCount[e.tutor_id] ?? 0) + 1;
   }

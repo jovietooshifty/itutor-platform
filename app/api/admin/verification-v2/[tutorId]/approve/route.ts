@@ -1,7 +1,7 @@
 // POST /api/admin/verification-v2/[tutorId]/approve
-// Approves an IN_REVIEW application. Needs a passed Stripe identity check and at
+// Approves an IN_REVIEW application. Needs a passed identity check and at
 // least one credential. Moves the application and the teacher to VERIFIED,
-// records the decision, then redacts the Stripe session. Sends nothing.
+// records the decision, then redacts the identity session. Sends nothing.
 
 import { NextResponse } from 'next/server';
 import { approveV2 } from '@/lib/verificationV2/review';

@@ -31,7 +31,7 @@ export default function VerificationHubPage() {
   }
 
   const isTutor = profile.role === 'tutor';
-  const verificationHref = (anchor: string) => isTutor ? `/tutor/verification${anchor}` : `/verification/degree`;
+  const verificationHref = (_anchor: string) => (isTutor ? '/tutor/verification-v2' : '/verification/degree');
 
   return (
     <DashboardLayout role={layoutRole(profile.role)} userName={getDisplayName(profile)}>

@@ -11,9 +11,16 @@ export interface ReviewDetail {
   tutor: { id: string; name: string | null; email: string | null; profileStatus: string | null };
   application: {
     status: string;
+    /** v2, or legacy (verified under the old system and carried over). */
+    source?: string;
+    /** When Verified was granted and which admin approved it. */
+    grantedAt?: string | null;
+    approvedBy?: string | null;
     consentAt: string | null;
     identity: {
       status: string | null;
+      /** pass, fail or in_review. */
+      result?: 'pass' | 'fail' | 'in_review' | null;
       errorCode: string | null;
       provider: string | null;
       providerCode: string | null;
@@ -30,7 +37,8 @@ export interface ReviewDetail {
     filesDeleted: boolean;
   };
   credentials: {
-    id: string; kind: string; subject: string | null; grade: string | null; examYear: number | null;
+    id: string; kind: string; title?: string | null; addedAt?: string | null; approvedAt?: string | null; approvedBy?: string | null;
+    approvalState?: 'approved' | 'pending' | 'awaiting'; subject: string | null; grade: string | null; examYear: number | null;
     school: string | null; degree: string | null; field: string | null; graduationYear: number | null;
     proofUrl: string | null; proofFilename: string | null; proofLink: string | null; proofDeleted: boolean;
     /** Added after verification; waiting for an admin. */
@@ -38,10 +46,15 @@ export interface ReviewDetail {
     evidence: { key: string; label: string; criteria: string[] }[];
   }[];
   extras: { id: string; title: string; description: string; linkUrl: string | null }[];
-  decisions: { id: string; actorRole: string; action: string; from: string | null; to: string | null; profileFrom: string | null; profileTo: string | null; reason: string | null; at: string }[];
+  /** The whole status history, oldest first. */
+  history?: { at: string; label: string; by: string | null; reason?: string | null }[];
+  decisions: { id: string; actorRole: string; actorName?: string | null; action: string; from: string | null; to: string | null; profileFrom: string | null; profileTo: string | null; reason: string | null; at: string }[];
 }
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
+
+const RESULT_LABEL = { pass: 'Pass', fail: 'Fail', in_review: 'In review' } as const;
+const APPROVAL_LABEL = { approved: 'Approved', pending: 'Waiting for approval', awaiting: 'Part of the application, not decided yet' } as const;
 
 const IDENTITY_SUMMARY: Record<string, string> = {
   verified: 'Passed',
@@ -74,12 +87,13 @@ export function ReviewView({
   note?: string;
   onNote?: (v: string) => void;
   busy: boolean;
-  onAct: (action: 'approve' | 'reject' | 'revoke' | 'request-info') => void;
+  onAct: (action: 'approve' | 'reject' | 'revoke' | 'reapprove' | 'request-info') => void;
   onCredential?: (action: 'approve' | 'reject', credentialId: string) => void;
 }) {
   const status = detail.application.status;
   const canDecide = status === 'IN_REVIEW';
   const canRevoke = isAdmin && status === 'VERIFIED';
+  const canReapprove = isAdmin && status === 'REVOKED';
   const id = detail.application.identity;
 
   return (
@@ -92,6 +106,12 @@ export function ReviewView({
           <div><dt className="text-gray-500">Teacher status</dt><dd className="font-semibold">{detail.tutor.profileStatus ?? 'UNVERIFIED'}</dd></div>
           <div><dt className="text-gray-500">Submitted</dt><dd>{fmt(detail.application.submittedAt)}</dd></div>
           <div><dt className="text-gray-500">Consent given</dt><dd>{fmt(detail.application.consentAt)}</dd></div>
+          {detail.application.grantedAt && (
+            <>
+              <div><dt className="text-gray-500">Verified on</dt><dd>{fmt(detail.application.grantedAt)}</dd></div>
+              <div><dt className="text-gray-500">Approved by</dt><dd>{detail.application.approvedBy ?? (detail.application.source === 'legacy' ? 'Previous verification system' : '—')}</dd></div>
+            </>
+          )}
         </dl>
       </section>
 
@@ -99,8 +119,8 @@ export function ReviewView({
         <h2 className="text-xl font-bold text-gray-900 mb-4">Identity check</h2>
         <p className="mt-1 text-sm">
           Result:{' '}
-          <span className={id.status === 'verified' ? 'font-semibold text-green-700' : 'font-semibold text-red-700'}>
-            {id.status ? IDENTITY_SUMMARY[id.status] ?? id.status : 'Not checked'}
+          <span className={id.status === 'verified' ? 'font-semibold text-green-700' : id.result === 'in_review' ? 'font-semibold text-amber-700' : 'font-semibold text-red-700'}>
+            {id.result ? RESULT_LABEL[id.result] : id.status ? IDENTITY_SUMMARY[id.status] ?? id.status : 'Not checked'}
           </span>
           {id.errorCode && <> ({id.errorCode})</>}{id.attempts > 0 && <> · {id.attempts} {id.attempts === 1 ? 'attempt' : 'attempts'}</>}
           {id.provider && (
@@ -135,10 +155,20 @@ export function ReviewView({
                 </div>
               )}
               <p className="font-semibold">
-                {c.kind === 'DEGREE'
-                  ? `${c.degree}${c.field ? `, ${c.field}` : ''} · ${c.school} · ${c.graduationYear}`
-                  : `${c.kind} ${c.subject} · Grade ${c.grade} · ${c.examYear}`}
+                {c.title ??
+                  (c.kind === 'DEGREE'
+                    ? `${c.degree}${c.field ? `, ${c.field}` : ''} · ${c.school} · ${c.graduationYear}`
+                    : `${c.kind} ${c.subject} · Grade ${c.grade} · ${c.examYear}`)}
               </p>
+              <p className="mt-0.5 text-xs text-gray-600">
+                {c.approvalState ? APPROVAL_LABEL[c.approvalState] : ''}
+                {c.approvedAt ? ` · ${fmt(c.approvedAt)}${c.approvedBy ? ` by ${c.approvedBy}` : ''}` : ''}
+                {c.addedAt ? ` · added ${fmt(c.addedAt)}` : ''}
+              </p>
+              {c.proofLink && /\.(png|jpe?g)$/i.test(c.proofFilename ?? '') && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.proofLink} alt={`Uploaded image for ${c.title ?? c.kind}`} className="mt-2 max-h-64 rounded-lg border border-gray-200 object-contain" />
+              )}
               <p className="mt-1">
                 {c.proofLink && <a className="mr-3 font-semibold text-itutor-green underline" href={c.proofLink} target="_blank" rel="noopener noreferrer">Open proof file{c.proofFilename ? ` (${c.proofFilename})` : ''}</a>}
                 {c.proofUrl && <a className="font-semibold text-itutor-green underline" href={c.proofUrl} target="_blank" rel="noopener noreferrer nofollow">Teacher&apos;s proof link</a>}
@@ -177,7 +207,7 @@ export function ReviewView({
         </ul>
       </section>
 
-      {(canDecide || canRevoke) && (
+      {(canDecide || canRevoke || canReapprove) && (
         <section className="bg-white border-2 border-gray-200 rounded-lg p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Decision</h2>
           {/* Approving needs no reason. The other three need one from the fixed list: it is what the
@@ -217,6 +247,9 @@ export function ReviewView({
                 <button onClick={() => onAct('reject')} disabled={busy} className="rounded-lg border-2 border-red-300 bg-white px-5 py-2.5 text-sm font-semibold text-red-700 disabled:opacity-50">Reject</button>
               </>
             )}
+            {canReapprove && (
+              <button onClick={() => onAct('reapprove')} disabled={busy} className="rounded-lg bg-itutor-green px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Re-approve</button>
+            )}
             {canRevoke && (
               <button onClick={() => onAct('revoke')} disabled={busy} className="rounded-lg border-2 border-red-300 bg-white px-5 py-2.5 text-sm font-semibold text-red-700 disabled:opacity-50">Revoke verification</button>
             )}
@@ -225,12 +258,23 @@ export function ReviewView({
       )}
 
       <section className="bg-white border-2 border-gray-200 rounded-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Decision history</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Status history</h2>
+        {detail.history && detail.history.length > 0 && (
+          <ul className="mb-5 space-y-1 text-sm">
+            {detail.history.map((h, i) => (
+              <li key={i} className="border-l-2 border-gray-200 pl-3">
+                <span className="font-semibold">{h.label}</span>{h.by ? ` · ${h.by}` : ''} · {fmt(h.at)}
+                {h.reason ? <span className="block text-xs text-gray-600">{h.reason}</span> : null}
+              </li>
+            ))}
+          </ul>
+        )}
+        <h3 className="text-sm font-semibold text-gray-700">Admin decisions</h3>
         {detail.decisions.length === 0 && <p className="mt-2 text-sm text-gray-500">No decisions yet.</p>}
         <ul className="mt-3 space-y-2 text-sm">
           {detail.decisions.map((d) => (
             <li key={d.id} className="border-l-2 border-gray-200 pl-3">
-              <p><span className="font-semibold">{d.action}</span> by {d.actorRole} · {fmt(d.at)}</p>
+              <p><span className="font-semibold">{d.action}</span> by {d.actorName ?? d.actorRole} · {fmt(d.at)}</p>
               <p className="text-xs text-gray-500">application {d.from ?? '—'} → {d.to ?? '—'} · teacher {d.profileFrom ?? '—'} → {d.profileTo ?? 'unchanged'}</p>
               {d.reason && <p className="text-gray-700">{d.reason}</p>}
             </li>
@@ -271,12 +315,12 @@ export default function AdminV2Review({ tutorId }: { tutorId: string }) {
     void load();
   }, [profile, profileLoading, router, load]);
 
-  async function act(action: 'approve' | 'reject' | 'revoke' | 'request-info') {
-    if (action !== 'approve' && !reason) {
+  async function act(action: 'approve' | 'reject' | 'revoke' | 'reapprove' | 'request-info') {
+    if (action !== 'approve' && action !== 'reapprove' && !reason) {
       setError('Choose a reason from the list.');
       return;
     }
-    const verb = action === 'request-info' ? 'Ask for more information from' : action[0]!.toUpperCase() + action.slice(1);
+    const verb = action === 'request-info' ? 'Ask for more information from' : action === 'reapprove' ? 'Re-approve' : action[0]!.toUpperCase() + action.slice(1);
     if (!confirm(`${verb} this teacher?`)) return;
     setBusy(true);
     setError(null);
@@ -294,7 +338,9 @@ export default function AdminV2Review({ tutorId }: { tutorId: string }) {
           ? 'Rejected. The teacher stays verified; use revoke to remove verified status.'
           : action === 'request-info'
             ? 'Sent back to the teacher, who has been told.'
-            : `Done: ${action}d.`
+            : action === 'reapprove'
+              ? 'Re-approved. The Verified badge is back and the teacher has been told.'
+              : `Done: ${action}d.`
       );
       setReason('');
       setNote('');

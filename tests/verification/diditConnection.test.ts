@@ -115,11 +115,6 @@ describe('Didit v3 webhook signature, with a captured-style payload', () => {
       expect(ignored.ignore).toBe(true);
     });
 
-    it('ignores a live delivery when the app expects sandbox', async () => {
-      vi.stubEnv('DIDIT_EXPECT_ENVIRONMENT', 'live');
-      expect((await diditProvider.verifyWebhook(BODY, signed())).ignore).toBe(true);
-    });
-
     it('a bad signature throws the signature error (the route answers 400)', async () => {
       await expect(diditProvider.verifyWebhook(BODY, headers({ 'x-timestamp': String(NOW), 'x-signature-v2': 'nope' }))).rejects.toBeInstanceOf(
         WebhookSignatureError
@@ -208,8 +203,8 @@ describe('the Didit connection test', () => {
     expect((await diditConnectionTest()).message).toMatch(/Could not reach Didit/);
   });
 
-  it('in production, or in live mode, it never creates a session: only the read-only key check runs', async () => {
-    for (const env of [{ VERCEL_ENV: 'production' }, { VERCEL_ENV: 'preview', DIDIT_EXPECT_ENVIRONMENT: 'live' }]) {
+  it('in production it never creates a session: only the read-only key check runs', async () => {
+    for (const env of [{ VERCEL_ENV: 'production' }]) {
       fetchMock.mockReset();
       for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
       fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });

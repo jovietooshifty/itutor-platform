@@ -2,24 +2,25 @@
 
 import { useState } from 'react';
 import { MAX_EXTRAS, type VerificationV2StateDto } from '@/lib/verificationV2/constants';
-import { Card, ErrorBanner, PrimaryButton, SecondaryButton, STEP_META, inputClass, readError } from './ui';
+import { CHECKLIST_META, Card, ErrorBanner, PrimaryButton, inputClass, readError } from './ui';
 
 interface Props {
   state: VerificationV2StateDto;
   onChange: () => Promise<void>;
-  onBack?: () => void;
   /** The teacher is already verified: extras can be edited freely (they are not checked by iTutor). */
   afterVerified?: boolean;
+  /** The checklist card: open or folded, and how to toggle it. Defaults to open (the gallery). */
+  open?: boolean;
+  onToggle?: () => void;
 }
 
 const INPUT = inputClass;
 
-export default function ExtrasStep({ state, onChange, onBack, afterVerified = false }: Props) {
+export default function ExtrasStep({ state, onChange, afterVerified = false, open = true, onToggle }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [busy, setBusy] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const full = state.extras.length >= MAX_EXTRAS;
@@ -53,25 +54,13 @@ export default function ExtrasStep({ state, onChange, onBack, afterVerified = fa
     await onChange();
   }
 
-  async function submit() {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/tutor/verification-v2/submit', { method: 'POST' });
-      if (!res.ok) throw new Error(await readError(res, 'Could not submit'));
-      await onChange();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
     <Card
-      title={STEP_META[4].title}
-      subtitle={STEP_META[4].subtitle}
-      state={afterVerified ? undefined : state.extras.length > 0 ? 'complete' : 'optional'}
+      title={afterVerified ? 'Other details' : CHECKLIST_META.details.title}
+      subtitle={CHECKLIST_META.details.subtitle}
+      state={afterVerified ? undefined : state.extras.length > 0 ? 'done' : 'optional'}
+      collapsed={!open}
+      onOpen={onToggle}
     >
       <p className="mb-5 text-sm text-muted-foreground">
         Add up to {MAX_EXTRAS} things that show who you are as a teacher, such as a course, an award or a
@@ -124,18 +113,8 @@ export default function ExtrasStep({ state, onChange, onBack, afterVerified = fa
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="mt-4">
         <ErrorBanner message={error} />
-        {!afterVerified && onBack && (
-          <div className="flex gap-3">
-            <SecondaryButton onClick={onBack}>Back</SecondaryButton>
-            {state.editable && (
-              <PrimaryButton onClick={submit} busy={submitting}>
-                Submit for review
-              </PrimaryButton>
-            )}
-          </div>
-        )}
       </div>
     </Card>
   );

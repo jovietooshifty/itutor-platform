@@ -1,4 +1,4 @@
-// How long verification files and Stripe ID data are kept. CONFIG, not code.
+// How long verification files and the identity provider's ID data are kept. CONFIG, not code.
 // The numbers are PLACEHOLDERS: the retention period is an open policy decision.
 
 export interface RetentionPolicy {
@@ -9,21 +9,22 @@ export interface RetentionPolicy {
    * applies this period is lib/verificationV2/cleanup.ts (not scheduled).
    */
   rejectedDays: number;
+  /** Infinity = never: a revoked teacher's data is kept, so an admin can re-approve. */
   revokedDays: number;
   /**
-   * Redact the Stripe Identity session once a decision is made, so Stripe stops
+   * Redact the identity session at the provider once a decision is made, so it stops
    * holding the ID images. Matches the consent text ("until we redact it after a
    * decision"). Set false to disable without removing code.
    */
-  redactStripeSessionAfterDecision: boolean;
+  redactIdentitySessionAfterDecision: boolean;
   /**
-   * Account deletion always deletes verification files and redacts the Stripe
+   * Account deletion always deletes verification files and redacts the identity
    * session immediately. There is deliberately no retention period for that.
    */
 }
 
 export const retentionPolicy: RetentionPolicy = {
   rejectedDays: 30,
-  revokedDays: 30,
-  redactStripeSessionAfterDecision: true,
+  revokedDays: Infinity,
+  redactIdentitySessionAfterDecision: true,
 };

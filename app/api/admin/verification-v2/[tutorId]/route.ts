@@ -1,9 +1,9 @@
 // GET /api/admin/verification-v2/[tutorId]
-// Everything a reviewer needs for one application: the teacher, the Stripe
+// Everything a reviewer needs for one application: the teacher, the identity
 // result (status only), credentials with short-lived links to their proof files,
 // extras, the decision history, and the evidence criteria from config.
 //
-// What it never returns: an ID image, an ID number or anything from the Stripe
+// What it never returns: an ID image, an ID number or anything from the identity
 // check beyond pass/fail and a reason code. v2 holds none of it.
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,6 +11,7 @@ import { PROOF_BUCKET } from '@/lib/verificationV2/constants';
 import { guardAdminV2 } from '@/lib/verificationV2/adminGuard';
 import { schemaNotReady } from '@/lib/verificationV2/schemaReady';
 import { evidenceFor } from '@/config/verificationEvidence';
+import { buildHistory, identityResult } from '@/lib/verificationV2/adminDetail';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
   const { data: row, error } = await g.db
     .from('tutor_verification_v2')
     .select(
-      'tutor_id, status, consent_at, identity_status, identity_error_code, identity_provider, identity_provider_code, identity_country, identity_attempts, identity_verified_at, identity_name_match, submitted_at, decision_reason, decided_at, identity_redacted_at, files_deleted_at'
+      'tutor_id, status, consent_at, identity_status, identity_error_code, identity_provider, identity_provider_code, identity_country, identity_attempts, identity_verified_at, identity_name_match, submitted_at, decision_reason, decided_at, decided_by, source, created_at, identity_redacted_at, files_deleted_at'
     )
     .eq('tutor_id', tutorId)
     .maybeSingle();
@@ -45,7 +46,7 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
     g.db
       .from('tutor_credentials_v2')
       .select(
-        'id, kind, subject, grade, exam_year, school, degree, field, graduation_year, proof_url, proof_path, proof_filename, proof_deleted_at, pending_approval'
+        'id, kind, subject, grade, exam_year, school, degree, field, graduation_year, proof_url, proof_path, proof_filename, proof_deleted_at, pending_approval, title, approved_at, approved_by, created_at'
       )
       .eq('tutor_id', tutorId)
       .order('created_at', { ascending: true }),
@@ -56,11 +57,24 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
       .order('created_at', { ascending: true }),
     g.db
       .from('tutor_verification_v2_decisions')
-      .select('id, actor_role, action, from_status, to_status, profile_from_status, profile_to_status, reason, created_at')
+      .select('id, actor_id, actor_role, action, from_status, to_status, profile_from_status, profile_to_status, reason, created_at')
       .eq('tutor_id', tutorId)
       .order('created_at', { ascending: false })
       .limit(50),
   ]);
+
+  // Names of the admins behind decisions and approvals (one lookup).
+  const adminIds = Array.from(
+    new Set(
+      [row.decided_by, ...(decisions.data ?? []).map((d: any) => d.actor_id), ...(creds.data ?? []).map((c: any) => c.approved_by)].filter(Boolean)
+    )
+  ) as string[];
+  const adminNames = new Map<string, string>();
+  if (adminIds.length > 0) {
+    const { data: admins } = await g.db.from('profiles').select('id, full_name, display_name').in('id', adminIds);
+    for (const a of admins ?? []) adminNames.set(a.id, a.full_name || a.display_name || 'An admin');
+  }
+  const nameOf = (id: string | null | undefined) => (id ? adminNames.get(id) ?? 'An admin' : null);
 
   const credentials = await Promise.all(
     (creds.data ?? []).map(async (c: any) => {
@@ -84,7 +98,13 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
         proofLink,
         proofDeleted: !!c.proof_deleted_at,
         pending: !!c.pending_approval,
-        evidence: evidenceFor(c.kind, c.subject ?? c.degree ?? c.field).map((r) => ({
+        addedAt: c.created_at ?? null,
+        approvedAt: c.approved_at ?? null,
+        approvedBy: nameOf(c.approved_by),
+        /** approved: an admin signed it off. pending: added after verification, waiting. awaiting: part of an application not yet decided. */
+        approvalState: c.approved_at || (!c.pending_approval && row.status === 'VERIFIED') ? 'approved' : c.pending_approval ? 'pending' : 'awaiting',
+        title: c.title ?? null,
+        evidence: (c.kind === 'TEACHING' || c.kind === 'OTHER' ? [] : evidenceFor(c.kind === 'CERTIFICATE' ? 'CSEC' : c.kind, c.subject ?? c.degree ?? c.field ?? c.title)).map((r) => ({
           key: r.key,
           label: r.label,
           criteria: r.criteria,
@@ -96,15 +116,22 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
   return NextResponse.json({
     tutor: {
       id: tutorId,
-      name: profile.data?.display_name || profile.data?.full_name || null,
+      name: profile.data?.full_name || profile.data?.display_name || null,
       email: profile.data?.email ?? null,
       profileStatus: profile.data?.tutor_verification_status ?? null,
     },
     application: {
       status: row.status,
+      /** v2: went through this flow. legacy: verified under the old system and carried over. */
+      source: row.source ?? 'v2',
+      /** When Verified was granted and which admin approved it (null when the application is not verified). */
+      grantedAt: row.status === 'VERIFIED' ? row.decided_at : null,
+      approvedBy: row.status === 'VERIFIED' ? nameOf(row.decided_by) : null,
       consentAt: row.consent_at,
       identity: {
         status: row.identity_status,
+        /** pass, fail or in_review: the Didit result in one word. null = no check yet. */
+        result: identityResult(row.identity_status),
         /** The neutral reason. */
         errorCode: row.identity_error_code,
         provider: row.identity_provider ?? null,
@@ -129,9 +156,11 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
       description: e.description,
       linkUrl: e.link_url,
     })),
+    history: buildHistory(row, decisions.data ?? [], nameOf),
     decisions: (decisions.data ?? []).map((d: any) => ({
       id: d.id,
       actorRole: d.actor_role,
+      actorName: nameOf(d.actor_id),
       action: d.action,
       from: d.from_status,
       to: d.to_status,
