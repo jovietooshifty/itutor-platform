@@ -169,7 +169,8 @@ export default function IdentityStep({ state, onChange, open = true, onToggle, a
             {identity.furtherRoute && <p className="mt-1">We can try another way to check it.</p>}
           </div>
         )}
-        {cancelled && (
+        {/* With no attempt left the only message is the contact-us one below. */}
+        {cancelled && !nothingLeft && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             That check was cancelled. You can start a new one.
           </div>
