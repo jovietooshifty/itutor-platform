@@ -345,7 +345,7 @@ export default function StudentSettingsV2() {
         </p>
       ) : null}
 
-      <div className="grid items-start gap-[22px] lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-[22px] lg:grid-cols-2">
         <div className="flex flex-col gap-[22px]">
           {/* Profile hero — 2:2256 */}
           <section className="flex flex-col gap-ds-4 rounded-ds-card bg-ink p-[18px]" aria-label="Your profile">

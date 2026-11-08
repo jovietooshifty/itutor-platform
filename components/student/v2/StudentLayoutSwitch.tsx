@@ -57,9 +57,8 @@ export default function StudentLayoutSwitch({ children }: { children: ReactNode 
   return (
     <StudentStoreProvider>
       <StudentV2Shell width="wide">
-        {/* Old page content. `ds-legacy` scopes the few fixes old markup needs
-            inside the new frame (see ds-tokens.css). */}
-        <div className="ds-legacy min-w-0">{children}</div>
+        {/* Old page content, unchanged. */}
+        <div className="min-w-0">{children}</div>
       </StudentV2Shell>
     </StudentStoreProvider>
   );

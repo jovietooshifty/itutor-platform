@@ -620,7 +620,7 @@ export default function TutorProfilePage() {
   // New UI (Figma 31:3796). Same state and handlers; only the profile view
   // and its chrome change. The booking sheet below is shared by both.
   const newUi = isNewUiEnabled();
-  const v2Rate = !paidClassesEnabled ? 'Free' : minPrice > 0 ? `TT${minPrice}` : null;
+  const v2Rate = !paidClassesEnabled ? 'Free' : minPrice > 0 ? `TT$${minPrice}` : null;
 
   if (profileLoading || loading || !profile) {
     if (newUi) {

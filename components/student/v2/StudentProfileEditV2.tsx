@@ -149,7 +149,7 @@ export default function StudentProfileEditV2() {
       {back}
       <h1 className="ds-page-title m-0 font-display font-extrabold text-ink">Customise profile</h1>
 
-      <div className="grid items-start gap-[22px] lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-[22px] lg:grid-cols-2">
         <div className="flex flex-col gap-[22px]">
           {/* Look — 2:2479 (colour picker not built, see header) */}
           <section className="flex items-center gap-ds-4 rounded-ds-card bw-bold border-ink bg-surface-card px-[18px] py-[20px]" aria-label="Photo">

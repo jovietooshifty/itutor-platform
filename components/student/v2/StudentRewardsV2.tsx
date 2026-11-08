@@ -286,7 +286,7 @@ export default function StudentRewardsV2() {
         <Card tone="alert" title="Credits are paused" body="This account is suspended, so credits cannot be earned or spent right now." />
       ) : null}
 
-      <div className="grid items-start gap-ds-4 lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-ds-4 lg:grid-cols-2">
         <div className="flex flex-col gap-ds-4">
           {/* Balance — frame 2:2030 */}
           <section className="flex flex-col gap-[14px] rounded-ds-card bg-ink p-[18px]" aria-label="Your credits">
