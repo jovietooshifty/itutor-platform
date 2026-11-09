@@ -1,5 +1,5 @@
 // GET /api/public/verification-v2/[tutorId]
-// The click-through panel's data: verified date, credentials, up to 3 extras.
+// The click-through panel's data: verified date, legal name, credentials.
 // 404 for any teacher who is not VERIFIED (indistinguishable from "never applied")
 // and when the flag is off. Public, explicit columns only.
 

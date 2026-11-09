@@ -6,7 +6,6 @@ import type { PublicDetail } from '@/lib/verificationV2/publicView';
 
 const LABEL_ID = 'ID checked';
 const LABEL_CREDENTIALS = 'Credentials reviewed';
-const LABEL_EXTRAS = 'Teacher-provided extras (not verified by iTutor)';
 
 function credentialLine(c: PublicDetail['credentials'][number]): string {
   if (c.title) return c.title;

@@ -1,10 +1,13 @@
 'use client';
 
 import type { VerificationV2StateDto } from '@/lib/verificationV2/constants';
-import { Card, SUPPORT_EMAIL } from './ui';
+import { Card, PrimaryButton, SUPPORT_EMAIL } from './ui';
 
 interface Props {
   state: VerificationV2StateDto;
+  /** A removed teacher starts again. */
+  onReapply?: () => void;
+  busy?: boolean;
 }
 
 /** DD Mon YYYY, the site's date format. */
@@ -35,7 +38,7 @@ function SupportLink({ subject, children }: { subject: string; children: React.R
   );
 }
 
-export default function StatusView({ state }: Props) {
+export default function StatusView({ state, onReapply, busy }: Props) {
   const submitted = fmt(state.submittedAt);
   const by = expectedBy(state.submittedAt);
   const ref = state.reference;
@@ -94,9 +97,14 @@ export default function StatusView({ state }: Props) {
         <Card className="border-amber-200 bg-amber-50">
           <h2 className="font-semibold text-ink">Please verify again</h2>
           <p className="mt-1 text-sm text-ink">
-            We have asked you to verify again. This is not a rejection. Check your details, add anything that is
-            missing and submit for review.
+            Check your details, add anything that is missing and submit for review. What you sent before has been kept.
           </p>
+          {state.decisionReason && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-card p-4 text-sm text-ink">
+              <p className="font-semibold">Reason</p>
+              <p className="mt-1">{state.decisionReason}</p>
+            </div>
+          )}
         </Card>
       );
 
@@ -105,10 +113,22 @@ export default function StatusView({ state }: Props) {
         <Card className="border-red-200 bg-red-50">
           <h2 className="font-semibold text-ink">Verification removed</h2>
           <p className="mt-1 text-sm text-ink">
-            Your verified status has been removed. Please contact support to find out what to do next.
+            Your verified badge has been removed. You can apply again: fix what the reason says and send your
+            application for a new review. What you sent before has been kept.
           </p>
+          {state.decisionReason && (
+            <div className="mt-3 rounded-xl border border-red-200 bg-card p-4 text-sm text-ink">
+              <p className="font-semibold">Reason</p>
+              <p className="mt-1">{state.decisionReason}</p>
+            </div>
+          )}
           {ref && <p className="mt-2 text-xs text-muted-foreground">Reference {ref}</p>}
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-3">
+            {onReapply && (
+              <PrimaryButton onClick={onReapply} busy={busy}>
+                Apply again
+              </PrimaryButton>
+            )}
             <SupportLink subject={`Verification ${ref ?? ''}`.trim()}>Contact support</SupportLink>
           </div>
         </Card>

@@ -157,9 +157,9 @@ describe('v2 status transitions', () => {
     expect(code(checkTransition('v2', 'VERIFIED', 'REVOKED', 'reviewer'))).toBe('actor_not_allowed');
   });
 
-  it('a revoked teacher cannot resubmit', () => {
+  it('a revoked teacher cannot resubmit directly, but can apply again (back to in progress)', () => {
     expect(code(checkTransition('v2', 'REVOKED', 'IN_REVIEW', 'tutor'))).toBe('locked_revoked');
-    expect(code(checkTransition('v2', 'REVOKED', 'IN_PROGRESS', 'tutor'))).toBe('locked_revoked');
+    expect(checkTransition('v2', 'REVOKED', 'IN_PROGRESS', 'tutor').ok).toBe(true);
   });
 
   it('cannot skip straight from in-progress to a decision', () => {
@@ -203,12 +203,14 @@ describe('identity status transitions (neutral outcomes)', () => {
 });
 
 describe('map-wide properties', () => {
-  it('no actor can move anything out of REVOKED except an admin re-approving', () => {
+  it('no actor can move anything out of REVOKED except an admin re-approving, or the teacher applying again', () => {
     for (const entity of ['profile', 'v2'] as const) {
       for (const to of knownStatuses(entity)) {
         if (to === 'REVOKED') continue;
         for (const actor of ACTORS) {
-          const expected = to === 'VERIFIED' && actor === 'admin';
+          const expected =
+            (to === 'VERIFIED' && actor === 'admin') ||
+            (actor === 'tutor' && ((entity === 'profile' && to === 'REVERIFICATION_REQUIRED') || (entity === 'v2' && to === 'IN_PROGRESS')));
           expect(checkTransition(entity, 'REVOKED', to, actor).ok).toBe(expected);
         }
       }

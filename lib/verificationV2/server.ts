@@ -19,7 +19,6 @@ import { decideNextStep } from '@/lib/identity/routing';
 import { isProviderName, type ProviderName } from '@/lib/identity/types';
 import {
   type CredentialDto,
-  type ExtraDto,
   type IdentityStatus,
   type VerificationV2StateDto,
   type StepStatus,
@@ -146,7 +145,7 @@ export function identityStepDone(row: VerificationRow | null): boolean {
   return hasConsent(row) && (row?.identity_status === 'verified' || !identityAvailable(row));
 }
 
-/** A verified teacher may add credentials (as pending approval) and edit their extras. */
+/** A verified teacher may add credentials (as pending approval). */
 export function isVerifiedTeacher(row: VerificationRow | null): boolean {
   return row?.status === 'VERIFIED';
 }
@@ -235,21 +234,6 @@ export async function loadCredentials(db: Db, tutorId: string): Promise<Credenti
   }));
 }
 
-export async function loadExtras(db: Db, tutorId: string): Promise<ExtraDto[]> {
-  const { data, error } = await db
-    .from('tutor_extras_v2')
-    .select('id, title, description, link_url')
-    .eq('tutor_id', tutorId)
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map((e: any) => ({
-    id: e.id,
-    title: e.title,
-    description: e.description,
-    linkUrl: e.link_url,
-  }));
-}
-
 /** Which checklist step an admin's reason is about. 'Other' is about neither, so it flags no step. */
 export function stepForReason(reason: string | null | undefined): 'identity' | 'credentials' | null {
   if (!reason) return null;
@@ -261,7 +245,6 @@ export function stepForReason(reason: string | null | undefined): 'identity' | '
 export function buildState(
   row: VerificationRow | null,
   credentials: CredentialDto[],
-  extras: ExtraDto[],
   profileStatus: string | null = null
 ): VerificationV2StateDto {
   const revokedProfile = profileStatus === 'REVOKED';
@@ -286,7 +269,10 @@ export function buildState(
   const identityDone = hasIdentity(row) || (hasConsent(row) && !available);
 
   // ---- the checklist: each step's own state, in any order ----
-  const reasonText = row?.status === 'REJECTED' || (row?.status === 'IN_PROGRESS' && row.decision_reason) ? row.decision_reason : null;
+  // The admin's reason, shown for a rejection, a request for more information, a removal, and the
+  // application a removed teacher started again.
+  const reasonText =
+    row?.decision_reason && ['REJECTED', 'IN_PROGRESS', 'REVOKED', 'REVERIFICATION_REQUIRED'].includes(row.status) ? row.decision_reason : null;
   const reasonStep = stepForReason(reasonText);
   const idFailed = ['retryable_failure', 'not_supported', 'consent_declined', 'canceled'].includes(identityStatus ?? '');
   const identityStep: StepStatus =
@@ -305,7 +291,6 @@ export function buildState(
         : reasonStep === 'credentials'
           ? 'needs_changes'
           : 'done';
-  const detailsStep: StepStatus = extras.length > 0 ? 'done' : 'not_started';
   // The legal name: typed by the teacher, then replaced by the name on the ID when the check passes.
   const hasName = !!(row?.legal_first_name && row?.legal_last_name);
   const idStarted = ['pending', 'processing', 'verified'].includes(identityStatus ?? '');
@@ -357,11 +342,11 @@ export function buildState(
     },
     submittedAt: row?.submitted_at ?? null,
     // The reason an admin gave (one of a fixed list), for a rejection or a request for more information.
-    decisionReason: row?.status === 'REJECTED' || (row?.status === 'IN_PROGRESS' && row.decision_reason) ? row.decision_reason : null,
+    decisionReason: reasonText,
     reference: row ? `VR-${row.tutor_id.replace(/-/g, '').slice(0, 8).toUpperCase()}` : null,
     editable: !revokedProfile && isEditable(row),
     canAddCredentials: !revokedProfile && (isEditable(row) || isVerifiedTeacher(row)),
-    steps: { name: nameStep, identity: identityStep, credentials: credentialsStep, details: detailsStep },
+    steps: { name: nameStep, identity: identityStep, credentials: credentialsStep },
     name: {
       firstName: row?.legal_first_name ?? null,
       lastName: row?.legal_last_name ?? null,
@@ -384,7 +369,6 @@ export function buildState(
     missing,
     step,
     credentials,
-    extras,
   };
 }
 
@@ -396,9 +380,6 @@ export async function loadState(
   let row = await loadRow(db, tutorId);
   // A revoked teacher's state is read-only: do not call the provider on their behalf.
   if (row && profileStatus !== 'REVOKED') row = await refreshIdentity(db, row);
-  const [credentials, extras] = await Promise.all([
-    loadCredentials(db, tutorId),
-    loadExtras(db, tutorId),
-  ]);
-  return buildState(row, credentials, extras, profileStatus);
+  const credentials = await loadCredentials(db, tutorId);
+  return buildState(row, credentials, profileStatus);
 }

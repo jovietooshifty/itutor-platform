@@ -9,7 +9,7 @@ import { loadPublicDetail, loadPublicSummaries } from '@/lib/verificationV2/publ
 import { GET as summaryGET } from '@/app/api/public/verification-v2/summary/route';
 import { GET as detailGET } from '@/app/api/public/verification-v2/[tutorId]/route';
 import { GET as flagGET } from '@/app/api/verification-v2/flag/route';
-import { LABEL_CREDENTIALS, LABEL_EXTRAS, LABEL_ID } from '@/components/verification/VerificationBadges';
+import { LABEL_CREDENTIALS, LABEL_ID } from '@/components/verification/VerificationBadges';
 
 function seed() {
   const v2 = (id: string, status: string, identity = 'verified') => ({
@@ -34,13 +34,6 @@ function seed() {
         graduation_year: null, proof_path: 'ok/SECRET.pdf', proof_url: 'https://secret-proof.example', proof_filename: 'secret.pdf', pending_approval: false, created_at: '1' },
       { tutor_id: 'review', kind: 'CSEC', subject: 'Hidden', grade: 'I', exam_year: 2020, created_at: '1' },
     ],
-    tutor_extras_v2: [
-      { tutor_id: 'ok', title: 'E1', description: 'd1', link_url: 'https://e1.example', created_at: '1' },
-      { tutor_id: 'ok', title: 'E2', description: 'd2', link_url: null, created_at: '2' },
-      { tutor_id: 'ok', title: 'E3', description: 'd3', link_url: null, created_at: '3' },
-      { tutor_id: 'ok', title: 'E4-should-never-show', description: 'd4', link_url: null, created_at: '4' },
-      { tutor_id: 'review', title: 'Hidden extra', description: 'x', link_url: null, created_at: '1' },
-    ],
   });
 }
 
@@ -51,11 +44,10 @@ beforeEach(() => {
   seed();
 });
 
-describe('the three labels', () => {
+describe('the two labels', () => {
   it('are the exact, separate wordings', () => {
     expect(LABEL_ID).toBe('ID checked');
     expect(LABEL_CREDENTIALS).toBe('Credentials reviewed');
-    expect(LABEL_EXTRAS).toBe('Teacher-provided extras (not verified by iTutor)');
   });
 });
 
@@ -65,10 +57,10 @@ describe('loadPublicSummaries', () => {
     expect(Object.keys(s).sort()).toEqual(['noid', 'ok']);
   });
 
-  it('keeps the three facts separate', async () => {
+  it('keeps the two facts separate', async () => {
     const s = await loadPublicSummaries(h.db, ['ok', 'noid']);
-    expect(s.ok).toEqual({ idChecked: true, credentialsReviewed: true, hasExtras: true });
-    expect(s.noid).toEqual({ idChecked: false, credentialsReviewed: true, hasExtras: false });
+    expect(s.ok).toEqual({ idChecked: true, credentialsReviewed: true });
+    expect(s.noid).toEqual({ idChecked: false, credentialsReviewed: true });
   });
 
   it('a teacher who is in review, revoked or asked to reverify looks like one who never applied', async () => {
@@ -85,13 +77,13 @@ describe('loadPublicSummaries', () => {
 });
 
 describe('loadPublicDetail', () => {
-  it('returns the verified date, credentials and AT MOST 3 extras', async () => {
+  it('returns the verified date and the credentials, and no extras', async () => {
     const d = await loadPublicDetail(h.db, 'ok');
-    expect(d).toMatchObject({ idChecked: true, credentialsReviewed: true, hasExtras: true, verifiedAt: '2026-02-01T00:00:00.000Z' });
+    expect(d).toMatchObject({ idChecked: true, credentialsReviewed: true, verifiedAt: '2026-02-01T00:00:00.000Z' });
     expect(d!.credentials).toEqual([
       { kind: 'CSEC', title: null, subject: 'Maths', grade: 'I', examYear: 2020, school: null, degree: null, field: null, graduationYear: null },
     ]);
-    expect(d!.extras.map((e) => e.title)).toEqual(['E1', 'E2', 'E3']);
+    expect(d).not.toHaveProperty('extras');
   });
 
   it('never exposes proof files, paths, links or filenames', async () => {

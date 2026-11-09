@@ -1,7 +1,7 @@
 // GET /api/admin/verification-v2/[tutorId]
 // Everything a reviewer needs for one application: the teacher, the identity
 // result (status only), credentials with short-lived links to their proof files,
-// extras, the decision history, and the evidence criteria from config.
+// the decision history, and the evidence criteria from config.
 //
 // What it never returns: an ID image, an ID number or anything from the identity
 // check beyond pass/fail and a reason code. v2 holds none of it.
@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
   }
   if (!row) return NextResponse.json({ error: 'No application found for this teacher' }, { status: 404 });
 
-  const [profile, creds, extras, decisions] = await Promise.all([
+  const [profile, creds, decisions] = await Promise.all([
     g.db
       .from('profiles')
       .select('id, full_name, display_name, email, tutor_verification_status')
@@ -48,11 +48,6 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
       .select(
         'id, kind, subject, grade, exam_year, school, degree, field, graduation_year, proof_url, proof_path, proof_filename, proof_deleted_at, pending_approval, title, approved_at, approved_by, created_at'
       )
-      .eq('tutor_id', tutorId)
-      .order('created_at', { ascending: true }),
-    g.db
-      .from('tutor_extras_v2')
-      .select('id, title, description, link_url')
       .eq('tutor_id', tutorId)
       .order('created_at', { ascending: true }),
     g.db
@@ -116,7 +111,7 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
   return NextResponse.json({
     tutor: {
       id: tutorId,
-      name: profile.data?.full_name || profile.data?.display_name || null,
+      name: (row.legal_first_name && row.legal_last_name ? `${row.legal_first_name} ${row.legal_last_name}` : null) || profile.data?.full_name || profile.data?.display_name || null,
       email: profile.data?.email ?? null,
       profileStatus: profile.data?.tutor_verification_status ?? null,
     },
@@ -154,12 +149,6 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
       filesDeleted: !!row.files_deleted_at,
     },
     credentials,
-    extras: (extras.data ?? []).map((e: any) => ({
-      id: e.id,
-      title: e.title,
-      description: e.description,
-      linkUrl: e.link_url,
-    })),
     history: buildHistory(row, decisions.data ?? [], nameOf),
     decisions: (decisions.data ?? []).map((d: any) => ({
       id: d.id,

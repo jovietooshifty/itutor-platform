@@ -13,7 +13,7 @@ import { PANEL_DETAIL, QUEUE_ITEMS, mkDetail } from './galleryData';
 const QUEUE_STATUSES = ['IN_REVIEW', 'REVERIFICATION_REQUIRED', 'REJECTED', 'VERIFIED', 'REVOKED'] as const;
 
 export default function AdminAndBadges({ provider, onAction }: { provider: ProviderName; onAction: (t: string) => void }) {
-  const all = { idChecked: true, credentialsReviewed: true, hasExtras: true };
+  const all = { idChecked: true, credentialsReviewed: true };
   return (
     <>
       <Section id="admin" title="Admin" note={`Queue and review states. The identity section shows the selected provider (${provider}).`}>
@@ -59,13 +59,12 @@ export default function AdminAndBadges({ provider, onAction }: { provider: Provi
         <Cell label="Verified, full size"><BadgeRow summary={all} /></Cell>
         <Cell label="Verified, compact (class cards)"><BadgeRow compact summary={all} /></Cell>
         <Cell label="Nothing: an unverified or in-progress teacher shows no label at all">
-          <div className="rounded border border-dashed border-gray-300 p-3 text-sm text-gray-500"><BadgeRow summary={{ idChecked: false, credentialsReviewed: false, hasExtras: false }} />(empty)</div>
+          <div className="rounded border border-dashed border-gray-300 p-3 text-sm text-gray-500"><BadgeRow summary={{ idChecked: false, credentialsReviewed: false }} />(empty)</div>
         </Cell>
         <Cell label="As on a class card (dark)">
           <div className="rounded-2xl bg-[#111111] p-4"><p className="mb-2 text-sm text-white">Mathematics for CSEC · by Tia Tutor</p><BadgeRow compact summary={all} /></div>
         </Cell>
-        <Cell label="Click panel (with extras)"><PanelFrame inline onClose={() => {}}><PanelBody detail={PANEL_DETAIL} /></PanelFrame></Cell>
-        <Cell label="Click panel (no extras)"><PanelFrame inline><PanelBody detail={{ ...PANEL_DETAIL, hasExtras: false, extras: [] }} /></PanelFrame></Cell>
+        <Cell label="Click panel"><PanelFrame inline onClose={() => {}}><PanelBody detail={PANEL_DETAIL} /></PanelFrame></Cell>
       </Section>
     </>
   );

@@ -6,10 +6,9 @@
 //
 // Columns are listed explicitly. Never returned: proof files or paths, a proof
 // link, provider references, the identity result detail, attempts, reviewer
-// reasons, email. The three labels are separate facts:
+// reasons, email. The two labels are separate facts:
 //   idChecked            the identity provider passed this teacher's ID check
 //   credentialsReviewed  a reviewer approved the credentials
-//   hasExtras            the teacher added extras (NOT verified by iTutor)
 
 import { isMissingSchemaError } from './schemaReady';
 import type { Db } from '@/lib/verification/setStatus';
@@ -18,7 +17,6 @@ import type { CredentialKind } from './constants';
 export interface PublicSummary {
   idChecked: boolean;
   credentialsReviewed: boolean;
-  hasExtras: boolean;
 }
 
 export interface PublicCredential {
@@ -34,12 +32,6 @@ export interface PublicCredential {
   graduationYear: number | null;
 }
 
-export interface PublicExtra {
-  title: string;
-  description: string;
-  linkUrl: string | null;
-}
-
 export interface PublicDetail extends PublicSummary {
   tutorId: string;
   verifiedAt: string | null;
@@ -48,7 +40,6 @@ export interface PublicDetail extends PublicSummary {
   /** The teacher's legal name, first and last, as read from their ID. */
   legalName: string | null;
   credentials: PublicCredential[];
-  extras: PublicExtra[];
 }
 
 export const MAX_SUMMARY_IDS = 50;
@@ -79,16 +70,10 @@ export async function loadPublicSummaries(db: Db, rawIds: string[]): Promise<Rec
   const rows = await verifiedRows(db, ids);
   if (rows.length === 0) return out;
 
-  const verifiedIds = rows.map((r: any) => r.tutor_id);
-  const { data: extras, error } = await db.from('tutor_extras_v2').select('tutor_id').in('tutor_id', verifiedIds);
-  if (error) throw new Error('extras lookup failed');
-  const withExtras = new Set((extras ?? []).map((e: any) => e.tutor_id));
-
   for (const r of rows) {
     out[r.tutor_id] = {
       idChecked: r.identity_status === 'verified',
       credentialsReviewed: true,
-      hasExtras: withExtras.has(r.tutor_id),
     };
   }
   return out;
@@ -100,27 +85,18 @@ export async function loadPublicDetail(db: Db, tutorId: string): Promise<PublicD
   const row = rows[0];
   if (!row) return null;
 
-  const [creds, extras] = await Promise.all([
-    db
-      .from('tutor_credentials_v2')
-      .select('kind, title, subject, grade, exam_year, school, degree, field, graduation_year')
-      .eq('tutor_id', tutorId)
-      .eq('pending_approval', false)
-      .order('created_at', { ascending: true }),
-    db
-      .from('tutor_extras_v2')
-      .select('title, description, link_url')
-      .eq('tutor_id', tutorId)
-      .order('created_at', { ascending: true })
-      .limit(3),
-  ]);
-  if (creds.error || extras.error) throw new Error('detail lookup failed');
+  const creds = await db
+    .from('tutor_credentials_v2')
+    .select('kind, title, subject, grade, exam_year, school, degree, field, graduation_year')
+    .eq('tutor_id', tutorId)
+    .eq('pending_approval', false)
+    .order('created_at', { ascending: true });
+  if (creds.error) throw new Error('detail lookup failed');
 
   return {
     tutorId,
     idChecked: row.identity_status === 'verified',
     credentialsReviewed: true,
-    hasExtras: (extras.data ?? []).length > 0,
     verifiedAt: row.decided_at ?? null,
     idVerifiedAt: row.identity_verified_at ?? row.decided_at ?? null,
     legalName: row.legal_first_name && row.legal_last_name ? `${row.legal_first_name} ${row.legal_last_name}` : null,
@@ -134,11 +110,6 @@ export async function loadPublicDetail(db: Db, tutorId: string): Promise<PublicD
       degree: c.degree,
       field: c.field,
       graduationYear: c.graduation_year,
-    })),
-    extras: (extras.data ?? []).slice(0, 3).map((x: any) => ({
-      title: x.title,
-      description: x.description,
-      linkUrl: x.link_url,
     })),
   };
 }

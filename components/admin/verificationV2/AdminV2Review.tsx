@@ -48,7 +48,6 @@ export interface ReviewDetail {
     pending?: boolean;
     evidence: { key: string; label: string; criteria: string[] }[];
   }[];
-  extras: { id: string; title: string; description: string; linkUrl: string | null }[];
   /** The whole status history, oldest first. */
   history?: { at: string; label: string; by: string | null; reason?: string | null }[];
   decisions: { id: string; actorRole: string; actorName?: string | null; action: string; from: string | null; to: string | null; profileFrom: string | null; profileTo: string | null; reason: string | null; at: string }[];
@@ -192,21 +191,6 @@ export function ReviewView({
                   ))}
                 </div>
               )}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="bg-white border-2 border-gray-200 rounded-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Teacher-provided extras</h2>
-        <p className="text-xs text-gray-500">Not verified by iTutor. Shown publicly with that label.</p>
-        {detail.extras.length === 0 && <p className="mt-2 text-sm text-gray-500">None.</p>}
-        <ul className="mt-3 space-y-3">
-          {detail.extras.map((x) => (
-            <li key={x.id} className="text-sm">
-              <p className="font-semibold">{x.title}</p>
-              <p className="text-gray-700">{x.description}</p>
-              {x.linkUrl && <a className="break-all text-xs text-itutor-green underline" href={x.linkUrl} target="_blank" rel="noopener noreferrer nofollow">{x.linkUrl}</a>}
             </li>
           ))}
         </ul>

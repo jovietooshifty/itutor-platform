@@ -23,7 +23,6 @@ export interface Item {
   submittedAt: string | null;
   decidedAt: string | null;
   credentialCount: number;
-  extraCount: number;
   /** New credentials a verified teacher added that wait for approval. */
   pendingCredentials?: number;
 }
@@ -133,7 +132,6 @@ export function QueueTable({ items, status, loading = false }: { items: Item[]; 
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Identity</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credentials</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extras</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{status === 'review' ? 'Submitted' : 'Updated'}</th>
               <th className="px-4 py-3" />
             </tr>
@@ -154,7 +152,6 @@ export function QueueTable({ items, status, loading = false }: { items: Item[]; 
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{i.identityStatus ? IDENTITY_LABEL[i.identityStatus] ?? i.identityStatus : 'Not checked'}</td>
                 {/* A zero is never shown. */}
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{i.credentialCount > 0 ? i.credentialCount : '—'}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{i.extraCount > 0 ? i.extraCount : '—'}</td>
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{fmt(status === 'review' ? i.submittedAt : i.decidedAt ?? i.submittedAt)}</td>
                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <Link href={`/admin/verification-v2/${i.tutorId}`} className="text-itutor-green hover:text-emerald-700 font-semibold">

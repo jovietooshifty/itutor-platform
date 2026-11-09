@@ -1,4 +1,4 @@
-// Applies the verification migrations (270-277) to an EMBEDDED Postgres (PGlite) with
+// Applies the verification migrations (270-278) to an EMBEDDED Postgres (PGlite) with
 // stubs of the Supabase pieces they lean on, then asserts the behaviour they promise:
 // RLS as teacher / student / admin / service role, the guard triggers, the 3-extras
 // limit, the append-only audit, the legacy-status mapping, and that every rollback
@@ -127,7 +127,7 @@ await db.exec(`
     ('${P3}','tutor','p3@x','PENDING',NULL);
   INSERT INTO public.tutor_verification_v2 (tutor_id) VALUES ('${L2}');
 `);
-for (const f of ['274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql', '277_verification_legal_name.sql']) {
+for (const f of ['274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql', '277_verification_legal_name.sql', '278_verification_legal_name_display.sql']) {
   const e = await run(read(mig(f)), f);
   ok(`applies on a clean database: ${f}`, !e, e ?? '');
 }
@@ -434,18 +434,29 @@ await asRole('authenticated', T2, async () => {
   await expectError(`UPDATE public.profiles SET full_name = 'Locked Out' WHERE id = '${T2}'`, /cannot be changed|ID check/, '277 after approval (name locked) the name cannot be changed');
 });
 
+// ---------- 278 ----------
+await db.exec(`SET ROLE service_role; SELECT set_config('request.jwt.claim.role','service_role',false); UPDATE public.tutor_verification_v2 SET legal_first_name = 'Zoe', legal_last_name = 'Ramdhanie' WHERE tutor_id = '${T2}'; UPDATE public.profiles SET full_name = 'Zoe Ramdhanie', display_name = 'Zoe Ramdhanie' WHERE id = '${T2}'; RESET ROLE;`);
+await asRole('authenticated', T2, async () => {
+  const r = await q(`UPDATE public.profiles SET display_name = 'Zozo', full_name = 'zoe the tutor' WHERE id = '${T2}' RETURNING full_name, display_name`);
+  ok('278 a nickname written by the teacher is replaced by the legal name', r.length === 1 && r[0].full_name === 'Zoe Ramdhanie' && r[0].display_name === 'Zoe Ramdhanie', JSON.stringify(r));
+});
+await asRole('authenticated', ADM, async () => {
+  const r = await q(`UPDATE public.profiles SET display_name = 'Admin Fix' WHERE id = '${T2}' RETURNING display_name`);
+  ok('278 an admin can still correct a name', r.length === 1 && r[0].display_name === 'Admin Fix', JSON.stringify(r));
+});
+
 // ---------- rollbacks ----------
-for (const f of ['277_verification_legal_name_rollback.sql', '276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql']) {
+for (const f of ['278_verification_legal_name_display_rollback.sql', '277_verification_legal_name_rollback.sql', '276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql']) {
   const e = await run(read(rb(f)), f);
   ok(`rollback runs: ${f}`, !e, e ?? '');
 }
 const afterRb = await q(`SELECT column_name FROM information_schema.columns WHERE table_name='tutor_verification_v2' AND column_name IN ('identity_provider','identity_started_at','files_deleted_at')`);
 ok('rollbacks removed the added columns', afterRb.length === 0, JSON.stringify(afterRb));
-for (const f of ['272_verification_v2_review.sql', '273_verification_v2_redaction_deletion.sql', '274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql', '277_verification_legal_name.sql']) {
+for (const f of ['272_verification_v2_review.sql', '273_verification_v2_redaction_deletion.sql', '274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql', '277_verification_legal_name.sql', '278_verification_legal_name_display.sql']) {
   const e = await run(read(mig(f)), f);
   ok(`re-applies after rollback: ${f}`, !e, e ?? '');
 }
-for (const f of ['277_verification_legal_name_rollback.sql', '276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql', '271_verification_security_hardening_rollback.sql', '270_teacher_verification_v2_rollback.sql']) {
+for (const f of ['278_verification_legal_name_display_rollback.sql', '277_verification_legal_name_rollback.sql', '276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql', '271_verification_security_hardening_rollback.sql', '270_teacher_verification_v2_rollback.sql']) {
   const f2 = existsSync(`${REPO}/${rb(f)}`) ? f : null;
   if (!f2) { ok(`rollback file exists: ${f}`, false); continue; }
   const e = await run(read(rb(f)), f);

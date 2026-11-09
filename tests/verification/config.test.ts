@@ -22,8 +22,8 @@ describe('REVERIFICATION_REQUIRED status', () => {
     expect(checkTransition('v2', 'IN_REVIEW', 'REVERIFICATION_REQUIRED', 'admin').ok).toBe(true);
   });
 
-  it('a REVOKED teacher can never be moved into it', () => {
-    expect(checkTransition('profile', 'REVOKED', 'REVERIFICATION_REQUIRED', 'admin')).toMatchObject({ ok: false, code: 'locked_revoked' });
+  it('an admin cannot move a REVOKED teacher into it (only the teacher applying again does)', () => {
+    expect(checkTransition('profile', 'REVOKED', 'REVERIFICATION_REQUIRED', 'admin')).toMatchObject({ ok: false, code: 'actor_not_allowed' });
     expect(checkTransition('v2', 'REVOKED', 'REVERIFICATION_REQUIRED', 'admin')).toMatchObject({ ok: false, code: 'locked_revoked' });
   });
 

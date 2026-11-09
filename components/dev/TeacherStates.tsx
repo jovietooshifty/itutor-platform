@@ -13,7 +13,7 @@ import NameStep from '@/components/tutor/verificationV2/NameStep';
 import { describeNotSupported, describeRetryReason } from '@/lib/identity/messages';
 import type { NotSupportedReason, RetryReason } from '@/lib/identity/types';
 import { Cell, Section } from './GalleryParts';
-import { CREDENTIALS, EXTRAS, mkState } from './galleryData';
+import { CREDENTIALS, mkState } from './galleryData';
 
 const RETRY_REASONS: RetryReason[] = ['document_expired', 'document_unreadable', 'document_invalid', 'face_mismatch', 'liveness_failed', 'selfie_issue', 'device_unsupported', 'abandoned', 'unknown'];
 const NOT_SUPPORTED: NotSupportedReason[] = ['country', 'minor', 'document_type'];
@@ -55,11 +55,11 @@ export default function TeacherStates({ onAction }: { onAction: (text: string) =
         <Cell label="REVOKED"><StatusView state={mkState({ status: 'REVOKED', editable: false })} /></Cell>
       </Section>
 
-      <Section id="steps" title="The four steps" note="Progress is saved. Consent, credentials and extras (identity has its own section).">
+      <Section id="steps" title="The four steps" note="Progress is saved. Name, credentials and the review (identity has its own section).">
                 <Cell label="3. Credentials (empty)"><CredentialsStep state={mkState({ step: 3, identity: { status: 'verified' } })} onChange={noop} /></Cell>
         <Cell label="3. Credentials (two added)"><CredentialsStep state={mkState({ step: 3, credentials: CREDENTIALS, identity: { status: 'verified' } })} onChange={noop} /></Cell>
         <Cell label="1. Name (typed before the ID check)"><NameStep state={mkState()} onChange={noop} /></Cell>
-        <Cell label="1. Name (from the ID, locked)"><NameStep state={mkState({ steps: { name: 'done', identity: 'done', credentials: 'not_started', details: 'not_started' }, name: { firstName: 'Zoë', lastName: 'Ramdhanie', source: 'id', canEdit: false, prompt: false } })} onChange={noop} /></Cell>
+        <Cell label="1. Name (from the ID, locked)"><NameStep state={mkState({ steps: { name: 'done', identity: 'done', credentials: 'not_started' }, name: { firstName: 'Zoë', lastName: 'Ramdhanie', source: 'id', canEdit: false, prompt: false } })} onChange={noop} /></Cell>
         <Cell label="1. Name (one-time prompt, verified before names were checked)"><NameStep prompt state={mkState({ status: 'VERIFIED', name: { firstName: null, lastName: null, source: null, canEdit: true, prompt: true } })} onChange={noop} /></Cell>
       </Section>
 

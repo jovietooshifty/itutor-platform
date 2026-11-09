@@ -43,14 +43,13 @@ export const CREDENTIAL_UPLOAD_CLUE = 'Upload a clear photo of the certificate. 
 export type StepStatus = 'not_started' | 'in_progress' | 'done' | 'needs_changes';
 
 /** Bump when the consent wording changes; stored with the consent timestamp. */
-export const CONSENT_VERSION = '2026-10-v1';
+export const CONSENT_VERSION = '2026-11-v1';
 
 /** Client-safe: the screens and the routes both use these. */
 export const SETUP_MESSAGE = 'Verification setup is not finished yet.';
 export const SETUP_CODE = 'setup_not_finished';
 
 export const MAX_IDENTITY_ATTEMPTS = 3;
-export const MAX_EXTRAS = 3;
 export const MAX_CREDENTIALS = 20;
 
 export const PROOF_BUCKET = 'tutor-credential-proofs';
@@ -82,13 +81,6 @@ export interface CredentialDto {
   pending: boolean;
 }
 
-export interface ExtraDto {
-  id: string;
-  title: string;
-  description: string;
-  linkUrl: string | null;
-}
-
 export interface VerificationV2StateDto {
   status: VerificationV2FlowStatus;
   consentAt: string | null;
@@ -116,10 +108,10 @@ export interface VerificationV2StateDto {
   reference: string | null;
   /** Locked once in review, verified or revoked. */
   editable: boolean;
-  /** A verified teacher may add credentials (pending approval) and edit their extras. */
+  /** A verified teacher may add credentials (pending approval). */
   canAddCredentials: boolean;
   /** The checklist: each step's own state, in any order. */
-  steps: { name: StepStatus; identity: StepStatus; credentials: StepStatus; details: StepStatus };
+  steps: { name: StepStatus; identity: StepStatus; credentials: StepStatus };
   /** The teacher's legal name. It comes from the ID check; before that the teacher types it. */
   name: {
     firstName: string | null;
@@ -139,5 +131,4 @@ export interface VerificationV2StateDto {
   /** Furthest step the teacher may be on, computed from saved data. 1..4 */
   step: 1 | 2 | 3 | 4;
   credentials: CredentialDto[];
-  extras: ExtraDto[];
 }

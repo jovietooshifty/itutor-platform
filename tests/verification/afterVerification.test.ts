@@ -19,7 +19,6 @@ vi.mock('@/lib/verificationV2/adminGuard', async (orig) => ({
 }));
 
 import { POST as addCredential, DELETE as removeCredential } from '@/app/api/tutor/verification-v2/credentials/route';
-import { POST as addExtra } from '@/app/api/tutor/verification-v2/extras/route';
 import { POST as submit } from '@/app/api/tutor/verification-v2/submit/route';
 import { GET as queueGET } from '@/app/api/admin/verification-v2/queue/route';
 import { approveCredentialV2, rejectCredentialV2 } from '@/lib/verificationV2/review';
@@ -90,11 +89,8 @@ describe('a verified teacher adds and edits', () => {
     expect(db.tables.tutor_credentials_v2.map((c: any) => c.id)).toEqual(['approved1']);
   });
 
-  it('a verified teacher can add an extra; an application in review is still locked', async () => {
-    const db = seed(); h.db = db;
-    expect((await addExtra(json({ title: 'Coach', description: 'Robotics club coach' }))).status).toBe(201);
+  it('an application in review is still locked', async () => {
     const locked = seed({ status: 'IN_REVIEW' }); h.db = locked;
-    expect((await addExtra(json({ title: 'Coach', description: 'x' }))).status).toBe(409);
     expect((await add()).status).toBe(409);
   });
 

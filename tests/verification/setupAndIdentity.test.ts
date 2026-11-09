@@ -55,7 +55,7 @@ describe('the identity step when no provider is configured', () => {
     vi.stubEnv('DIDIT_WORKFLOW_ID', 'w');
     vi.stubEnv('DIDIT_WEBHOOK_SECRET', 's');
     expect(identityAvailable(consented)).toBe(true);
-    const s = buildState(consented, [{ id: 'c' } as any], [], null);
+    const s = buildState(consented, [{ id: 'c' } as any], null);
     expect(s.identity.available).toBe(true);
     expect(s.step).toBe(2); // blocked on identity
     vi.unstubAllEnvs();
@@ -64,10 +64,10 @@ describe('the identity step when no provider is configured', () => {
   it('is not available with no key anywhere, and then the other steps are open', () => {
     vi.stubEnv('DIDIT_API_KEY', '');
     expect(identityAvailable(consented)).toBe(false);
-    const none = buildState(consented, [], [], null);
+    const none = buildState(consented, [], null);
     expect(none.identity.available).toBe(false);
     expect(none.step).toBe(3); // qualifications are open
-    const withCreds = buildState(consented, [{ id: 'c' } as any], [], null);
+    const withCreds = buildState(consented, [{ id: 'c' } as any], null);
     expect(withCreds.step).toBe(4); // and so is the last step
     vi.unstubAllEnvs();
   });
@@ -75,7 +75,7 @@ describe('the identity step when no provider is configured', () => {
   it('without consent nothing opens, whatever the provider state', () => {
     vi.stubEnv('DIDIT_API_KEY', '');
     vi.stubEnv('STRIPE_SECRET_KEY', '');
-    expect(buildState({ ...consented, consent_at: null }, [], [], null).step).toBe(1);
+    expect(buildState({ ...consented, consent_at: null }, [], null).step).toBe(1);
     vi.unstubAllEnvs();
   });
 });
@@ -83,8 +83,8 @@ describe('the identity step when no provider is configured', () => {
 describe('the dashboard card', () => {
   const base = (over: any = {}) =>
     ({
-      status: 'NOT_STARTED', consentAt: null, submittedAt: null, decisionReason: null, reference: null, editable: true, step: 1, credentials: [], extras: [],
-      steps: { name: 'not_started', identity: 'not_started', credentials: 'not_started', details: 'not_started' },
+      status: 'NOT_STARTED', consentAt: null, submittedAt: null, decisionReason: null, reference: null, editable: true, step: 1, credentials: [],
+      steps: { name: 'not_started', identity: 'not_started', credentials: 'not_started' },
       identity: { status: null, reason: null, country: null, attempts: 0, maxAttempts: 3, canRetry: false, furtherRoute: false, countries: [], available: true },
       ...over,
     }) as any;

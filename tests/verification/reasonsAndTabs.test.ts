@@ -74,7 +74,7 @@ describe('the fixed list of reasons', () => {
     expect(db.tables.tutor_verification_v2[0].decision_reason).toBe('Credentials unclear or incomplete');
     expect(JSON.stringify(db.tables.notifications)).not.toContain('looks edited');
     expect(db.tables.tutor_verification_v2_decisions[0].reason).toContain('looks edited');
-    const state = buildState(db.tables.tutor_verification_v2[0] as any, [], [], 'PENDING');
+    const state = buildState(db.tables.tutor_verification_v2[0] as any, [], 'PENDING');
     expect(JSON.stringify(state)).not.toContain('looks edited');
     expect(state.decisionReason).toBe('Credentials unclear or incomplete');
   });
@@ -98,11 +98,11 @@ describe('ask for more information', () => {
 
   it('the teacher sees the reason on an editable application, and sending it again clears it', () => {
     const row: any = { tutor_id: 't1', status: 'IN_PROGRESS', consent_at: 'x', decision_reason: 'Other', identity_status: 'verified', identity_attempts: 1 };
-    const s = buildState(row, [], [], 'PENDING');
+    const s = buildState(row, [], 'PENDING');
     expect(s.status).toBe('IN_PROGRESS');
     expect(s.editable).toBe(true);
     expect(s.decisionReason).toBe('Other');
-    expect(buildState({ ...row, decision_reason: null }, [], [], 'PENDING').decisionReason).toBeNull();
+    expect(buildState({ ...row, decision_reason: null }, [], 'PENDING').decisionReason).toBeNull();
   });
 
   it('only an application that is in review can be sent back', async () => {

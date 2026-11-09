@@ -130,6 +130,21 @@ export default function VerificationV2Flow() {
     }
   }
 
+  async function reapply() {
+    setBusy(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch('/api/tutor/verification-v2/reapply', { method: 'POST' });
+      if (!res.ok) throw new Error(await readError(res, 'Could not start again'));
+      firstLoad.current = true;
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function save(key: StepKey) {
     setBusy(true);
     setSaved(false);
@@ -202,7 +217,7 @@ export default function VerificationV2Flow() {
       {error && <ErrorBanner message={error} />}
 
       {/* The decision, when there is one to show (in review, verified, not approved, removed). */}
-      {state.status !== 'IN_PROGRESS' && state.status !== 'NOT_STARTED' && <StatusView state={state} />}
+      {state.status !== 'IN_PROGRESS' && state.status !== 'NOT_STARTED' && <StatusView state={state} onReapply={reapply} busy={busy} />}
 
       {/* A teacher verified before names were checked is asked, once, to confirm their name. */}
       {state.name.prompt && (

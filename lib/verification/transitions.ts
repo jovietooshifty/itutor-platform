@@ -11,9 +11,10 @@
 // RULES THE MAP ENCODES
 //   - VERIFIED is only ever left through REVOKED, and only by the actors in
 //     config/verificationPolicy.ts (admin). Nobody moves VERIFIED to REJECTED.
-//   - REVOKED has one way out: an admin RE-APPROVES (REVOKED -> VERIFIED). Nothing else moves a
-//     revoked teacher, so the old upload flow, the old reviewer flow and a resubmission all hit
-//     the wall: a revoked teacher cannot be moved back to "in review" or "not submitted".
+//   - REVOKED has two ways out: an admin RE-APPROVES (REVOKED -> VERIFIED), or the teacher APPLIES
+//     AGAIN (profile -> REVERIFICATION_REQUIRED, v2 -> IN_PROGRESS) and an admin decides as usual.
+//     Nothing else moves a revoked teacher, so the old reviewer flow cannot reinstate them and a
+//     revoked teacher cannot jump straight to "in review".
 //   - Only a tutor starts or restarts a submission (-> PENDING / IN_REVIEW).
 //   - Only the system (OCR, Didit) moves a record through processing.
 //   - Only a reviewer or admin decides.
@@ -55,7 +56,8 @@ const MAPS: Record<TransitionEntity, Edges> = {
     // decision on an application) and REVOKED (verification taken away). The
     // teacher resubmits; staff then approve or reject as normal.
     REVERIFICATION_REQUIRED: { PENDING: ['tutor'], PROCESSING: ['system'], VERIFIED: STAFF, REJECTED: STAFF },
-    REVOKED: { VERIFIED: ['admin'] },
+    // A revoked teacher may apply again (the tutor moves to "verify again"); an admin may re-approve.
+    REVOKED: { VERIFIED: ['admin'], REVERIFICATION_REQUIRED: ['tutor'] },
   },
   request: {
     // Admin may decide any open request (the SUBMITTED uploads of the second
@@ -83,7 +85,9 @@ const MAPS: Record<TransitionEntity, Edges> = {
     // Didit ID check. Today a passed check stays passed (it is never downgraded).
     REVERIFICATION_REQUIRED: { IN_REVIEW: ['tutor'] },
     // Re-approve: an admin restores a revoked teacher. All their data was kept.
-    REVOKED: { VERIFIED: ['admin'] },
+    // Re-approve: an admin restores a revoked teacher. All their data was kept. Or the teacher applies
+    // again (IN_PROGRESS), keeping everything they submitted, and sends it for a fresh review.
+    REVOKED: { VERIFIED: ['admin'], IN_PROGRESS: ['tutor'] },
   },
   // The NEUTRAL identity outcomes (lib/identity/types.ts). Provider-specific
   // names never reach this map: lib/identity/mapping.ts converts them first.

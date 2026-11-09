@@ -8,14 +8,13 @@ import type { PublicSummary } from '@/lib/verificationV2/publicView';
 /** What the click panel lists. The badge itself just says "Verified". */
 export const LABEL_ID = 'ID checked';
 export const LABEL_CREDENTIALS = 'Credentials reviewed';
-export const LABEL_EXTRAS = 'Teacher-provided extras (not verified by iTutor)';
 
 /**
  * The badge itself, with no data fetching. Used by VerificationBadges below and by the
  * dev states gallery. Students, parents and visitors see ONE thing: "Verified", on a
  * teacher who is verified. There is no label for in progress, pending or unverified
- * anywhere. What "Verified" covers (identity checked, credentials reviewed, the
- * teacher's own extras) is in the panel that opens when the badge is clicked.
+ * anywhere. What "Verified" covers (identity checked, credentials reviewed) is on the
+ * page that opens when the badge is clicked.
  */
 export function BadgeRow({
   summary,
@@ -29,7 +28,7 @@ export function BadgeRow({
   onOpen?: (e: React.SyntheticEvent) => void;
 }) {
   // A summary only exists for a verified teacher; one with nothing to say renders nothing.
-  if (!summary.idChecked && !summary.credentialsReviewed && !summary.hasExtras) return null;
+  if (!summary.idChecked && !summary.credentialsReviewed) return null;
 
   const size = compact ? 'text-[10px] px-1.5 py-0.5 gap-1' : 'text-xs px-2.5 py-1 gap-1.5';
   const icon = compact ? 'size-3' : 'size-3.5';

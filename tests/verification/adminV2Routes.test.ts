@@ -45,7 +45,6 @@ function seed(over: { profile?: string; v2?: string } = {}) {
     tutor_credentials_v2: [
       { id: 'c1', tutor_id: 't1', kind: 'CSEC', subject: 'Mathematics', grade: 'I', exam_year: 2020, proof_path: 't1/a.pdf', proof_filename: 'a.pdf', proof_url: null, proof_deleted_at: null, created_at: '1' },
     ],
-    tutor_extras_v2: [{ id: 'x1', tutor_id: 't1', title: 'Robotics club', description: 'Ran it', link_url: null, created_at: '1' }],
     tutor_verification_v2_decisions: [],
     tutor_verified_subjects: [],
   });
@@ -172,13 +171,13 @@ describe('what admins can and cannot see', () => {
     expect(text).not.toContain('vs_SECRET_REF');
   });
 
-  it('the detail has credentials, extras, evidence criteria and a short-lived proof link', async () => {
+  it('the detail has credentials, evidence criteria and a short-lived proof link', async () => {
     const res = await detailGET(req('/x'), params);
     const body = await res.json();
     expect(body.credentials[0]).toMatchObject({ kind: 'CSEC', subject: 'Mathematics' });
     expect(body.credentials[0].proofLink).toContain('signed.example');
     expect(body.credentials[0].evidence.length).toBeGreaterThan(0);
-    expect(body.extras[0].title).toBe('Robotics club');
+    expect(body).not.toHaveProperty('extras');
     expect(body.application.identity.status).toBe('verified');
   });
 

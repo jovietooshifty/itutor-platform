@@ -18,14 +18,13 @@ export function mkState(
     reference: 'VR-7D3B1F42',
     editable: true,
     canAddCredentials: true,
-    steps: { name: 'not_started', identity: 'not_started', credentials: 'not_started', details: 'not_started' },
+    steps: { name: 'not_started', identity: 'not_started', credentials: 'not_started' },
     name: { firstName: null, lastName: null, source: null, canEdit: true, prompt: false },
     stepNotes: { identity: null, credentials: null },
     canSubmit: false,
     missing: ['Name', 'ID check', 'Credentials'],
     step: 2,
     credentials: [],
-    extras: [],
     ...rest,
     identity: {
       status: null,
@@ -47,15 +46,9 @@ export const CREDENTIALS: VerificationV2StateDto['credentials'] = [
   { id: 'c2', title: 'BSc Physics, UWI (2022)', kind: 'DEGREE', subject: null, grade: null, examYear: null, school: 'University of the West Indies', degree: 'BSc', field: 'Physics', graduationYear: 2022, proofUrl: null, proofFilename: 'degree.pdf', hasProofFile: true, pending: false },
 ];
 
-export const EXTRAS: VerificationV2StateDto['extras'] = [
-  { id: 'x1', title: 'Robotics club mentor', description: 'Ran the school robotics club for three years.', linkUrl: 'https://example.com/robotics' },
-  { id: 'x2', title: 'Maths Olympiad coach', description: 'Coached two regional finalists.', linkUrl: null },
-  { id: 'x3', title: 'Published study guide', description: 'CSEC Maths revision guide, 400 downloads.', linkUrl: 'https://example.com/guide' },
-];
-
 export const QUEUE_ITEMS: Item[] = [
-  { tutorId: 't1', name: 'Tia Tutor', email: 'tia@example.com', status: 'IN_REVIEW', identityStatus: 'verified', submittedAt: '2026-10-02T09:00:00.000Z', decidedAt: null, credentialCount: 2, extraCount: 3 },
-  { tutorId: 't2', name: 'Raj Teacher', email: 'raj@example.com', status: 'IN_REVIEW', identityStatus: 'verified', submittedAt: '2026-10-03T14:30:00.000Z', decidedAt: null, credentialCount: 1, extraCount: 0 },
+  { tutorId: 't1', name: 'Tia Tutor', email: 'tia@example.com', status: 'IN_REVIEW', identityStatus: 'verified', submittedAt: '2026-10-02T09:00:00.000Z', decidedAt: null, credentialCount: 2 },
+  { tutorId: 't2', name: 'Raj Teacher', email: 'raj@example.com', status: 'IN_REVIEW', identityStatus: 'verified', submittedAt: '2026-10-03T14:30:00.000Z', decidedAt: null, credentialCount: 1 },
 ];
 
 export function mkDetail(
@@ -85,7 +78,6 @@ export function mkDetail(
         ],
       },
     ],
-    extras: [{ id: 'x1', title: 'Robotics club mentor', description: 'Ran the school robotics club.', linkUrl: 'https://example.com/robotics' }],
     decisions,
   };
 }
@@ -94,7 +86,6 @@ export const PANEL_DETAIL: PublicDetail = {
   tutorId: '7d3b1f42-0a55-4e6c-8f21-9a4c2e6b1d03',
   idChecked: true,
   credentialsReviewed: true,
-  hasExtras: true,
   verifiedAt: '2026-10-05T12:00:00.000Z',
   idVerifiedAt: '2026-10-05T12:00:00.000Z',
   legalName: 'Zoë Ramdhanie',
@@ -102,5 +93,4 @@ export const PANEL_DETAIL: PublicDetail = {
     { kind: 'CERTIFICATE', title: 'CSEC Mathematics, Grade I (2019)', subject: 'Mathematics', grade: 'I', examYear: 2019, school: null, degree: null, field: null, graduationYear: null },
     { kind: 'DEGREE', title: 'BSc Chemistry, UWI (2023)', subject: null, grade: null, examYear: null, school: 'University of the West Indies', degree: 'BSc', field: 'Physics', graduationYear: 2022 },
   ],
-  extras: EXTRAS.map((e) => ({ title: e.title, description: e.description, linkUrl: e.linkUrl })),
 };

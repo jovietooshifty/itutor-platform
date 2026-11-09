@@ -1,5 +1,5 @@
 // GET /api/public/verification-v2/summary?ids=a,b,c   (at most 50)
-// -> { summaries: { [tutorId]: { idChecked, credentialsReviewed, hasExtras } } }
+// -> { summaries: { [tutorId]: { idChecked, credentialsReviewed } } }
 //
 // Public (class cards and the finder are used logged out). Only VERIFIED
 // teachers appear in the map; everyone else is simply absent. 404 when the flag

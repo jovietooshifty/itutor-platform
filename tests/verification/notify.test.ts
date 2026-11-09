@@ -370,21 +370,22 @@ describe('the status page and the badge cache refresh by themselves', () => {
     reference: null,
     editable: false,
     canAddCredentials: false,
-    steps: { name: 'done', identity: 'done', credentials: 'done', details: 'not_started' },
+    steps: { name: 'done', identity: 'done', credentials: 'done' },
     name: { firstName: 'Zoë', lastName: 'Ramdhanie', source: 'id', canEdit: false, prompt: false },
     stepNotes: { identity: null, credentials: null },
     canSubmit: false,
     missing: [],
     step: 4,
     credentials: [],
-    extras: [],
     ...over,
   });
 
   it('polls while in review (5 s) or in progress (8 s), and only then', () => {
     expect(pollIntervalMs('IN_REVIEW')).toBe(5000);
     expect(pollIntervalMs('IN_PROGRESS')).toBe(8000);
-    for (const s of ['VERIFIED', 'REJECTED', 'REVOKED', 'REVERIFICATION_REQUIRED', 'NOT_STARTED'] as const) {
+    // a removed teacher who applied again is in the same position as one in progress
+    expect(pollIntervalMs('REVERIFICATION_REQUIRED')).toBe(8000);
+    for (const s of ['VERIFIED', 'REJECTED', 'REVOKED', 'NOT_STARTED'] as const) {
       expect(shouldPoll(s)).toBe(false);
     }
     expect(shouldPoll(null)).toBe(false);

@@ -1,7 +1,7 @@
 import { isProductionRuntime } from '@/lib/email/allowlist';
 
 /**
- * Teacher verification v2 (identity check + credentials + extras).
+ * Teacher verification v2 (identity check + credentials).
  *
  *   VERIFICATION_V2_ENABLED=true     ON everywhere, production included.
  *   VERIFICATION_V2_ENABLED=false    OFF everywhere.

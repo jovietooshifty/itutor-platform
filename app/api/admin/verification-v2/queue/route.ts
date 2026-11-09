@@ -79,17 +79,19 @@ export async function GET(request: NextRequest) {
   const ids = (rows ?? []).map((r: any) => r.tutor_id);
   const names: Record<string, { name: string | null; email: string | null }> = {};
   const credCount: Record<string, number> = {};
-  const extraCount: Record<string, number> = {};
 
   if (ids.length > 0) {
-    const [profiles, creds, extras] = await Promise.all([
+    const [profiles, creds, legal] = await Promise.all([
       g.db.from('profiles').select('id, full_name, display_name, email').in('id', ids),
       g.db.from('tutor_credentials_v2').select('tutor_id').in('tutor_id', ids),
-      g.db.from('tutor_extras_v2').select('tutor_id').in('tutor_id', ids),
+      g.db.from('tutor_verification_v2').select('tutor_id, legal_first_name, legal_last_name').in('tutor_id', ids),
     ]);
     for (const p of profiles.data ?? []) names[p.id] = { name: p.full_name || p.display_name, email: p.email };
     for (const c of creds.data ?? []) credCount[c.tutor_id] = (credCount[c.tutor_id] ?? 0) + 1;
-    for (const e of extras.data ?? []) extraCount[e.tutor_id] = (extraCount[e.tutor_id] ?? 0) + 1;
+    // The legal name (first and last) wins over whatever the profile held before.
+    for (const l of legal.data ?? []) {
+      if (l.legal_first_name && l.legal_last_name && names[l.tutor_id]) names[l.tutor_id].name = `${l.legal_first_name} ${l.legal_last_name}`;
+    }
   }
 
   return NextResponse.json({
@@ -105,7 +107,6 @@ export async function GET(request: NextRequest) {
       submittedAt: r.submitted_at,
       decidedAt: r.decided_at,
       credentialCount: credCount[r.tutor_id] ?? 0,
-      extraCount: extraCount[r.tutor_id] ?? 0,
       pendingCredentials: pendingByTutor[r.tutor_id] ?? 0,
     })),
   });

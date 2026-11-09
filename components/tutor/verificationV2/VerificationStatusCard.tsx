@@ -34,7 +34,7 @@ export function describeCard(s: VerificationV2StateDto): View {
     case 'REVERIFICATION_REQUIRED':
       return { line: 'Please verify again. This is not a rejection.', cta: 'Verify again', state: 'needs_changes' };
     case 'REVOKED':
-      return { line: 'Your verification was removed. Contact support to find out why.', cta: 'View', state: 'not_started' };
+      return { line: 'Your verification was removed. You can apply again.', cta: 'Apply again', state: 'not_started' };
     case 'IN_PROGRESS':
       // A zero is never shown: with nothing done yet the card just says it is not finished.
       return {

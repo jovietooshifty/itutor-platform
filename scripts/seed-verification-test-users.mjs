@@ -89,9 +89,9 @@ async function main() {
     inprogress: ['Ian InProgress', { v2: 'IN_PROGRESS' }],
     idfailed: ['Faye IdFailed', { v2: 'IN_PROGRESS', identity: { identity_status: 'retryable_failure', identity_error_code: 'document_expired', identity_attempts: 1, identity_provider: 'stripe' } }],
     idunsupported: ['Una Unsupported', { v2: 'IN_PROGRESS', identity: { identity_status: 'not_supported', identity_error_code: 'country', identity_attempts: 1, identity_provider: 'stripe', identity_country: 'GY' } }],
-    inreview: ['Rita InReview', { v2: 'IN_REVIEW', profile: 'PENDING', identityOk: true, creds: true, extras: 2 }],
-    verified: ['Vera Verified', { v2: 'VERIFIED', profile: 'VERIFIED', identityOk: true, creds: true, extras: 3, listings: true }],
-    verified2: ['Victor Verified', { v2: 'VERIFIED', profile: 'VERIFIED', identityOk: true, creds: true, extras: 0, listings: true }],
+    inreview: ['Rita InReview', { v2: 'IN_REVIEW', profile: 'PENDING', identityOk: true, creds: true }],
+    verified: ['Vera Verified', { v2: 'VERIFIED', profile: 'VERIFIED', identityOk: true, creds: true, listings: true }],
+    verified2: ['Victor Verified', { v2: 'VERIFIED', profile: 'VERIFIED', identityOk: true, creds: true, listings: true }],
     rejected: ['Rex Rejected', { v2: 'REJECTED', profile: 'REJECTED', identityOk: true, creds: true, reason: 'The results slip is cropped. Please upload the full page.' }],
     revoked: ['Remy Revoked', { v2: 'REVOKED', profile: 'REVOKED', identityOk: true, creds: true, reason: 'Misrepresented qualifications', listings: true }],
     reverify: ['Rae Reverify', { v2: 'REVERIFICATION_REQUIRED', profile: 'REVERIFICATION_REQUIRED', identityOk: true, creds: true }],
@@ -131,18 +131,6 @@ async function main() {
         { tutor_id: id, kind: 'CAPE', subject: 'Physics', grade: 'II', exam_year: 2021, proof_url: 'https://example.com/proof2' },
       ]);
       note(!ce, `credentials for tutor.${key}`, ce?.message);
-    }
-    if (spec.extras !== undefined) {
-      await db.from('tutor_extras_v2').delete().eq('tutor_id', id);
-      const rows = [
-        { tutor_id: id, title: 'Robotics club mentor', description: 'Ran the school robotics club.', link_url: 'https://example.com/robotics' },
-        { tutor_id: id, title: 'Maths Olympiad coach', description: 'Coached two regional finalists.' },
-        { tutor_id: id, title: 'Published study guide', description: 'CSEC revision guide.', link_url: 'https://example.com/guide' },
-      ].slice(0, spec.extras);
-      if (rows.length) {
-        const { error: ee } = await db.from('tutor_extras_v2').insert(rows);
-        note(!ee, `extras for tutor.${key}`, ee?.message);
-      }
     }
   }
 

@@ -9,6 +9,7 @@ import type { VerificationV2FlowStatus, VerificationV2StateDto } from './constan
 const POLL_MS: Partial<Record<VerificationV2FlowStatus, number>> = {
   IN_REVIEW: 5_000, // a reviewer may decide at any moment
   IN_PROGRESS: 8_000, // the identity check may report (and the teacher may be on another device)
+  REVERIFICATION_REQUIRED: 8_000, // a teacher applying again is in the same position
 };
 
 export function pollIntervalMs(status: VerificationV2FlowStatus | null | undefined): number | null {
@@ -36,6 +37,5 @@ export function stateSignature(s: VerificationV2StateDto): string {
     s.editable,
     s.step,
     s.credentials.length,
-    s.extras.length,
   ]);
 }
