@@ -1,35 +1,47 @@
 'use client';
 
-// The teacher's verification page. It copies the "Complete your profile" checklist
-// (app/tutor/get-listed/page.tsx): back link, title, progress card, then one card per step with a
-// status pill. The steps can be done in ANY order: nothing is locked or greyed out because another
-// step is unfinished. Progress is saved as the teacher goes, so they can leave and come back.
-// "Send for review" is enabled once every required step is done.
+// The teacher's verification page: a step-by-step flow. "Step X of N" with a filled bar at the top and
+// one tappable button per step, then ONE focused screen at a time with Save and Home side by side.
+// The steps can be done in ANY order: tap any of them at any time, nothing is locked because another
+// step is unfinished. Progress is saved as the teacher goes. Review and submit is enabled once every
+// required step is done.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { SETUP_CODE, SETUP_MESSAGE, type VerificationV2StateDto } from '@/lib/verificationV2/constants';
+import { SETUP_CODE, SETUP_MESSAGE, type StepStatus, type VerificationV2StateDto } from '@/lib/verificationV2/constants';
 import { pollIntervalMs, stateSignature } from '@/lib/verificationV2/poll';
+import NameStep from './NameStep';
 import IdentityStep from './IdentityStep';
 import CredentialsStep from './CredentialsStep';
-import ExtrasStep from './ExtrasStep';
 import StatusView from './StatusView';
-import { Card, ErrorBanner, Notice, PrimaryButton, ProgressCard, readError } from './ui';
+import { Card, ErrorBanner, Notice, PrimaryButton, StatePill, StepBar, readError, type StepHandle, type StepState } from './ui';
 
-type StepKey = 'identity' | 'credentials' | 'details';
+type StepKey = 'name' | 'identity' | 'credentials' | 'review';
+const STEPS: { key: StepKey; label: string }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'identity', label: 'ID' },
+  { key: 'credentials', label: 'Credentials' },
+  { key: 'review', label: 'Review' },
+];
+
+const homeClass =
+  'inline-flex min-h-[44px] flex-1 items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-ink transition hover:bg-muted sm:flex-none';
 
 export default function VerificationV2Flow() {
   const router = useRouter();
   const [state, setState] = useState<VerificationV2StateDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [setupMissing, setSetupMissing] = useState(false);
-  const [open, setOpen] = useState<Record<StepKey, boolean>>({ identity: false, credentials: false, details: false });
-  const [submitting, setSubmitting] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const firstLoad = useRef(true);
   const latest = useRef<VerificationV2StateDto | null>(null);
   latest.current = state;
+  const nameRef = useRef<StepHandle>(null);
+  const credRef = useRef<StepHandle>(null);
 
   const load = useCallback(async () => {
     try {
@@ -57,8 +69,9 @@ export default function VerificationV2Flow() {
       // The first time only: open the first step that still needs the teacher. After that they decide.
       if (firstLoad.current) {
         firstLoad.current = false;
-        const first = (['identity', 'credentials'] as StepKey[]).find((k) => next.steps[k] !== 'done');
-        if (first) setOpen((o) => ({ ...o, [first]: true }));
+        const states: StepStatus[] = [next.steps.name, next.steps.identity, next.steps.credentials];
+        const first = states.findIndex((s) => s !== 'done');
+        setCurrent(first === -1 ? 3 : first);
       }
     } catch {
       setError('Could not load your verification. Please refresh.');
@@ -67,7 +80,7 @@ export default function VerificationV2Flow() {
 
   useEffect(() => {
     void load();
-    // Back from Didit: drop the marker so a refresh does not look like a return.
+    // Back from Didit: open the ID step and drop the marker so a refresh does not look like a return.
     if (typeof window !== 'undefined' && window.location.search.includes('identity=return')) {
       window.history.replaceState(null, '', window.location.pathname);
     }
@@ -104,7 +117,7 @@ export default function VerificationV2Flow() {
   }, [status]);
 
   async function submit() {
-    setSubmitting(true);
+    setBusy(true);
     setSubmitError(null);
     try {
       const res = await fetch('/api/tutor/verification-v2/submit', { method: 'POST' });
@@ -113,7 +126,22 @@ export default function VerificationV2Flow() {
     } catch (e) {
       setSubmitError((e as Error).message);
     } finally {
-      setSubmitting(false);
+      setBusy(false);
+    }
+  }
+
+  async function save(key: StepKey) {
+    setBusy(true);
+    setSaved(false);
+    try {
+      const handle = key === 'name' ? nameRef.current : key === 'credentials' ? credRef.current : null;
+      const ok = handle ? await handle.save() : true;
+      if (!ok) return;
+      await load();
+      setSaved(true);
+      setCurrent((c) => Math.min(c + 1, STEPS.length - 1));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -122,8 +150,8 @@ export default function VerificationV2Flow() {
       <Link href="/tutor/dashboard" className="text-xs text-muted-foreground hover:text-ink">
         ← Back to dashboard
       </Link>
-      <h1 className="mt-2 text-2xl lg:text-3xl font-bold text-ink">Get verified</h1>
-      <p className="text-sm text-muted-foreground mt-1">
+      <h1 className="mt-2 text-2xl font-bold text-ink lg:text-3xl">Get verified</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
         Do the steps in any order. Your progress is saved, so you can leave and come back.
       </p>
     </header>
@@ -131,7 +159,7 @@ export default function VerificationV2Flow() {
 
   if (setupMissing) {
     return (
-      <div className="max-w-4xl space-y-6">
+      <div className="max-w-3xl space-y-6">
         {header}
         <Notice role="status">
           <p className="font-semibold">{SETUP_MESSAGE}</p>
@@ -142,7 +170,7 @@ export default function VerificationV2Flow() {
   }
   if (error && !state) {
     return (
-      <div className="max-w-4xl space-y-6">
+      <div className="max-w-3xl space-y-6">
         {header}
         <ErrorBanner message={error} />
       </div>
@@ -150,34 +178,50 @@ export default function VerificationV2Flow() {
   }
   if (!state) {
     return (
-      <div className="max-w-4xl space-y-6">
+      <div className="max-w-3xl space-y-6">
         {header}
-        <div className="min-h-[200px] flex items-center justify-center" role="status" aria-label="Loading">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand" />
+        <div className="flex min-h-[200px] items-center justify-center" role="status" aria-label="Loading">
+          <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-brand" />
         </div>
       </div>
     );
   }
 
-  const toggle = (k: StepKey) => setOpen((o) => ({ ...o, [k]: !o[k] }));
-  const editable = state.editable;
-  const requiredDone = (['identity', 'credentials'] as StepKey[]).filter((k) => state.steps[k] === 'done').length;
+  const key = STEPS[current].key;
+  const reviewState: StepState =
+    state.status === 'IN_REVIEW' || state.status === 'VERIFIED' ? 'done' : state.canSubmit ? 'in_progress' : 'not_started';
+  const barSteps = STEPS.map((s) => ({
+    key: s.key,
+    label: s.label,
+    state: (s.key === 'review' ? reviewState : state.steps[s.key]) as StepState,
+  }));
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-3xl space-y-5">
       {header}
       {error && <ErrorBanner message={error} />}
 
       {/* The decision, when there is one to show (in review, verified, not approved, removed). */}
       {state.status !== 'IN_PROGRESS' && state.status !== 'NOT_STARTED' && <StatusView state={state} />}
 
-      {editable && (
+      {/* A teacher verified before names were checked is asked, once, to confirm their name. */}
+      {state.name.prompt && (
+        <div className="space-y-3">
+          <NameStep ref={nameRef} state={state} onChange={load} prompt />
+          <div className="flex gap-3">
+            <PrimaryButton onClick={() => void nameRef.current?.save()} className="flex-1 sm:flex-none">
+              Save
+            </PrimaryButton>
+            <Link href="/tutor/dashboard" className={homeClass}>
+              Home
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {state.editable && (
         <>
-          <ProgressCard
-            completed={requiredDone}
-            total={2}
-            hint={state.canSubmit ? 'Ready to send for review' : `${2 - requiredDone} more to go`}
-          />
+          <StepBar steps={barSteps} current={current} onSelect={(i) => { setSaved(false); setCurrent(i); }} />
 
           {state.status === 'IN_PROGRESS' && state.decisionReason && (
             <Notice>
@@ -187,34 +231,59 @@ export default function VerificationV2Flow() {
             </Notice>
           )}
 
-          <IdentityStep state={state} onChange={load} open={open.identity} onToggle={() => toggle('identity')} />
-          <CredentialsStep state={state} onChange={load} open={open.credentials} onToggle={() => toggle('credentials')} />
-          <ExtrasStep state={state} onChange={load} open={open.details} onToggle={() => toggle('details')} />
+          {key === 'name' && <NameStep ref={nameRef} state={state} onChange={load} />}
+          {key === 'identity' && <IdentityStep state={state} onChange={load} />}
+          {key === 'credentials' && <CredentialsStep ref={credRef} state={state} onChange={load} />}
+          {key === 'review' && (
+            <Card title="Review and submit" subtitle="Check each step, then send your application for review.">
+              <ul className="divide-y divide-border rounded-xl border border-border">
+                {STEPS.filter((s) => s.key !== 'review').map((s, i) => (
+                  <li key={s.key} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                    <button type="button" className="min-h-[44px] text-left font-medium text-ink hover:underline" onClick={() => setCurrent(i)}>
+                      {s.key === 'name' ? 'Name on your ID' : s.key === 'identity' ? 'Upload your ID' : 'Credentials'}
+                    </button>
+                    <StatePill state={state.steps[s.key as 'name' | 'identity' | 'credentials']} />
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-sm text-muted-foreground">
+                {state.canSubmit
+                  ? 'Everything required is done. We aim to decide within 14 days and will tell you here.'
+                  : `Still to do: ${state.missing.join(', ')}.`}
+              </p>
+              <div className="mt-3">
+                <ErrorBanner message={submitError} />
+              </div>
+            </Card>
+          )}
 
-          <Card>
-            <h2 className="font-semibold text-ink">Send for review</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {state.canSubmit
-                ? 'Everything required is done. We aim to decide within 14 days and will tell you here.'
-                : `Still to do: ${state.missing.join(' and ')}.`}
-            </p>
-            <div className="mt-4">
-              <ErrorBanner message={submitError} />
-              <PrimaryButton onClick={submit} busy={submitting} disabled={!state.canSubmit}>
+          {/* Save and Home, side by side. Pinned to the bottom of the screen on a phone. */}
+          <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+            {key === 'review' ? (
+              <PrimaryButton onClick={submit} busy={busy} disabled={!state.canSubmit} className="flex-1 sm:flex-none">
                 Send for review
               </PrimaryButton>
-            </div>
-          </Card>
+            ) : (
+              <PrimaryButton onClick={() => void save(key)} busy={busy} className="flex-1 sm:flex-none">
+                Save
+              </PrimaryButton>
+            )}
+            <Link href="/tutor/dashboard" className={homeClass}>
+              Home
+            </Link>
+          </div>
+          {saved && key !== 'name' && (
+            <p role="status" className="text-xs text-muted-foreground">
+              Saved.
+            </p>
+          )}
         </>
       )}
 
-      {/* A verified teacher can keep their profile up to date. New credentials wait for an admin; the
+      {/* A verified teacher can keep their credentials up to date. New ones wait for an admin; the
           Verified badge stays. */}
       {state.status === 'VERIFIED' && state.canAddCredentials && (
-        <>
-          <CredentialsStep state={{ ...state, editable: true }} onChange={load} afterVerified />
-          <ExtrasStep state={{ ...state, editable: true }} onChange={load} afterVerified />
-        </>
+        <CredentialsStep ref={credRef} state={{ ...state, editable: true }} onChange={load} afterVerified />
       )}
     </div>
   );

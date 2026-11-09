@@ -12,7 +12,7 @@ import { getServiceClient } from '@/lib/supabase/server';
 import { isVerificationV2Enabled } from '@/lib/featureFlags/verificationV2';
 import { isRuleRefusal, setIdentityStatus, type Db } from '@/lib/verification/setStatus';
 import { notifyIdentityOutcome } from '@/lib/verificationV2/notify';
-import { nameMatchExtra } from './nameMatch';
+import { applyIdentityName, identityNameExtra } from './legalName';
 import { outcomeToStored } from './mapping';
 import { getProvider } from './registry';
 import {
@@ -91,11 +91,13 @@ export async function applyProviderOutcome(
     actor: 'system',
     sessionRef: ev.sessionRef,
     provider,
-    extra: await nameMatchExtra(db, tutorId, result.documentName),
+    extra: await identityNameExtra(db, tutorId, result),
     db,
   });
 
   if (res.ok) {
+    // A passed check puts the name on the ID on the profile.
+    await applyIdentityName(db, tutorId, result);
     // Tell the teacher about a failed check. Also on a repeat delivery (changed is
     // false): the notice has a dedupe key, so a repeat is a no-op, and a first
     // attempt that failed is retried here. The status is already saved either way.

@@ -4,9 +4,9 @@ import type { Metadata } from 'next';
 import { isVerificationV2Enabled } from '@/lib/featureFlags/verificationV2';
 import { getServiceClient } from '@/lib/supabase/server';
 import type { Db } from '@/lib/verification/setStatus';
-import { loadVerificationDetailsPage, PROOF_LINK_SECONDS } from '@/lib/verificationV2/publicDetails';
+import { loadVerificationDetailsPage } from '@/lib/verificationV2/publicDetails';
 
-// Public. Read per request so the signed proof links are always fresh and short-lived.
+// Public. Read per request so a revoke shows at once.
 export const dynamic = 'force-dynamic';
 // No title here on purpose: this metadata is sent even when the page answers "not found", and a
 // title would then mention verification for a teacher who is not verified.
@@ -45,54 +45,46 @@ export default async function VerificationDetailsPage({ params }: { params: { tu
     ? new Date(page.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : null;
 
+  const label: Record<string, string> = {
+    CERTIFICATE: 'CSEC or CAPE certificate',
+    CSEC: 'CSEC certificate',
+    CAPE: 'CAPE certificate',
+    DEGREE: 'College or university degree',
+    TEACHING: 'Teaching qualification or licence',
+    OTHER: 'Other qualification',
+  };
+
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 text-ink">
       <header>
         <Link href={`/tutors/${page.tutorId}`} className="text-xs text-muted-foreground hover:text-ink">
           ← Back to profile
         </Link>
-        <h1 className="mt-2 text-2xl font-bold lg:text-3xl">Verification details</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {page.name ? `${page.name} is verified by iTutor` : 'This teacher is verified by iTutor'}
-          {when ? ` (${when})` : ''}. These are the qualifications our team has approved.
-        </p>
+        <h1 className="mt-2 text-2xl font-bold lg:text-3xl">Verified teacher</h1>
       </header>
 
-      {page.credentials.length === 0 ? (
-        <section className="rounded-2xl border border-border bg-card p-5">
-          <p className="text-sm text-muted-foreground">No qualifications to show yet.</p>
-        </section>
-      ) : (
-        page.credentials.map((c, i) => (
-          <section key={i} className="rounded-2xl border border-border bg-card">
-            <header className="border-b border-border px-5 py-4">
-              <h2 className="font-semibold">{describe(c)}</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">{detail(c)}</p>
-            </header>
-            <div className="p-5">
-              {c.proofLink && c.proofType === 'image' && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.proofLink} alt={`Proof of ${describe(c)}`} className="max-h-96 w-full rounded-xl border border-border object-contain" />
-              )}
-              {c.proofLink && c.proofType === 'pdf' && (
-                <a
-                  href={c.proofLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[44px] items-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-muted"
-                >
-                  Open the proof (PDF)
-                </a>
-              )}
-              {!c.proofLink && <p className="text-sm text-muted-foreground">No proof file is shown for this qualification.</p>}
-            </div>
-          </section>
-        ))
-      )}
+      <section className="rounded-2xl border border-border bg-card p-5">
+        <p className="text-lg font-semibold">{page.name ?? 'This teacher'}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{when ? `ID verified on ${when}` : 'ID verified'}</p>
+      </section>
 
-      <p className="text-xs text-muted-foreground">
-        Proof links expire after {Math.round(PROOF_LINK_SECONDS / 60)} minutes. Refresh the page for a new one.
-      </p>
+      <section className="rounded-2xl border border-border bg-card">
+        <h2 className="border-b border-border px-5 py-4 font-semibold">Qualifications</h2>
+        {page.credentials.length === 0 ? (
+          <p className="p-5 text-sm text-muted-foreground">No qualifications to show yet.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {page.credentials.map((c, i) => (
+              <li key={i} className="px-5 py-4">
+                <p className="font-medium">{describe(c)}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {[label[c.kind], detail(c)].filter(Boolean).join(' · ')}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

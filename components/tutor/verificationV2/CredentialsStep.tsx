@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import {
   CREDENTIAL_TITLE_CLUE,
@@ -13,7 +13,7 @@ import {
   type CredentialKind,
   type VerificationV2StateDto,
 } from '@/lib/verificationV2/constants';
-import { CHECKLIST_META, Card, ErrorBanner, Notice, PrimaryButton, inputClass, readError } from './ui';
+import { CHECKLIST_META, Card, ErrorBanner, Notice, PrimaryButton, inputClass, readError, type StepHandle } from './ui';
 
 interface Props {
   state: VerificationV2StateDto;
@@ -45,7 +45,10 @@ export function credentialTitle(c: Pick<CredentialDto, 'title' | 'kind' | 'subje
   return `${c.kind} ${c.subject ?? ''} · Grade ${c.grade ?? ''} · ${c.examYear ?? ''}`;
 }
 
-export default function CredentialsStep({ state, onChange, afterVerified = false, open = true, onToggle, initialKind = 'CERTIFICATE' }: Props) {
+const CredentialsStep = forwardRef<StepHandle, Props>(function CredentialsStep(
+  { state, onChange, afterVerified = false, open = true, onToggle, initialKind = 'CERTIFICATE' },
+  ref
+) {
   const [kind, setKind] = useState<CredentialKind>(initialKind);
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -70,9 +73,10 @@ export default function CredentialsStep({ state, onChange, afterVerified = false
     setFile(f);
   }
 
-  async function add() {
-    if (!title.trim()) return setError('Enter a title for the qualification');
-    if (!file) return setError('Upload a clear photo of the certificate');
+  /** Adds the credential being typed. Resolves true when it was saved. */
+  async function add(): Promise<boolean> {
+    if (!title.trim()) return setError('Enter a title for the qualification'), false;
+    if (!file) return setError('Upload a clear photo of the certificate'), false;
     setBusy(true);
     setError(null);
     try {
@@ -96,12 +100,22 @@ export default function CredentialsStep({ state, onChange, afterVerified = false
       setFile(null);
       setFileKey((k) => k + 1);
       await onChange();
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
   }
+
+  // The Save button under the step: add what is filled in, or do nothing when the form is empty.
+  useImperativeHandle(ref, () => ({
+    async save() {
+      if (!title.trim() && !file) return true;
+      return add();
+    },
+  }));
 
   async function remove(id: string) {
     setError(null);
@@ -214,4 +228,6 @@ export default function CredentialsStep({ state, onChange, afterVerified = false
       {!canAdd && <ErrorBanner message={error} />}
     </Card>
   );
-}
+});
+
+export default CredentialsStep;

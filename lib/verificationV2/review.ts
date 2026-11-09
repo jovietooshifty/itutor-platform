@@ -168,6 +168,14 @@ export async function approveV2(ctx: ReviewCtx, tutorId: string): Promise<Review
     return { ...moved, partial: true };
   }
 
+  // From now on the name cannot be changed. Best effort: the decision stands.
+  const { error: lockError } = await db
+    .from('tutor_verification_v2')
+    .update({ name_locked_at: new Date().toISOString() })
+    .eq('tutor_id', tutorId)
+    .is('name_locked_at', null);
+  if (lockError) console.error(`[verification-v2/review] ${tutorId}: approved but the name was not locked: ${lockError.message}`);
+
   // The credentials this decision signs off carry its date and the admin. Best effort: the decision stands.
   const { error: stampError } = await db
     .from('tutor_credentials_v2')

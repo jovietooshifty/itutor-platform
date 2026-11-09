@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
   const { data: row, error } = await g.db
     .from('tutor_verification_v2')
     .select(
-      'tutor_id, status, consent_at, identity_status, identity_error_code, identity_provider, identity_provider_code, identity_country, identity_attempts, identity_verified_at, identity_name_match, submitted_at, decision_reason, decided_at, decided_by, source, created_at, identity_redacted_at, files_deleted_at'
+      'tutor_id, status, consent_at, identity_status, identity_error_code, identity_provider, identity_provider_code, identity_country, identity_attempts, identity_verified_at, identity_name_match, submitted_at, decision_reason, decided_at, decided_by, source, created_at, legal_first_name, legal_last_name, name_source, name_locked_at, identity_redacted_at, files_deleted_at'
     )
     .eq('tutor_id', tutorId)
     .maybeSingle();
@@ -128,6 +128,10 @@ export async function GET(_req: NextRequest, { params }: { params: { tutorId: st
       grantedAt: row.status === 'VERIFIED' ? row.decided_at : null,
       approvedBy: row.status === 'VERIFIED' ? nameOf(row.decided_by) : null,
       consentAt: row.consent_at,
+      /** The legal name (first and last), and whether it came from the ID or was typed by the teacher. */
+      legalName: row.legal_first_name && row.legal_last_name ? `${row.legal_first_name} ${row.legal_last_name}` : null,
+      nameSource: row.name_source ?? null,
+      nameLockedAt: row.name_locked_at ?? null,
       identity: {
         status: row.identity_status,
         /** pass, fail or in_review: the Didit result in one word. null = no check yet. */

@@ -1,7 +1,7 @@
 // Does the name on the verified ID match the teacher's profile name? Stored as a plain
 // yes or no (tutor_verification_v2.identity_name_match) for the admin review screen. The
-// name that is on the document is read from the provider's result, compared and thrown away:
-// it is never stored, logged or returned.
+// name on the document is compared here and not kept by this file; the legal first and last name
+// of a PASSED check are saved by lib/identity/legalName.ts.
 
 import type { Db } from '@/lib/verification/setStatus';
 

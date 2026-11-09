@@ -9,7 +9,7 @@ import StatusView from '@/components/tutor/verificationV2/StatusView';
 import ConsentStep from '@/components/tutor/verificationV2/ConsentStep';
 import IdentityStep from '@/components/tutor/verificationV2/IdentityStep';
 import CredentialsStep from '@/components/tutor/verificationV2/CredentialsStep';
-import ExtrasStep from '@/components/tutor/verificationV2/ExtrasStep';
+import NameStep from '@/components/tutor/verificationV2/NameStep';
 import { describeNotSupported, describeRetryReason } from '@/lib/identity/messages';
 import type { NotSupportedReason, RetryReason } from '@/lib/identity/types';
 import { Cell, Section } from './GalleryParts';
@@ -58,8 +58,9 @@ export default function TeacherStates({ onAction }: { onAction: (text: string) =
       <Section id="steps" title="The four steps" note="Progress is saved. Consent, credentials and extras (identity has its own section).">
                 <Cell label="3. Credentials (empty)"><CredentialsStep state={mkState({ step: 3, identity: { status: 'verified' } })} onChange={noop} /></Cell>
         <Cell label="3. Credentials (two added)"><CredentialsStep state={mkState({ step: 3, credentials: CREDENTIALS, identity: { status: 'verified' } })} onChange={noop} /></Cell>
-        <Cell label="4. Extras (none)"><ExtrasStep state={mkState({ step: 4, credentials: CREDENTIALS, identity: { status: 'verified' } })} onChange={noop} /></Cell>
-        <Cell label="4. Extras (3 of 3, limit reached)"><ExtrasStep state={mkState({ step: 4, credentials: CREDENTIALS, extras: EXTRAS, identity: { status: 'verified' } })} onChange={noop} /></Cell>
+        <Cell label="1. Name (typed before the ID check)"><NameStep state={mkState()} onChange={noop} /></Cell>
+        <Cell label="1. Name (from the ID, locked)"><NameStep state={mkState({ steps: { name: 'done', identity: 'done', credentials: 'not_started', details: 'not_started' }, name: { firstName: 'Zoë', lastName: 'Ramdhanie', source: 'id', canEdit: false, prompt: false } })} onChange={noop} /></Cell>
+        <Cell label="1. Name (one-time prompt, verified before names were checked)"><NameStep prompt state={mkState({ status: 'VERIFIED', name: { firstName: null, lastName: null, source: null, canEdit: true, prompt: true } })} onChange={noop} /></Cell>
       </Section>
 
       <Section id="identity" title="Identity step: every neutral outcome" note="The screen never names a provider. The same screens appear whichever provider did the check.">

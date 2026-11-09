@@ -43,6 +43,10 @@ export interface PublicExtra {
 export interface PublicDetail extends PublicSummary {
   tutorId: string;
   verifiedAt: string | null;
+  /** When the ID check passed (the date of verification for a teacher carried over from the old system). */
+  idVerifiedAt: string | null;
+  /** The teacher's legal name, first and last, as read from their ID. */
+  legalName: string | null;
   credentials: PublicCredential[];
   extras: PublicExtra[];
 }
@@ -55,7 +59,7 @@ async function verifiedRows(db: Db, ids: string[]) {
   const [v2, profiles] = await Promise.all([
     db
       .from('tutor_verification_v2')
-      .select('tutor_id, identity_status, decided_at')
+      .select('tutor_id, identity_status, identity_verified_at, decided_at, legal_first_name, legal_last_name')
       .in('tutor_id', ids)
       .eq('status', 'VERIFIED'),
     db.from('profiles').select('id').in('id', ids).eq('tutor_verification_status', 'VERIFIED'),
@@ -118,6 +122,8 @@ export async function loadPublicDetail(db: Db, tutorId: string): Promise<PublicD
     credentialsReviewed: true,
     hasExtras: (extras.data ?? []).length > 0,
     verifiedAt: row.decided_at ?? null,
+    idVerifiedAt: row.identity_verified_at ?? row.decided_at ?? null,
+    legalName: row.legal_first_name && row.legal_last_name ? `${row.legal_first_name} ${row.legal_last_name}` : null,
     credentials: (creds.data ?? []).map((c: any) => ({
       kind: c.kind,
       title: c.title ?? null,

@@ -119,7 +119,17 @@ export interface VerificationV2StateDto {
   /** A verified teacher may add credentials (pending approval) and edit their extras. */
   canAddCredentials: boolean;
   /** The checklist: each step's own state, in any order. */
-  steps: { identity: StepStatus; credentials: StepStatus; details: StepStatus };
+  steps: { name: StepStatus; identity: StepStatus; credentials: StepStatus; details: StepStatus };
+  /** The teacher's legal name. It comes from the ID check; before that the teacher types it. */
+  name: {
+    firstName: string | null;
+    lastName: string | null;
+    source: 'teacher' | 'id' | null;
+    /** The teacher may still type or change it. False once the ID check has started, and after approval. */
+    canEdit: boolean;
+    /** A teacher verified before names were checked: ask once to confirm their name. */
+    prompt: boolean;
+  };
   /** A plain sentence for a step that needs changes (the admin's reason, or why the ID check failed). */
   stepNotes: { identity: string | null; credentials: string | null };
   /** Submit is possible: every required step is done. */

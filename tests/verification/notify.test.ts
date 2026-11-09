@@ -30,7 +30,7 @@ function seed(o: { profile?: string; v2?: string; extra?: Record<string, any>; c
     profiles: [{ id: T, role: 'tutor', tutor_verification_status: o.profile ?? 'PENDING', tutor_verified_at: null }],
     tutor_verification_v2: [
       {
-        tutor_id: T, status: o.v2 ?? 'IN_REVIEW', identity_status: 'verified', consent_at: '2026-10-01T00:00:00Z',
+        tutor_id: T, status: o.v2 ?? 'IN_REVIEW', identity_status: 'verified', consent_at: '2026-10-01T00:00:00Z', legal_first_name: 'Zoe', legal_last_name: 'R', name_source: 'id',
         identity_provider_session_ref: 'vs_2', identity_session_refs: [{ provider: 'didit', ref: 'vs_2' }], identity_redacted_at: null,
         files_deleted_at: null, decided_at: null, submitted_at: null, ...(o.extra ?? {}),
       },
@@ -370,7 +370,8 @@ describe('the status page and the badge cache refresh by themselves', () => {
     reference: null,
     editable: false,
     canAddCredentials: false,
-    steps: { identity: 'done', credentials: 'done', details: 'not_started' },
+    steps: { name: 'done', identity: 'done', credentials: 'done', details: 'not_started' },
+    name: { firstName: 'Zoë', lastName: 'Ramdhanie', source: 'id', canEdit: false, prompt: false },
     stepNotes: { identity: null, credentials: null },
     canSubmit: false,
     missing: [],

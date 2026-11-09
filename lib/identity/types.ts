@@ -55,8 +55,11 @@ export interface ProviderOutcome {
   resumeUrl?: string | null;
   /** The document type the provider reports (passport, ID card, driver's licence). A label only. */
   documentType?: string | null;
-  /** The name on the document, used ONLY to compare with the profile name (lib/identity/nameMatch.ts). Never stored. */
+  /** The name on the document. Compared with the name the teacher typed (lib/identity/nameMatch.ts); when the check
+   *  passes, the first and last name become the teacher's legal name (lib/identity/legalName.ts). Nothing else is kept. */
   documentName?: string | null;
+  documentFirstName?: string | null;
+  documentLastName?: string | null;
 }
 
 export interface CreateSessionInput {

@@ -144,7 +144,7 @@ function GetListedContent() {
   // ── Autosave ────────────────────────────────────────────────────────────────
   const nameSave = useAutosave({
     value: displayName,
-    enabled: !!profile?.id,
+    enabled: false, // the name is set in verification (the name on the ID), never typed here
     validate: (v) => (v.trim() ? null : 'Enter a name to save'),
     save: async (v) => {
       const { error } = await supabase.from('profiles').update({ display_name: v.trim() }).eq('id', profile!.id);
@@ -489,20 +489,12 @@ function GetListedContent() {
       </SectionShell>
 
       {/* 2. Display name */}
-      <SectionShell done={!!profile.display_name || !!profile.full_name} title="Your name" subtitle="This is how your name appears on your profile and classes. Your username stays private.">
-        <input
-          type="text"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          onBlur={() => void nameSave.flush()}
-          maxLength={60}
-          placeholder="e.g. Kelon Rashad"
-          className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-        />
-        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">Shown publicly on your tutor profile and group classes. Not your login username.</p>
-          <SaveStatus state={nameSave} />
-        </div>
+      <SectionShell done={!!profile.full_name} title="Your name" subtitle="Your first and last name, exactly as on your government ID. It is the only name students and parents see.">
+        <p className="text-sm font-semibold text-ink">{profile.full_name || 'Not set yet'}</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          It is set when you verify your ID.{' '}
+          <Link href="/tutor/verification-v2" className="font-semibold text-brand-deep underline">Go to verification</Link>
+        </p>
       </SectionShell>
 
       {/* 3. Bio */}

@@ -9,7 +9,7 @@ import { identityRouting } from '@/config/identityRouting';
 import { setIdentityStatus, type Db } from '@/lib/verification/setStatus';
 import { getProvider, routeForCountry } from './registry';
 import { notifyIdentityOutcome } from '@/lib/verificationV2/notify';
-import { nameMatchExtra } from './nameMatch';
+import { applyIdentityName, identityNameExtra } from './legalName';
 import { outcomeToStored } from './mapping';
 import { decideNextStep } from './routing';
 import { isProviderName, type ProviderName } from './types';
@@ -111,13 +111,16 @@ export async function startIdentityCheck(opts: {
           actor: 'system',
           sessionRef: currentRef,
           provider: current,
-          extra: await nameMatchExtra(db, tutorId, existing.documentName),
+          extra: await identityNameExtra(db, tutorId, existing),
           db,
         });
         if (!saved.ok && saved.code === 'db_error') {
           return fail(saved.httpStatus, saved.code, saved.message);
         }
-        if (saved.ok) await notifyIdentityOutcome(db, tutorId, stored.status, stored.reason);
+        if (saved.ok) {
+          await applyIdentityName(db, tutorId, existing);
+          await notifyIdentityOutcome(db, tutorId, stored.status, stored.reason);
+        }
       }
       if (stored.status === 'verified') return { ok: true, kind: 'verified' };
       if (stored.status === 'processing') return { ok: true, kind: 'processing' };

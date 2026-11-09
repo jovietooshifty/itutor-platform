@@ -24,8 +24,6 @@ export default function EditableProfilePanel({ profile, onUpdated }: { profile: 
   const tutorId: string | undefined = profile?.id;
 
   // Name
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
 
   // Bio
@@ -74,20 +72,6 @@ export default function EditableProfilePanel({ profile, onUpdated }: { profile: 
       setRateInputs(inputs);
     } finally {
       setSubjectsLoading(false);
-    }
-  }
-
-  // ── Name ──────────────────────────────────────────────────────────────────
-  function startName() { setNameInput(getDisplayName(profile) || ''); setEditingName(true); }
-  async function saveName() {
-    if (!tutorId) return;
-    setSavingName(true);
-    try {
-      await supabase.from('profiles').update({ display_name: nameInput.trim() || null }).eq('id', tutorId);
-      setEditingName(false);
-      onUpdated?.();
-    } finally {
-      setSavingName(false);
     }
   }
 
@@ -222,22 +206,11 @@ export default function EditableProfilePanel({ profile, onUpdated }: { profile: 
 
           <div className="min-w-0 flex-1">
             {/* Name */}
-            {editingName ? (
-              <div className="flex items-center gap-2">
-                <input autoFocus value={nameInput} onChange={(e) => setNameInput(e.target.value)} className={INPUT}
-                  onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }} />
-                <button onClick={saveName} disabled={savingName} className="size-8 grid place-items-center rounded-lg bg-brand text-white hover:bg-brand-deep disabled:opacity-50">
-                  {savingName ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                </button>
-                <button onClick={() => setEditingName(false)} className="size-8 grid place-items-center rounded-lg border border-border hover:bg-muted"><X className="size-4" /></button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-lg font-bold text-ink truncate">{name}</h2>
-                {isVerified && <VerifiedBadge size="sm" />}
-                <button onClick={startName} className="ml-1 size-6 grid place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-ink" title="Edit name"><Pencil className="size-3.5" /></button>
-              </div>
-            )}
+            {/* The name is the name on the teacher's ID: set in verification, not typed here. */}
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-lg font-bold text-ink truncate">{name}</h2>
+              {isVerified && <VerifiedBadge size="sm" />}
+            </div>
             {profile?.country && (
               <div className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <MapPin className="size-3" /> {profile.country}

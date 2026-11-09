@@ -70,6 +70,8 @@ export function mapDiditDecision(decision: any, opts: { minimumAge: number }): P
     ...o,
     documentType: decision?.id_verifications?.[0]?.document_type ?? null,
     documentName: diditDocumentName(decision),
+    documentFirstName: typeof decision?.id_verifications?.[0]?.first_name === 'string' ? decision.id_verifications[0].first_name : null,
+    documentLastName: typeof decision?.id_verifications?.[0]?.last_name === 'string' ? decision.id_verifications[0].last_name : null,
   });
   return withDoc(mapDiditDecisionCore(decision, opts));
 }

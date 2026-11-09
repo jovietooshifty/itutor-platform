@@ -55,6 +55,17 @@ export function sanitizeFilename(name: unknown): string | null {
   return cleaned || null;
 }
 
+/** A legal first or last name: letters, spaces, hyphens, apostrophes and full stops, 1 to 60 characters. */
+export function validateLegalName(body: any): Result<{ first: string; last: string }> {
+  const clean = (v: unknown) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
+  const first = clean(body?.firstName);
+  const last = clean(body?.lastName);
+  const ok = (n: string) => n.length >= 1 && n.length <= 60 && /^[\p{L}][\p{L}\p{M} .'’-]*$/u.test(n);
+  if (!ok(first)) return { ok: false, error: 'Enter your first name exactly as it is on your ID' };
+  if (!ok(last)) return { ok: false, error: 'Enter your last name exactly as it is on your ID' };
+  return { ok: true, value: { first, last } };
+}
+
 export interface CredentialInput {
   kind: CredentialKind;
   /** What the teacher calls it. Required for every new credential. */

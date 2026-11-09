@@ -17,7 +17,8 @@ export type StepState = StepStatus | 'optional';
 
 /** The checklist's steps, in the order they are shown. They can be done in ANY order. */
 export const CHECKLIST_META = {
-  identity: { title: 'ID check', subtitle: 'A quick check of your government ID and a selfie.' },
+  name: { title: 'Name on your ID', subtitle: 'Your first and last name, exactly as on your government ID.' },
+  identity: { title: 'Upload your ID', subtitle: 'A quick check of your government ID and a selfie, done by Didit.' },
   credentials: { title: 'Credentials', subtitle: 'Add each qualification you teach from, with a photo of the certificate.' },
   details: { title: 'Other details (optional)', subtitle: 'Up to three more things students may want to know.' },
 } as const;
@@ -30,6 +31,78 @@ const PILL: Record<StepState, { label: string; cls: string }> = {
   needs_changes: { label: 'Needs changes', cls: 'bg-red-50 text-red-700' },
   optional: { label: 'Optional', cls: 'bg-sky/20 text-sky-700' },
 };
+
+/** A step screen that can save what is on it. The Save button under the step calls this. */
+export interface StepHandle {
+  /** Saves anything typed or chosen on the screen. Resolves false when it could not (the step shows why). */
+  save(): Promise<boolean>;
+}
+
+const DOT: Record<StepState, string> = {
+  not_started: 'bg-muted text-muted-foreground',
+  in_progress: 'bg-amber-100 text-amber-800',
+  done: 'bg-brand text-white',
+  needs_changes: 'bg-red-50 text-red-700',
+  optional: 'bg-muted text-muted-foreground',
+};
+
+/**
+ * "Step X of N" with a filled bar, and one tappable button per step showing whether it is done,
+ * in progress, not started or needs changes. Any step can be opened at any time.
+ */
+export function StepBar({
+  steps,
+  current,
+  onSelect,
+}: {
+  steps: { key: string; label: string; state: StepState }[];
+  current: number;
+  onSelect: (index: number) => void;
+}) {
+  const n = steps.length;
+  const pct = Math.round(((current + 1) / n) * 100);
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-semibold text-ink">
+          Step {current + 1} of {n}
+        </span>
+        <span className="text-muted-foreground">{steps[current]?.label}</span>
+      </div>
+      <div
+        className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-valuenow={current + 1}
+        aria-valuemin={1}
+        aria-valuemax={n}
+        aria-label="Verification steps"
+      >
+        <div className="h-full bg-brand transition-all duration-300" style={{ width: `${pct}%` }} />
+      </div>
+      <ol className="mt-3 grid grid-cols-4 gap-1.5">
+        {steps.map((s, i) => (
+          <li key={s.key} className="min-w-0">
+            <button
+              type="button"
+              onClick={() => onSelect(i)}
+              aria-current={i === current ? 'step' : undefined}
+              className={cn(
+                'flex min-h-[44px] w-full flex-col items-center justify-center gap-1 rounded-lg border px-1 py-1.5 text-[11px] font-semibold leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:flex-row sm:gap-2 sm:text-xs',
+                i === current ? 'border-brand bg-brand/5 text-ink' : 'border-border bg-card text-muted-foreground hover:bg-muted/50'
+              )}
+            >
+              <span className={cn('grid size-5 shrink-0 place-items-center rounded-full text-[10px]', DOT[s.state])}>
+                {s.state === 'done' ? <Check className="size-3" aria-hidden /> : s.state === 'needs_changes' ? <AlertCircle className="size-3" aria-hidden /> : i + 1}
+              </span>
+              <span className="truncate">{s.label}</span>
+              <span className="sr-only">{PILL[s.state].label}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 
 /** The status pill from the checklist, with the four step states. */
 export function StatePill({ state }: { state: StepState }) {

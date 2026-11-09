@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 import { useVerificationSummary } from '@/lib/verificationV2/clientHooks';
 import type { PublicSummary } from '@/lib/verificationV2/publicView';
-import VerificationPanel from './VerificationPanel';
 
 /** What the click panel lists. The badge itself just says "Verified". */
 export const LABEL_ID = 'ID checked';
@@ -53,7 +52,7 @@ export function BadgeRow({
 /**
  * Renders nothing unless the teacher is VERIFIED under the v2 flow and the
  * feature is on, so it is safe to place anywhere a teacher is shown. Clicking
- * any label opens the panel with the verified date, credentials and extras.
+ * the badge opens the Verified teacher page: legal name, ID verified date and qualifications.
  *
  * `preventNav` is for use inside a link (a class card): the click opens the
  * panel instead of following the card's link.
@@ -70,21 +69,17 @@ export default function VerificationBadges({
   className?: string;
 }) {
   const summary = useVerificationSummary(tutorId);
-  const [open, setOpen] = useState(false);
+  const router = useRouter();
   if (!tutorId || !summary) return null;
 
-  const openPanel = (e: React.SyntheticEvent) => {
+  // The badge opens the separate "Verified teacher" page.
+  const openPage = (e: React.SyntheticEvent) => {
     if (preventNav) {
       e.preventDefault();
       e.stopPropagation();
     }
-    setOpen(true);
+    router.push(`/verification-details/${tutorId}`);
   };
 
-  return (
-    <>
-      <BadgeRow summary={summary} compact={compact} className={className} onOpen={openPanel} />
-      {open && <VerificationPanel tutorId={tutorId} onClose={() => setOpen(false)} />}
-    </>
-  );
+  return <BadgeRow summary={summary} compact={compact} className={className} onOpen={openPage} />;
 }

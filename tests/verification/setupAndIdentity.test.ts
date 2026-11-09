@@ -84,7 +84,7 @@ describe('the dashboard card', () => {
   const base = (over: any = {}) =>
     ({
       status: 'NOT_STARTED', consentAt: null, submittedAt: null, decisionReason: null, reference: null, editable: true, step: 1, credentials: [], extras: [],
-      steps: { identity: 'not_started', credentials: 'not_started', details: 'not_started' },
+      steps: { name: 'not_started', identity: 'not_started', credentials: 'not_started', details: 'not_started' },
       identity: { status: null, reason: null, country: null, attempts: 0, maxAttempts: 3, canRetry: false, furtherRoute: false, countries: [], available: true },
       ...over,
     }) as any;
@@ -102,7 +102,7 @@ describe('the dashboard card', () => {
     ];
     for (const l of lines) expect(l.line).not.toMatch(/\b0\b/);
     expect(lines[1].line).toBe('Started, not finished yet.');
-    expect(lines[2].line).toBe('In progress: 1 of 2 required steps done.');
+    expect(lines[2].line).toBe('In progress: 1 of 3 required steps done.');
     expect(lines[4].state).toBe('done');
     expect(lines[0].state).toBe('not_started');
   });

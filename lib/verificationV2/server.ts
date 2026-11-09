@@ -12,7 +12,7 @@ import { isRuleRefusal, setIdentityStatus } from '@/lib/verification/setStatus';
 import { identityRouting } from '@/config/identityRouting';
 import { notifyIdentityOutcome } from './notify';
 import { describeNotSupported, describeRetryReason } from '@/lib/identity/messages';
-import { nameMatchExtra } from '@/lib/identity/nameMatch';
+import { applyIdentityName, identityNameExtra } from '@/lib/identity/legalName';
 import { normalizeIdentityReason, normalizeIdentityStatus, outcomeToStored } from '@/lib/identity/mapping';
 import { getProvider, routeForCountry } from '@/lib/identity/registry';
 import { decideNextStep } from '@/lib/identity/routing';
@@ -47,10 +47,17 @@ export interface VerificationRow {
   identity_country: string | null;
   submitted_at: string | null;
   decision_reason: string | null;
+  /** The teacher's legal name: typed by them, or read from the ID (then it replaces what they typed). */
+  legal_first_name: string | null;
+  legal_last_name: string | null;
+  name_source: 'teacher' | 'id' | null;
+  name_confirmed_at: string | null;
+  /** Set when an admin approves: from then on the name cannot be changed. */
+  name_locked_at: string | null;
 }
 
 const ROW_COLUMNS =
-  'tutor_id, status, consent_at, consent_version, identity_status, identity_error_code, identity_attempts, identity_verified_at, identity_session_history, identity_provider, identity_provider_session_ref, identity_session_refs, identity_providers_tried, identity_country, submitted_at, decision_reason';
+  'tutor_id, status, consent_at, consent_version, identity_status, identity_error_code, identity_attempts, identity_verified_at, identity_session_history, identity_provider, identity_provider_session_ref, identity_session_refs, identity_providers_tried, identity_country, submitted_at, decision_reason, legal_first_name, legal_last_name, name_source, name_confirmed_at, name_locked_at';
 
 /**
  * Old development rows hold another provider's status names.
@@ -166,7 +173,8 @@ export async function refreshIdentity(db: Db, row: VerificationRow): Promise<Ver
   const open: Array<IdentityStatus | null> = [null, 'pending', 'processing', 'retryable_failure'];
   if (!provider || !ref || !open.includes(row.identity_status)) return row;
   try {
-    const { outcome, providerCode, documentType, documentName } = await getProvider(provider).getOutcome(ref);
+    const fetched = await getProvider(provider).getOutcome(ref);
+    const { outcome, providerCode, documentType } = fetched;
     const stored = outcomeToStored(outcome);
     if (stored.status === row.identity_status && stored.reason === row.identity_error_code) return row;
 
@@ -181,7 +189,7 @@ export async function refreshIdentity(db: Db, row: VerificationRow): Promise<Ver
       actor: 'system',
       sessionRef: ref,
       provider,
-      extra: await nameMatchExtra(db, row.tutor_id, documentName),
+      extra: await identityNameExtra(db, row.tutor_id, fetched),
       db,
     });
     if (!result.ok) {
@@ -190,6 +198,7 @@ export async function refreshIdentity(db: Db, row: VerificationRow): Promise<Ver
       }
       return row;
     }
+    await applyIdentityName(db, row.tutor_id, fetched);
     // A failed check is announced once (dedupe key); a failure to write it is logged, not shown.
     await notifyIdentityOutcome(db, row.tutor_id, stored.status, stored.reason);
     return { ...row, identity_status: stored.status as IdentityStatus, identity_error_code: stored.reason };
@@ -297,9 +306,20 @@ export function buildState(
           ? 'needs_changes'
           : 'done';
   const detailsStep: StepStatus = extras.length > 0 ? 'done' : 'not_started';
+  // The legal name: typed by the teacher, then replaced by the name on the ID when the check passes.
+  const hasName = !!(row?.legal_first_name && row?.legal_last_name);
+  const idStarted = ['pending', 'processing', 'verified'].includes(identityStatus ?? '');
+  const canEditName =
+    !revokedProfile &&
+    !row?.name_locked_at &&
+    !idStarted &&
+    (isEditable(row) || (row?.status === 'VERIFIED' && !row.name_confirmed_at));
+  const namePrompt = row?.status === 'VERIFIED' && !row.name_confirmed_at && !row.name_locked_at;
+  const nameStep: StepStatus = hasName ? 'done' : namePrompt ? 'needs_changes' : 'not_started';
   // The ID check cannot be done on an environment with no Didit: then it must not hold anything up.
   const idOk = hasConsent(row) && (identityStatus === 'verified' || !available);
   const missing: string[] = [];
+  if (!hasName) missing.push('Name');
   if (!idOk) missing.push('ID check');
   if (credentials.length === 0) missing.push('Credentials');
   const canSubmit = !revokedProfile && isEditable(row) && missing.length === 0;
@@ -341,7 +361,14 @@ export function buildState(
     reference: row ? `VR-${row.tutor_id.replace(/-/g, '').slice(0, 8).toUpperCase()}` : null,
     editable: !revokedProfile && isEditable(row),
     canAddCredentials: !revokedProfile && (isEditable(row) || isVerifiedTeacher(row)),
-    steps: { identity: identityStep, credentials: credentialsStep, details: detailsStep },
+    steps: { name: nameStep, identity: identityStep, credentials: credentialsStep, details: detailsStep },
+    name: {
+      firstName: row?.legal_first_name ?? null,
+      lastName: row?.legal_last_name ?? null,
+      source: row?.name_source ?? null,
+      canEdit: canEditName,
+      prompt: namePrompt,
+    },
     stepNotes: {
       identity:
         reasonStep === 'identity'

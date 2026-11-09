@@ -97,19 +97,16 @@ function SettingsContent() {
     if (email !== profile?.email) { setPendingEmail(email); setShowEmailPasswordPrompt(true); return; }
     setSaving(true);
     try {
-      if (!username.trim()) throw new Error('Username is required');
-      if (!/^[a-zA-Z0-9_-]+$/.test(username)) throw new Error('Username can only contain letters, numbers, underscores, and hyphens');
+      // The name is the name on the teacher's ID: never saved from here.
       const updates: Record<string, unknown> = {
-        username: username.trim(),
-        display_name: displayName.trim() || null,
         email,
         school: school || null,
         country,
       };
       if (profile?.email === 'jovangoodluck@myitutor.com') updates.allow_same_day_bookings = allowSameDay;
       const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', profile!.id);
-      if (updateError) throw new Error(updateError.code === '23505' ? 'This username is already taken' : updateError.message);
-      setSaved((s) => ({ ...s, username: username.trim(), displayName: displayName.trim(), email, school, country }));
+      if (updateError) throw new Error(updateError.message);
+      setSaved((s) => ({ ...s, email, school, country }));
       if (opts.auto) {
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 1500);
@@ -180,7 +177,7 @@ function SettingsContent() {
       const { error: authError } = await supabase.auth.updateUser({ email: pendingEmail });
       if (authError) throw new Error(authError.message);
       const { error: updErr } = await supabase.from('profiles').update({
-        username: username.trim(), display_name: displayName.trim() || null, email: pendingEmail, school: school || null, country,
+        email: pendingEmail, school: school || null, country,
       }).eq('id', profile!.id);
       if (updErr) throw new Error(updErr.message);
       setShowEmailPasswordPrompt(false);
@@ -229,7 +226,7 @@ function SettingsContent() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!profile || deleteConfirmInput !== (profile.username || '')) return;
+    if (!profile || deleteConfirmInput !== 'DELETE') return;
     setDeleting(true); setError('');
     try {
       const res = await fetch('/api/delete-account', { method: 'DELETE' });
@@ -319,14 +316,20 @@ function SettingsContent() {
                   </label>
                 </div>
                 <div>
-                  <div className="font-semibold text-ink">{displayName || profile.full_name || profile.email}</div>
+                  <div className="font-semibold text-ink">{profile.full_name || displayName || profile.email}</div>
                   <div className="text-sm text-muted-foreground">{profile.email}</div>
                   {uploading && <div className="text-xs text-brand-deep mt-1">Uploading…</div>}
                 </div>
               </div>
 
-              <Field label="Username *" value={username} onChange={(v) => setUsername(v.toLowerCase())} placeholder="your-username" />
-              <Field label="Display name" value={displayName} onChange={setDisplayName} placeholder="Your display name" />
+              <div>
+                <label className="text-sm font-medium text-ink mb-1.5 block">Name on your ID</label>
+                <div className="px-3 py-2.5 rounded-xl border border-border bg-muted text-sm text-ink">{profile.full_name || 'Not set yet'}</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This is the only name students and parents see. It comes from your ID check.{' '}
+                  <a href="/tutor/verification-v2" className="font-semibold text-brand-deep underline">Go to verification</a>
+                </p>
+              </div>
               <Field label="Email *" type="email" value={email} onChange={setEmail} />
               <Field label="School / Institution" value={school} onChange={setSchool} />
               <div>
@@ -419,12 +422,12 @@ function SettingsContent() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink mb-1.5">
-                      Type your username <span className="font-bold">@{profile.username}</span> to confirm
+                      Type <span className="font-bold">DELETE</span> to confirm
                     </label>
-                    <input type="text" value={deleteConfirmInput} onChange={(e) => setDeleteConfirmInput(e.target.value)} placeholder={profile.username || ''}
+                    <input type="text" value={deleteConfirmInput} onChange={(e) => setDeleteConfirmInput(e.target.value)} placeholder="DELETE"
                       className="w-full px-3 py-2.5 rounded-xl border border-coral/30 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-coral" />
                   </div>
-                  <button type="button" onClick={handleDeleteAccount} disabled={deleting || deleteConfirmInput !== (profile.username || '')}
+                  <button type="button" onClick={handleDeleteAccount} disabled={deleting || deleteConfirmInput !== 'DELETE'}
                     className="w-full px-4 py-2.5 rounded-xl bg-coral hover:bg-coral/90 text-white text-sm font-semibold disabled:opacity-40">
                     {deleting ? 'Deleting…' : 'Permanently delete my account'}
                   </button>

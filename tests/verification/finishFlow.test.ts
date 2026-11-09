@@ -31,7 +31,7 @@ vi.mock('@/lib/verificationV2/server', async (orig) => ({
 
 import { POST as consentPOST } from '@/app/api/tutor/verification-v2/consent/route';
 import { POST as addCredential } from '@/app/api/tutor/verification-v2/credentials/route';
-import { POST as addExtra } from '@/app/api/tutor/verification-v2/extras/route';
+import { POST as namePOST } from '@/app/api/tutor/verification-v2/name/route';
 import { POST as submitPOST } from '@/app/api/tutor/verification-v2/submit/route';
 import { GET as stateGET } from '@/app/api/tutor/verification-v2/state/route';
 import { GET as adminDetail } from '@/app/api/admin/verification-v2/[tutorId]/route';
@@ -185,23 +185,24 @@ afterEach(() => {
 
 // ===========================================================================================
 describe('the checklist: steps in any order', () => {
-  type Step = 'id' | 'cred' | 'extra';
+  type Step = 'name' | 'id' | 'cred';
   const ORDERS: Step[][] = [
-    ['id', 'cred', 'extra'], ['id', 'extra', 'cred'], ['cred', 'id', 'extra'],
-    ['cred', 'extra', 'id'], ['extra', 'id', 'cred'], ['extra', 'cred', 'id'],
+    ['name', 'id', 'cred'], ['name', 'cred', 'id'], ['id', 'name', 'cred'],
+    ['id', 'cred', 'name'], ['cred', 'name', 'id'], ['cred', 'id', 'name'],
   ];
 
   async function doStep(s: Step) {
-    if (s === 'id') {
+    if (s === 'name') {
+      const res = await namePOST(jsonReq({ firstName: 'Zoë', lastName: 'Ramdhanie' }));
+      // once the ID check has passed the name already came from the ID and is locked
+      expect(res.status).toBe(row()?.identity_status === 'verified' ? 409 : 200);
+    } else if (s === 'id') {
       expect((await consentPOST(jsonReq({ accepted: true }))).status).toBe(200);
       // What the Didit webhook records when the check passes (the webhook itself is covered in
-      // identityProviders.test.ts).
-      Object.assign(row(), { identity_status: 'verified', identity_attempts: 1, identity_verified_at: '2026-10-01T10:00:00Z' });
+      // identityProviders.test.ts): the result, and the name read from the ID.
+      Object.assign(row(), { identity_status: 'verified', identity_attempts: 1, identity_verified_at: '2026-10-01T10:00:00Z', legal_first_name: 'Zoë', legal_last_name: 'Ramdhanie', name_source: 'id' });
     } else if (s === 'cred') {
       const res = await addCredential(jsonReq({ kind: 'CERTIFICATE', title: 'CSEC Chemistry, Grade I (2019)', proofPath: upload(RED), proofFilename: 'chem.png' }));
-      expect(res.status).toBe(201);
-    } else {
-      const res = await addExtra(jsonReq({ title: 'Robotics coach', description: 'Ran the school robotics club' }));
       expect(res.status).toBe(201);
     }
   }
@@ -214,12 +215,14 @@ describe('the checklist: steps in any order', () => {
         await doStep(s);
         const st = await state();
         // the step just done is done
-        expect(st.steps[{ id: 'identity', cred: 'credentials', extra: 'details' }[s]]).toBe('done');
+        expect(st.steps[{ name: 'name', id: 'identity', cred: 'credentials' }[s]]).toBe('done');
         // required steps decide Submit, whatever the order
         const idDone = order.slice(0, i + 1).includes('id');
         const credDone = order.slice(0, i + 1).includes('cred');
-        expect(st.canSubmit).toBe(idDone && credDone);
-        expect(st.missing).toEqual([...(idDone ? [] : ['ID check']), ...(credDone ? [] : ['Credentials'])]);
+        // the ID check also provides the name
+        const nameDone = idDone || order.slice(0, i + 1).includes('name');
+        expect(st.canSubmit).toBe(nameDone && idDone && credDone);
+        expect(st.missing).toEqual([...(nameDone ? [] : ['Name']), ...(idDone ? [] : ['ID check']), ...(credDone ? [] : ['Credentials'])]);
         // not blocked by an unfinished step: the page still lets the teacher edit
         expect(st.editable).toBe(true);
         if (st.canSubmit) sawSubmittable = true;
@@ -232,22 +235,25 @@ describe('the checklist: steps in any order', () => {
     });
   }
 
-  it('the optional details step never blocks Submit', async () => {
-    await doStep('id');
+  it('submit is refused until the name is confirmed, and the ID check supplies it', async () => {
+    await consentPOST(jsonReq({ accepted: true }));
+    Object.assign(row(), { identity_status: 'pending' });
     await doStep('cred');
-    expect((await state()).steps.details).toBe('not_started');
-    expect((await submitPOST()).status).toBe(200);
+    const refused = await submitPOST();
+    expect(refused.status).toBe(409);
+    expect((await refused.json()).code).toBe('name_required');
   });
 
   it('every step starts as not started, and ID check is in progress once the teacher has agreed', async () => {
     const st = await state();
-    expect(st.steps).toEqual({ identity: 'not_started', credentials: 'not_started', details: 'not_started' });
+    expect(st.steps).toMatchObject({ name: 'not_started', identity: 'not_started', credentials: 'not_started' });
     expect(st.canSubmit).toBe(false);
     await consentPOST(jsonReq({ accepted: true }));
     expect((await state()).steps.identity).toBe('in_progress');
   });
 
   it('a step the admin flagged shows needs changes, the others stay as they were, and a fix plus resubmit works', async () => {
+    await doStep('name');
     await doStep('id');
     await doStep('cred');
     await submitPOST();
@@ -329,7 +335,7 @@ describe('each credential type shows its clue', () => {
 describe('submit, approve, and what students and parents see', () => {
   async function submitted() {
     await consentPOST(jsonReq({ accepted: true }));
-    Object.assign(row(), { identity_status: 'verified', identity_attempts: 1, identity_verified_at: '2026-10-01T10:00:00Z', identity_name_match: true });
+    Object.assign(row(), { identity_status: 'verified', identity_attempts: 1, identity_verified_at: '2026-10-01T10:00:00Z', identity_name_match: true, legal_first_name: 'Zoë', legal_last_name: 'Ramdhanie', name_source: 'id' });
     const a = upload(RED);
     const b = upload(BLUE);
     expect((await addCredential(jsonReq({ kind: 'CERTIFICATE', title: 'CSEC Chemistry, Grade I (2019)', proofPath: a, proofFilename: 'chem.png' }))).status).toBe(201);
@@ -358,11 +364,19 @@ describe('submit, approve, and what students and parents see', () => {
     const byTitle = Object.fromEntries(page!.credentials.map((c) => [c.title, c]));
     expect(Object.keys(byTitle).sort()).toEqual(['BSc Chemistry, UWI (2023)', 'CSEC Chemistry, Grade I (2019)']);
 
-    const chem = fetchSigned(objects, byTitle['CSEC Chemistry, Grade I (2019)'].proofLink!);
-    const deg = fetchSigned(objects, byTitle['BSc Chemistry, UWI (2023)'].proofLink!);
+    // students and parents get text only: no image and no file link of any kind, and the ID date
+    expect(page!.verifiedAt).toBe('2026-10-01T10:00:00Z');
+    expect(JSON.stringify(page)).not.toMatch(/proof|signed|token=|storage\.test|\.png/i);
+    const detail = await (await publicDetailGET(get(), params)).json();
+    expect(JSON.stringify(detail)).not.toMatch(/proof|signed|token=|storage\.test|\.png/i);
+
+    // the admin sees the exact files the teacher uploaded: same checksum, and the two are different images
+    const admin = await (await adminDetail(get(), params)).json();
+    const adminByTitle = Object.fromEntries(admin.credentials.map((c: any) => [c.title, c]));
+    const chem = fetchSigned(objects, adminByTitle['CSEC Chemistry, Grade I (2019)'].proofLink);
+    const deg = fetchSigned(objects, adminByTitle['BSc Chemistry, UWI (2023)'].proofLink);
     expect(chem.status).toBe(200);
     expect(deg.status).toBe(200);
-    // the exact files the teacher uploaded: same checksum, and the two are different images
     expect(sha(chem.body!)).toBe(sha(RED));
     expect(sha(deg.body!)).toBe(sha(BLUE));
     expect(sha(RED)).not.toBe(sha(BLUE));
@@ -381,8 +395,6 @@ describe('submit, approve, and what students and parents see', () => {
     for (const banned of ['selfie', 'didit', 'identity_', 'secret-reason', 'internal-note', 'decision_reason', 'proof_path', 'session', 'attempt', 'namematch', 'name_match']) {
       expect(everything, banned).not.toContain(banned);
     }
-    // links are signed storage links, never a bare path
-    expect(page!.credentials.every((c) => /[?&]token=/.test(c.proofLink ?? ''))).toBe(true);
   });
 
   it('an in-progress, in-review and rejected teacher show nothing about verification', async () => {
@@ -428,7 +440,7 @@ describe('submit, approve, and what students and parents see', () => {
 describe('revoke and re-approve', () => {
   async function verified() {
     await consentPOST(jsonReq({ accepted: true }));
-    Object.assign(row(), { identity_status: 'verified', identity_attempts: 1 });
+    Object.assign(row(), { identity_status: 'verified', identity_attempts: 1, legal_first_name: 'Zoë', legal_last_name: 'Ramdhanie', name_source: 'id' });
     await addCredential(jsonReq({ kind: 'OTHER', title: 'Tutoring award', proofPath: upload(RED), proofFilename: 'award.png' }));
     await submitPOST();
     await approvePOST(jsonReq({}), params);
@@ -531,8 +543,9 @@ describe('image links', () => {
     seed({ v2: { status: 'VERIFIED', consent_at: 'x', identity_status: 'verified', decided_at: '2026-10-01T00:00:00Z' }, profile: { tutor_verification_status: 'VERIFIED' } });
     const p = upload(RED);
     h.db.tables.tutor_credentials_v2.push({ id: 'c1', tutor_id: T, kind: 'OTHER', title: 'Award', proof_path: p, proof_filename: 'a.png', pending_approval: false, created_at: '1' });
-    const page = await loadVerificationDetailsPage(h.db, T);
-    const link = page!.credentials[0].proofLink!;
+    asAdmin(ADMIN);
+    const admin = await (await adminDetail(get(), params)).json();
+    const link = admin.credentials[0].proofLink as string;
     expect(fetchSigned(objects, link).status).toBe(200);
 
     const u = new URL(link);

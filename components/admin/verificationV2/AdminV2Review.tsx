@@ -16,6 +16,9 @@ export interface ReviewDetail {
     /** When Verified was granted and which admin approved it. */
     grantedAt?: string | null;
     approvedBy?: string | null;
+    legalName?: string | null;
+    nameSource?: 'teacher' | 'id' | null;
+    nameLockedAt?: string | null;
     consentAt: string | null;
     identity: {
       status: string | null;
@@ -105,6 +108,8 @@ export function ReviewView({
           <div><dt className="text-gray-500">Application</dt><dd className="font-semibold">{status}</dd></div>
           <div><dt className="text-gray-500">Teacher status</dt><dd className="font-semibold">{detail.tutor.profileStatus ?? 'UNVERIFIED'}</dd></div>
           <div><dt className="text-gray-500">Submitted</dt><dd>{fmt(detail.application.submittedAt)}</dd></div>
+          <div><dt className="text-gray-500">Legal name</dt><dd>{detail.application.legalName ?? '—'}{detail.application.nameSource ? ` (${detail.application.nameSource === 'id' ? 'from the ID' : 'typed by the teacher'})` : ''}</dd></div>
+          <div><dt className="text-gray-500">Name locked</dt><dd>{fmt(detail.application.nameLockedAt ?? null)}</dd></div>
           <div><dt className="text-gray-500">Consent given</dt><dd>{fmt(detail.application.consentAt)}</dd></div>
           {detail.application.grantedAt && (
             <>

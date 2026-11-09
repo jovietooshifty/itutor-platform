@@ -28,6 +28,9 @@ export async function POST() {
   try {
     const row = await loadRow(db, tutorId);
     if (!isEditable(row)) return blocked('Your submission is locked while it is reviewed', 409, { code: 'locked' });
+    if (!row?.legal_first_name || !row?.legal_last_name) {
+      return blocked('Confirm your name first', 409, { code: 'name_required' });
+    }
     if (!hasConsent(row)) return blocked('Please accept the notice first', 409, { code: 'consent_required' });
     // The identity check is required, unless this environment has no provider to run it:
     // then the teacher can still send everything else, and an admin cannot approve until it is done.

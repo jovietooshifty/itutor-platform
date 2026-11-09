@@ -38,7 +38,7 @@ function seed(o: { status?: string; profile?: string; creds?: any[]; identity?: 
   return makeFakeDb({
     profiles: [{ id: T, role: 'tutor', tutor_verification_status: o.profile ?? (status === 'VERIFIED' ? 'VERIFIED' : 'PENDING'), full_name: 'Zoë Ramdhanie', display_name: 'Zoe R' }],
     tutor_verification_v2: [
-      { tutor_id: T, status, consent_at: 'x', identity_status: o.identity === undefined ? 'verified' : o.identity, identity_attempts: 1, decided_at: '2026-10-01T00:00:00Z', submitted_at: '2026-09-20T00:00:00Z', decision_reason: null, ...(o.extra ?? {}) },
+      { tutor_id: T, status, consent_at: 'x', identity_status: o.identity === undefined ? 'verified' : o.identity, identity_attempts: 1, decided_at: '2026-10-01T00:00:00Z', submitted_at: '2026-09-20T00:00:00Z', decision_reason: null, legal_first_name: 'Zoë', legal_last_name: 'Ramdhanie', name_source: 'id', name_confirmed_at: 'x', ...(o.extra ?? {}) },
     ],
     tutor_credentials_v2: o.creds ?? [
       { id: 'approved1', tutor_id: T, kind: 'CSEC', subject: 'Maths', grade: 'I', exam_year: 2019, proof_path: `${T}/a.png`, proof_filename: 'a.png', pending_approval: false, created_at: '1' },
@@ -183,13 +183,12 @@ describe('the public Verification details page', () => {
     { id: 'c', tutor_id: T, kind: 'CSEC', subject: 'SECRET-PENDING', grade: 'I', exam_year: 2020, proof_path: `${T}/c.png`, proof_filename: 'c.png', pending_approval: true, created_at: '3' },
   ];
 
-  it('lists the approved credentials with short-lived proof links, and never a pending one', async () => {
+  it('lists the approved credentials as text, and never a pending one', async () => {
     const db = seed({ creds: approvedAndPending });
     const page = await loadVerificationDetailsPage(db as any, T);
     expect(page!.credentials.map((c) => c.subject ?? c.degree)).toEqual(['Maths', 'BSc']);
-    expect(page!.credentials[0].proofType).toBe('image');
-    expect(page!.credentials[1].proofType).toBe('pdf');
-    expect(page!.credentials.every((c) => c.proofLink?.startsWith('https://signed.example/'))).toBe(true);
+    // students and parents get text only: no file link of any kind
+    expect(JSON.stringify(page)).not.toMatch(/proof|signed\.example|token=/i);
     expect(JSON.stringify(page)).not.toContain('SECRET-PENDING');
   });
 

@@ -52,36 +52,11 @@ export function PanelBody({ detail }: { detail: PublicDetail }) {
         </section>
       )}
 
-      {detail.extras.length > 0 && (
-        <section>
-          <h3 className="font-semibold">{LABEL_EXTRAS}</h3>
-          <p className="mt-1 text-gray-600">Added by the teacher. iTutor has not checked these.</p>
-          <ul className="mt-2 space-y-2">
-            {detail.extras.slice(0, 3).map((x, i) => (
-              <li key={i} className="rounded-lg bg-gray-50 px-3 py-2">
-                <p className="font-medium">{x.title}</p>
-                <p className="text-gray-700">{x.description}</p>
-                {x.linkUrl && (
-                  <a
-                    href={x.linkUrl}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow ugc"
-                    className="break-all text-xs text-emerald-700 underline"
-                  >
-                    {x.linkUrl}
-                  </a>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <a
         href={`/verification-details/${detail.tutorId}`}
         className="inline-flex min-h-[44px] items-center font-semibold text-emerald-700 underline"
       >
-        See qualifications and proof
+        See the Verified teacher page
       </a>
     </div>
   );

@@ -20,9 +20,10 @@ interface View {
 
 /** Pure, so it can be tested: what the card says for a given state. */
 export function describeCard(s: VerificationV2StateDto): View {
-  const done = [s.steps.identity, s.steps.credentials].filter((x) => x === 'done').length;
+  const done = [s.steps.name, s.steps.identity, s.steps.credentials].filter((x) => x === 'done').length;
   switch (s.status) {
     case 'VERIFIED':
+      if (s.name?.prompt) return { line: 'You are verified. Please confirm your name so it matches your ID.', cta: 'Confirm name', state: 'needs_changes' };
       return { line: 'You are verified. Your Verified badge shows on your profile.', cta: 'View', state: 'done' };
     case 'IN_REVIEW': {
       const by = expectedBy(s.submittedAt);
@@ -37,7 +38,7 @@ export function describeCard(s: VerificationV2StateDto): View {
     case 'IN_PROGRESS':
       // A zero is never shown: with nothing done yet the card just says it is not finished.
       return {
-        line: done > 0 ? `In progress: ${done} of 2 required steps done.` : 'Started, not finished yet.',
+        line: done > 0 ? `In progress: ${done} of 3 required steps done.` : 'Started, not finished yet.',
         cta: 'Continue',
         state: done > 0 ? 'in_progress' : 'not_started',
       };
