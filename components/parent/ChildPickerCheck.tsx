@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Check, Info, Loader2 } from 'lucide-react';
+import { formatLevelShort } from '@/lib/utils/formatLevel';
 
 type Child = { id: string; name: string; formLevel: string | null };
 
@@ -156,7 +157,7 @@ export default function ChildPickerCheck({
               >
                 {c.name}
                 {c.formLevel && (
-                  <span className="text-xs font-normal text-muted-foreground">{c.formLevel}</span>
+                  <span className="text-xs font-normal text-muted-foreground">{formatLevelShort(c.formLevel)}</span>
                 )}
               </button>
             ))}

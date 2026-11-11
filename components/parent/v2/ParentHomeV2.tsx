@@ -89,6 +89,17 @@ type Subscription = {
   paused: boolean;
 };
 
+/** One row of /api/parent/children/classes: a class a child is in. */
+type ChildClass = {
+  childId: string;
+  childName: string;
+  groupId: string;
+  className: string;
+  tutorName: string | null;
+  priceMonthly: number;
+  billed: boolean;
+};
+
 const TT = new Intl.NumberFormat('en-TT', { maximumFractionDigits: 0 });
 const money = (n: number) => `TT$${TT.format(Math.round(n))}`;
 
@@ -137,17 +148,25 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [calendarChildren, setCalendarChildren] = useState<CalendarChild[]>([]);
+  /** Null when the feed failed: the class list then falls back to billing. */
+  const [childClasses, setChildClasses] = useState<ChildClass[] | null>(null);
 
   const load = useCallback(async () => {
     setStatus('loading');
     try {
-      const [attentionRes, dashRes, billingRes, calendar] = await Promise.all([
+      const [attentionRes, dashRes, billingRes, calendar, classesFeed] = await Promise.all([
         fetch('/api/parent/attention', { cache: 'no-store' }),
         fetch('/api/parent/dashboard', { cache: 'no-store' }),
         fetch('/api/parent/billing', { cache: 'no-store' }),
         // Not fatal: without it Up next falls back to the dashboard's 1:1
         // sessions and This week says nothing is scheduled.
         fetch('/api/parent/calendar', { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+        // Every class each child is in, free ones included — the same rule the
+        // child page and Classes count with. Billing alone cannot see a free
+        // class. Not fatal either.
+        fetch('/api/parent/children/classes', { cache: 'no-store' })
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
       ]);
@@ -166,6 +185,7 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
       setSubs(billing.subscriptions ?? []);
       setEvents(calendar?.events ?? []);
       setCalendarChildren(calendar?.children ?? []);
+      setChildClasses(classesFeed ? ((classesFeed.classes ?? []) as ChildClass[]) : null);
       setStatus('ready');
     } catch {
       setStatus('error');
@@ -226,12 +246,23 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
 
   // A cancelled enrolment keeps its row in the billing payload so the history
   // survives; it must not be counted in a monthly total or listed as a class.
-  const active = subs.filter((s) => !s.cancelled);
-  const childNames = Array.from(new Set(subs.map((s) => s.childName)));
+  //
+  // COMPLETED is excluded too, matching Classes' Upcoming/Past split. Before,
+  // a class that had run its course was still listed here and its price was
+  // still added to the monthly total — the "3" QA saw beside Classes' "2".
+  const active = subs.filter((s) => !s.cancelled && s.status !== 'COMPLETED' && s.status !== 'CANCELLED');
+  const classesKnown = childClasses !== null;
+  const currentClasses = childClasses ?? [];
+  const childNames = Array.from(
+    new Set([...subs.map((s) => s.childName), ...currentClasses.map((c) => c.childName)])
+  );
+  const payingChildNames = Array.from(new Set(active.map((s) => s.childName)));
   const headlineChild = childNames.length === 1 ? childNames[0].split(' ')[0] : null;
 
   // New parent: a child is linked but has no classes yet — frame 160:2208.
-  if (subs.length === 0) {
+  // A child in a FREE class has no billing row, so billing alone is not enough
+  // to say "no classes yet".
+  if (subs.length === 0 && currentClasses.length === 0) {
     return (
       <div className="flex w-full max-w-[720px] flex-col gap-ds-card">
         <h1 className="ds-page-title">
@@ -288,27 +319,54 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
   const monthly = active.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
   const nextCharge = active.map((s) => s.nextCharge).filter(Boolean)[0] ?? null;
 
+  // The class list is every class each child is IN (free ones included), from
+  // /api/parent/children/classes — the count the child page and Classes ›
+  // Upcoming show. The price comes from the live subscription where there is
+  // one. If that feed failed, fall back to the billed classes alone.
+  const billedAmount = new Map(active.map((s) => [`${s.childId}:${s.groupId}`, s.amount]));
+  const classRows: Array<{
+    key: string;
+    groupId: string | null;
+    className: string;
+    tutorName: string | null;
+    childName: string;
+    amount: number;
+  }> = classesKnown
+    ? currentClasses.map((c) => ({
+        key: `${c.childId}:${c.groupId}`,
+        groupId: c.groupId,
+        className: c.className,
+        tutorName: c.tutorName,
+        childName: c.childName,
+        amount: billedAmount.get(`${c.childId}:${c.groupId}`) ?? 0,
+      }))
+    : active.map((s) => ({
+        key: s.id,
+        groupId: s.groupId,
+        className: s.className,
+        tutorName: s.tutorName,
+        childName: s.childName,
+        amount: s.amount,
+      }));
+
   const classList =
-    active.length > 0 ? (
+    classRows.length > 0 ? (
       <>
         <SectionHeader
           title={headlineChild ? `Classes for ${headlineChild}` : 'Classes'}
           action="See all"
           onAction={() => router.push('/parent/my-classes')}
         />
-        {active.map((s) => (
+        {classRows.map((s) => (
           <ClassRow
-            key={s.id}
+            key={s.key}
             code={subjectCode(s.className)}
             color={subjectColor(s.className)}
             title={s.className}
             meta={[s.tutorName, childNames.length > 1 ? s.childName.split(' ')[0] : null]
               .filter(Boolean)
               .join(' · ')}
-            price={s.amount > 0 ? money(s.amount) : undefined}
-            // The class itself. These rows come from the same
-            // /api/parent/billing subscriptions[] as Billing, so they carry
-            // groupId.
+            price={s.amount > 0 ? money(s.amount) : 'Free'}
             onClick={() => router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')}
           />
         ))}
@@ -505,15 +563,18 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
             <>
               <SectionHeader title="Payments by child" action="See all" onAction={() => router.push('/parent/billing')} />
               <Card>
-                {childNames.map((name) => {
+                {payingChildNames.map((name) => {
                   const forChild = active.filter((s) => s.childName === name);
                   const total = forChild.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                  // "paid": this counts only billed classes, so it is labelled as
+                  // such — the class list above counts free ones too, and an
+                  // unlabelled "2 classes" here beside "5" there read as an error.
                   return (
                     <SummaryRow
                       key={name}
                       label={
                         <span className="text-ink">
-                          {name.split(' ')[0]} · {forChild.length} {forChild.length === 1 ? 'class' : 'classes'}
+                          {name.split(' ')[0]} · {forChild.length} paid {forChild.length === 1 ? 'class' : 'classes'}
                         </span>
                       }
                       value={`${money(total)}/month`}
@@ -521,14 +582,13 @@ export default function ParentHomeV2({ firstName }: { firstName: string }) {
                   );
                 })}
                 {nextCharge ? <SummaryRow label={<span className="text-ink">Next charge</span>} value={nextCharge} /> : null}
-                {childNames.length > 1 ? (
+                {payingChildNames.length > 1 ? (
                   <SummaryRow total label="Monthly total" value={`${money(monthly)}/month`} />
                 ) : null}
               </Card>
-
-              <div className="flex flex-col gap-ds-card lg:hidden">{classList}</div>
             </>
           ) : null}
+          <div className="flex flex-col gap-ds-card lg:hidden">{classList}</div>
         </div>
       </div>
     </div>

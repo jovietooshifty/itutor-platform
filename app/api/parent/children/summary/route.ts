@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ParentAccessError, requireParentContext, getParentChildIds } from '@/lib/server/parentAccess';
+import { loadChildClasses } from '@/lib/server/parentChildClasses';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,10 @@ export async function GET(_request: NextRequest) {
         .eq('status', 'PENDING'),
     ]);
 
+    // Counted from the shared definition, so this figure matches the child page,
+    // Home and Classes (lib/server/parentChildClasses).
+    const classesByChild = await loadChildClasses(admin, childIds);
+
     const memsByChild = new Map<string, string[]>();
     (mems ?? []).forEach((m: any) => {
       const arr = memsByChild.get(m.user_id) ?? [];
@@ -47,7 +52,7 @@ export async function GET(_request: NextRequest) {
         id: p.id,
         name: p.display_name || p.full_name || 'Child',
         form_level: p.form_level ?? null,
-        activeClasses: statuses.filter((s) => s === 'approved' || s === 'active').length,
+        activeClasses: (classesByChild.get(p.id) ?? []).length,
         // Both queues. "Pending" on the dashboard sits beside Children and
         // Active classes, where it reads as enrolments that are not live yet —
         // and that is true whether the tutor or the parent is the one who has

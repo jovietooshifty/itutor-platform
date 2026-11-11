@@ -1,21 +1,24 @@
 'use client';
 
 /**
- * ParentProfileV2 — frame `160:8114`, read from Figma.
+ * ParentProfileV2 — frame `160:8111` (phone `160:8114`), read from Figma.
  *
- * This is where the Profile TAB lands. The frame carries the bottom nav with
- * Profile active, which is how we know it is a tab destination and Settings
- * (`160:7984`, back link, no nav) is not. Before this, the tab went straight
- * to the old settings page.
+ * NOW A ROW UNDER SETTINGS (QA handoff §1). The frame carries the tab bar with
+ * Profile active, from when Profile was the fifth tab. The tab is now Account
+ * and lands on Settings, so this screen sits inside DetailScreen (back link to
+ * Settings, title "Profile") — the page wraps it; this file renders the body.
+ * It is reached only from Settings' Profile row and parent card.
  *
- * Three floating-label fields, a card per linked child, then Save changes and
+ * Floating-label fields, a card per linked child, then Save changes and
  * Cancel. Email is shown but not editable: changing it is an auth flow with a
- * confirmation mail, not a profile field, and a text box that silently fails
- * to change your sign-in address is worse than a read-only one.
+ * confirmation mail, not a profile field.
  *
- * Worth recording, since it was argued about: the frame's "Save changes"
- * button is DARK TEXT ON GREEN, not white. Same as every other primary button
- * in this file. The white-on-green in the old build was never the design.
+ * PHONE IS AN ADDITION, not in the frame. The old Settings › Profile section
+ * had a Phone box that read `profile.phone` — a column that does not exist —
+ * and never saved it. The real column is `profiles.phone_number`; it is
+ * merged here so the old section can go. PROVISIONAL placement (after Email).
+ *
+ * "Save changes" is DARK TEXT ON GREEN, as in every primary button.
  */
 
 import { useEffect, useState } from 'react';
@@ -29,18 +32,25 @@ import '@/components/ui/ds-tokens.css';
 
 type Child = { id: string; name: string };
 
+/** `phone_number` is on the row (select '*') but not on every Profile type. */
+const phoneOf = (p: unknown) => ((p as { phone_number?: string | null } | null)?.phone_number ?? '') || '';
+
 function Field({
   label,
   value,
   onChange,
   readOnly,
   autoComplete,
+  type = 'text',
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange?: (v: string) => void;
   readOnly?: boolean;
   autoComplete?: string;
+  type?: string;
+  placeholder?: string;
 }) {
   return (
     <label
@@ -57,6 +67,8 @@ function Field({
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         readOnly={readOnly}
         autoComplete={autoComplete}
+        type={type}
+        placeholder={placeholder}
         className={cn(
           'w-full border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink',
           'focus:outline-none',
@@ -73,6 +85,7 @@ export function ParentProfileV2() {
 
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
   const [children, setChildren] = useState<Child[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -82,6 +95,7 @@ export function ParentProfileV2() {
     if (!profile) return;
     setDisplayName(profile.display_name || profile.full_name || '');
     setUsername(profile.username || '');
+    setPhone(phoneOf(profile));
   }, [profile]);
 
   useEffect(() => {
@@ -109,7 +123,8 @@ export function ParentProfileV2() {
   const dirty =
     !!profile &&
     (displayName !== (profile.display_name || profile.full_name || '') ||
-      username !== (profile.username || ''));
+      username !== (profile.username || '') ||
+      phone !== phoneOf(profile));
 
   async function save() {
     if (!profile?.id) return;
@@ -119,6 +134,7 @@ export function ParentProfileV2() {
     // Only send a username when it changed: the column is unique, so
     // rewriting the same value still round-trips a constraint check.
     if (username.trim() !== (profile.username || '')) patch.username = username.trim();
+    if (phone.trim() !== phoneOf(profile)) patch.phone_number = phone.trim();
 
     const { error: err } = await supabase.from('profiles').update(patch).eq('id', profile.id);
     setSaving(false);
@@ -167,8 +183,6 @@ export function ParentProfileV2() {
   const showActions = dirty || saving || saved || Boolean(error);
   return (
     <div className="flex flex-col gap-ds-3 lg:gap-ds-5">
-      <h1 className="ds-page-title">Profile</h1>
-
       <div className="flex flex-col gap-ds-3 lg:grid lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)] lg:items-start lg:gap-ds-8">
         <section className="flex flex-col gap-ds-3">
           <h2 className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">
@@ -177,6 +191,14 @@ export function ParentProfileV2() {
           <Field label="Display name" value={displayName} onChange={setDisplayName} autoComplete="name" />
           <Field label="Username" value={username} onChange={setUsername} autoComplete="username" />
           <Field label="Email" value={profile?.email ?? ''} readOnly />
+          <Field
+            label="Phone"
+            value={phone}
+            onChange={setPhone}
+            type="tel"
+            autoComplete="tel"
+            placeholder="Optional"
+          />
 
           {/* Phone: children sit between the fields and the buttons, as drawn. */}
           {children.length > 0 ? <div className="flex flex-col gap-ds-3 lg:hidden">{childCards}</div> : null}
@@ -204,9 +226,10 @@ export function ParentProfileV2() {
                 if (window.matchMedia('(min-width: 1024px)').matches && profile) {
                   setDisplayName(profile.display_name || profile.full_name || '');
                   setUsername(profile.username || '');
+                  setPhone(phoneOf(profile));
                   setError(null);
                 } else {
-                  router.push('/parent/dashboard');
+                  router.push('/parent/settings');
                 }
               }}
               block

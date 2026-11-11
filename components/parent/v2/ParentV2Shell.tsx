@@ -4,7 +4,7 @@
  * ParentV2Shell — the new parent app's chrome.
  *
  * Wraps `NewUiShell` with the five tabs SCREEN_MAP's logic row 2 approved
- * (Home · Explore · Classes · Billing · Profile, down from eight) and wires
+ * (Home · Explore · Classes · Billing · Account, down from eight) and wires
  * them to routes. It does not touch `ParentShell`, which still renders the old
  * dark app for everyone the flag is off for.
  *
@@ -37,19 +37,38 @@ const TABS: Array<NavItem & { href: string }> = [
   // /parent/subscriptions and /parent/approvals both redirect to it.
   { id: 'classes', label: 'Classes', icon: 'classes', href: '/parent/my-classes' },
   { id: 'billing', label: 'Billing', icon: 'billing', href: '/parent/billing' },
-  // The Profile FRAME (160:8114) carries the tab bar with Profile active,
-  // so the tab lands there. Settings (160:7984) has a back link and no
-  // nav, and is reached from the account sheet instead.
-  { id: 'profile', label: 'Profile', icon: 'profile', href: '/parent/profile' },
+  // QA handoff §1: the fifth tab is ACCOUNT and it lands on Settings, which
+  // is now a tab root (nav shown, no back link). Profile is one row inside
+  // it. The person icon is the Figma tab bar's.
+  { id: 'account', label: 'Account', icon: 'profile', href: '/parent/settings' },
 ];
+
+/**
+ * Everything the Settings screen leads to belongs to the Account tab, so it
+ * stays highlighted on the way down: Profile, the settings sub-screens, Help,
+ * the household pages and the three unframed extras Settings links to.
+ */
+const ACCOUNT_PREFIXES = [
+  '/parent/settings',
+  '/parent/profile',
+  '/parent/help',
+  '/parent/children',
+  '/parent/calendar',
+  '/parent/feedback',
+  '/parent/rewards',
+  '/parent/messages',
+];
+
+const under = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 function activeFromPath(pathname: string | null): string | undefined {
   if (!pathname) return undefined;
+  if (ACCOUNT_PREFIXES.some((p) => under(pathname, p))) return 'account';
   // Longest href first, so /parent/classes does not shadow a future
   // /parent/classes/[groupId] belonging to another tab.
   const match = [...TABS]
     .sort((a, b) => b.href.length - a.href.length)
-    .find((t) => pathname === t.href || pathname.startsWith(`${t.href}/`));
+    .find((t) => under(pathname, t.href));
   return match?.id;
 }
 

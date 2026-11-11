@@ -36,6 +36,22 @@ type Enrollment = {
   status: string;
   tutorName?: string | null;
   priceMonthly?: number | null;
+  /**
+   * The shared "is in this class" rule (lib/server/parentChildClasses), set by
+   * the overview route. Undefined only from an older server.
+   */
+  current?: boolean;
+};
+/** One entry from /api/parent/calendar — the same feed the Calendar renders. */
+type CalEvent = {
+  key: string;
+  childId: string;
+  title: string;
+  tutorName: string | null;
+  start: string;
+  type: '1:1' | 'group';
+  past: boolean;
+  cancelled?: boolean;
 };
 type Booking = {
   id: string;
@@ -98,6 +114,7 @@ export default function ParentChildV2() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [att, setAtt] = useState<AttRow[]>([]);
   const [summary, setSummary] = useState<AttSummary | null>(null);
+  const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [sheet, setSheet] = useState<'attendance' | 'remove' | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -107,10 +124,17 @@ export default function ParentChildV2() {
     if (!childId) return;
     (async () => {
       try {
-        const [ov, at] = await Promise.all([
+        // The calendar feed answers "Next". It used to come from 1:1 bookings
+        // alone, so a child with a group class tomorrow read "Nothing booked"
+        // while the Calendar showed that class.
+        const [ov, at, cal] = await Promise.all([
           fetch(`/api/parent/children/${childId}/overview`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)),
           fetch(`/api/parent/children/${childId}/attendance`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)),
+          fetch('/api/parent/calendar', { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
         ]);
+        if (cal) setEvents(((cal.events ?? []) as CalEvent[]).filter((e) => e.childId === childId));
         if (ov) {
           setName(ov.child?.name || 'Child');
           setEnrollments(ov.enrollments ?? []);
@@ -127,8 +151,18 @@ export default function ParentChildV2() {
   }, [childId]);
 
   const first = (name || 'Your child').split(' ')[0];
-  const current = enrollments.filter((e) => ['approved', 'active', 'pending', 'suspended'].includes(e.status));
+  // In the class = the shared rule from the server, the same one Home, Classes
+  // and the children list count with. A request still waiting on the tutor is
+  // listed with its tag but not counted: the child is not in that class yet.
+  const isIn = (e: Enrollment) => e.current ?? ['approved', 'active'].includes(e.status);
+  const inClasses = enrollments.filter(isIn);
+  const waitingOnTutor = enrollments.filter((e) => !isIn(e) && e.status === 'pending');
+  const current = [...inClasses, ...waitingOnTutor];
   const past = enrollments.filter((e) => !current.includes(e));
+  const nextEvent =
+    events
+      .filter((e) => !e.past && !e.cancelled && new Date(e.start).getTime() > Date.now())
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0] ?? null;
   const upcoming = bookings
     .filter((b) => b.start && new Date(b.start).getTime() > Date.now() && !['CANCELLED', 'DECLINED'].includes(b.status))
     .sort((a, b) => new Date(a.start!).getTime() - new Date(b.start!).getTime());
@@ -152,10 +186,10 @@ export default function ParentChildV2() {
     }
   };
 
-  const activeCount = enrollments.filter((e) => ['approved', 'active'].includes(e.status)).length;
+  const activeCount = inClasses.length;
 
   return (
-    <DetailScreen backLabel="Back" fallbackHref="/parent/children" title={loading ? undefined : name}>
+    <DetailScreen backLabel="Settings" fallbackHref="/parent/settings" title={loading ? undefined : name}>
       {loading ? (
         <DetailSkeleton rows={3} />
       ) : (
@@ -163,7 +197,7 @@ export default function ParentChildV2() {
           <div className="flex items-center gap-ds-3">
             <ChildTile name={name} size={52} />
             <p className="font-body text-[14px] text-ink-muted">
-              Student account linked · {activeCount} {activeCount === 1 ? 'class' : 'classes'}
+              Student account linked · in {activeCount} {activeCount === 1 ? 'class' : 'classes'}
             </p>
           </div>
 
@@ -188,19 +222,23 @@ export default function ParentChildV2() {
               </span>
               <span className="font-body text-[13px] text-ink-muted">See every session</span>
             </button>
-            <div className="flex flex-col items-start gap-[2px] rounded-ds-card bw-hair border-border bg-surface-card p-ds-card">
+            <button
+              type="button"
+              onClick={() => router.push('/parent/calendar')}
+              className="flex min-w-0 flex-col items-start gap-[2px] rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+            >
               <span className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">Next</span>
               <span className="font-display text-[20px] font-extrabold leading-[24px] text-ink">
-                {upcoming[0]?.start
-                  ? new Date(upcoming[0].start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })
-                  : 'Nothing booked'}
+                {nextEvent
+                  ? new Date(nextEvent.start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })
+                  : 'Nothing scheduled'}
               </span>
-              <span className="font-body text-[13px] text-ink-muted">
-                {upcoming[0]?.start
-                  ? `${new Date(upcoming[0].start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ })} · ${upcoming[0].tutorName}`
-                  : 'Group classes are on the calendar'}
+              <span className="w-full truncate font-body text-[13px] text-ink-muted">
+                {nextEvent
+                  ? `${new Date(nextEvent.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ })} · ${nextEvent.title}`
+                  : 'Open the calendar'}
               </span>
-            </div>
+            </button>
           </div>
 
           <SectionTitle>Classes</SectionTitle>
@@ -352,7 +390,7 @@ export default function ParentChildV2() {
 /* ── Messages: port of ChildMessageHistory (§9.4) ───────────────────────── */
 
 type Message = { id: string; fromChild: boolean; text: string; at: string };
-type Thread = { id: string; tutorName: string; tutorAvatar: string | null; messages: Message[] };
+type Thread = { id: string; tutorId?: string; tutorName: string; tutorAvatar: string | null; messages: Message[] };
 
 function ChildMessagesV2({ childId, first }: { childId: string; first: string }) {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -410,10 +448,23 @@ function ChildMessagesV2({ childId, first }: { childId: string; first: string })
           />
         ))
       )}
-      <Sheet open={!!open} onClose={() => setOpen(null)} title={open ? `${first} and ${open.tutorName}` : ''}>
+      <Sheet
+        open={!!open}
+        onClose={() => setOpen(null)}
+        title={open ? `${first} and ${open.tutorName}` : ''}
+        footer={
+          <Button variant="outline" block size="lg" onClick={() => setOpen(null)}>
+            Close
+          </Button>
+        }
+      >
         {open ? (
           <>
-            <Tag tone="outline">Read only</Tag>
+            {/* self-start: in the sheet's column the tag would otherwise
+                stretch to the full width and read as a banner. */}
+            <Tag tone="outline" className="self-start">
+              Read only
+            </Tag>
             {open.messages.length === 0 ? (
               <p className="font-body text-[14px] text-ink-muted">Nothing since you were linked.</p>
             ) : (
@@ -436,7 +487,14 @@ function ChildMessagesV2({ childId, first }: { childId: string; first: string })
               ))
             )}
             <p className="font-body text-[13px] text-ink-muted">
-              You cannot reply here. To speak to {open.tutorName}, use your own thread in Messages.
+              You cannot reply here. To speak to {open.tutorName},{' '}
+              <a
+                href={open.tutorId ? `/parent/messages?tutor=${encodeURIComponent(open.tutorId)}` : '/parent/messages'}
+                className="ds-link font-extrabold text-ink underline"
+              >
+                use your own thread in Messages
+              </a>
+              .
             </p>
           </>
         ) : null}

@@ -4,6 +4,10 @@
  * ClassCover — a class's picture, the same on its Explore card and its page,
  * so opening a card reads as that card growing rather than a new screen.
  *
+ * The parent screens no longer pass `image`: the frames draw every class as
+ * its colour block (QA 10 Nov: one class with an upload broke the Explore
+ * grid). The prop stays for any caller that wants the upload.
+ *
  * The tutor's uploaded cover when there is one. Otherwise a panel in the
  * class's subject colour with its two-letter code: the same colour and code
  * as its SubjectTile everywhere else in the app. This replaced the

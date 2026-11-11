@@ -32,6 +32,9 @@ import { Sheet } from '@/components/parent/v2/Sheet';
 import { ParentClassDetailV2, type ChildEnrolment } from '@/components/parent/v2/ParentClassDetailV2';
 import { Button } from '@/components/ui';
 
+/** Class ids are uuids. Anything else cannot be a class, so it is not fetched. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function ParentClassPage() {
   // Same ClassContent, same enrolment logic; only the presentation forks.
   if (isNewUiEnabled()) return <ClassContent v2 />;
@@ -93,6 +96,14 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
   // `countAsView` is passed only by the mount effect below. The reloads after
   // enrolling or requesting a seat must not count as browsing the class again.
   const load = useCallback(async (countAsView = false) => {
+    // A malformed id answers "not found" at once. It used to go to
+    // /api/groups/[id], which tries its select tiers and a bare fallback
+    // before giving up with a 500, while the page sat on skeletons.
+    if (!UUID_RE.test(groupId ?? '')) {
+      setGroup(null);
+      setLoading(false);
+      return;
+    }
     // Same loader the student page uses, so the two cannot disagree about what
     // this class is.
     const mapped = await fetchClassDetail(groupId, { countAsView });
@@ -104,7 +115,10 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
     void load(true);
   }, [load]);
 
-  if (v2 && loading) {
+  // Held until the children are known too: rendering before then drew the
+  // browse view ("Choose a child and pay") for a class a child is already
+  // in, and then swapped it for the enrolled view.
+  if (v2 && (loading || (group && childCount === null))) {
     return (
       <DetailScreen backLabel="Back" fallbackHref="/parent/classes">
         <DetailSkeleton rows={3} />

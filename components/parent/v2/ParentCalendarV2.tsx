@@ -36,6 +36,8 @@ type Event = {
   past: boolean;
   outcome: Outcome | null;
   lateMinutes: number | null;
+  /** Called off. Upcoming ones carry no outcome, so this is how they say so. */
+  cancelled?: boolean;
 };
 
 const TZ = 'America/Port_of_Spain';
@@ -124,7 +126,7 @@ export default function ParentCalendarV2() {
         <h2 className="pt-[2px] font-display text-[15px] font-extrabold text-ink">{dayHeading(d.first)}</h2>
         {d.items.map((e) => {
           const child = byId.get(e.childId);
-          const out = e.past && e.outcome ? OUTCOME[e.outcome] : null;
+          const out = e.past && e.outcome ? OUTCOME[e.outcome] : !e.past && e.cancelled ? OUTCOME.cancelled : null;
           return (
             <div
               key={e.key}

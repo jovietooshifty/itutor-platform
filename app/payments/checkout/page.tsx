@@ -28,46 +28,19 @@ import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import StripePaymentForm from '@/components/booking/StripePaymentForm';
 import UserAvatar from '@/components/UserAvatar';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import { fetchClassDetail } from '@/lib/classes/fetchClassDetail';
+import { DetailScreen, DetailSkeleton, EmptyCard } from '@/components/parent/v2/DetailScreen';
+import { nextSessions, scheduleLine, money } from '@/components/parent/v2/ParentClassDetailV2';
+import {
+  ParentCheckoutV2,
+  type CheckoutClassInfo,
+  type CheckoutSummary,
+} from '@/components/parent/v2/ParentCheckoutV2';
 
-type Summary = {
-  clientSecret: string;
-  statusId: string;
-  amount: number;
-  /** Part of `amount` paid with iTutor credits. */
-  creditsApplied?: number;
-  /** A credit month: one month, never renews. */
-  oneMonth?: boolean;
-  processingFee: number;
-  total: number;
-  currency: string;
-  durationMinutes: number;
-  startAt: string | null;
-  tutor: { id: string; name: string; avatarUrl: string | null };
-  subject: string;
-  /** Where to send the student once the webhook confirms. */
-  successHref: string;
-  /** Monthly group subscription rather than a single session. */
-  isSubscription?: boolean;
-  endDate?: string | null;
-  /** Paying up front to hold a seat in a class that hasn't started yet. */
-  isSecureSpot?: boolean;
-  /** When the held first month is delivered — end of what this payment buys. */
-  releaseDate?: string | null;
-  /** Class finishes inside the first month: one-time purchase, nothing after. */
-  shortClass?: boolean;
-  /** The class being bought — so checkout says WHAT, not only how much. */
-  classProfile?: {
-    name: string;
-    coverImage: string | null;
-    subject: string | null;
-    formLevel: string | null;
-    description: string | null;
-    maxStudents: number | null;
-  } | null;
-  /** Named when the payer is not the student (a parent buying for a child). */
-  forStudent?: string | null;
-  groupId?: string | null;
-};
+// The shape lives with the parent presentation so both renderings read one type.
+type Summary = CheckoutSummary;
+
 
 export default function PaymentCheckout() {
   const searchParams = useSearchParams();
@@ -103,6 +76,11 @@ export default function PaymentCheckout() {
   }, []);
 
   const isParent = role === 'parent';
+  // A parent on the new UI gets the checkout inside the parent shell
+  // (Figma 160:6464). Students and everyone else keep the page below.
+  // Same state, same loaders, same payment form: only the drawing forks.
+  const v2 = isNewUiEnabled() && roleLoaded && isParent;
+  const [classInfo, setClassInfo] = useState<CheckoutClassInfo>(null);
   const browseHref = isParent ? '/parent/classes' : '/student/explore';
   const browseLabel = isParent ? 'Back to classes' : 'Back to Explore';
 
@@ -229,13 +207,55 @@ export default function PaymentCheckout() {
       .then((r) => r.json())
       .then((d) => {
         const a = d?.averageRating == null ? null : Number(d.averageRating);
+        // The route answers ratingCount. This read totalReviews, which it has
+        // never returned, so every tutor showed "(0 reviews)".
         setRating({
           avg: Number.isFinite(a as number) ? (a as number) : null,
-          count: Number(d?.totalReviews ?? 0),
+          count: Number(d?.ratingCount ?? 0),
         });
       })
       .catch(() => {});
   }, [summary?.tutor?.id]);
+
+  // v2 only: the class's schedule line and its next class, which the intent
+  // does not carry. Read-only, from the same loader as the class page.
+  useEffect(() => {
+    if (!v2 || !summary?.groupId) return;
+    let cancelled = false;
+    fetchClassDetail(summary.groupId)
+      .then((g) => {
+        if (cancelled || !g) return;
+        setClassInfo({ schedule: scheduleLine(g), nextClass: nextSessions(g.sessions, 1)[0]?.start ?? null });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [v2, summary?.groupId]);
+
+  if (v2 && loading) {
+    return (
+      <DetailScreen backLabel="Back" fallbackHref="/parent/classes">
+        <DetailSkeleton rows={3} />
+      </DetailScreen>
+    );
+  }
+
+  if (v2 && (error || !summary)) {
+    return (
+      <DetailScreen backLabel="Back" fallbackHref="/parent/classes" title="Checkout unavailable">
+        <EmptyCard
+          title={error || 'Something went wrong.'}
+          body="Nothing was charged."
+          action={
+            <Link href={browseHref} className="ds-link font-display text-[15px] font-extrabold text-ink underline underline-offset-4">
+              {browseLabel}
+            </Link>
+          }
+        />
+      </DetailScreen>
+    );
+  }
 
   if (loading) {
     return (
@@ -286,6 +306,18 @@ export default function PaymentCheckout() {
     oneMonthOut.setMonth(oneMonthOut.getMonth() + 1);
     return endsAt < oneMonthOut.getTime();
   })();
+
+  if (v2) {
+    return (
+      <ParentCheckoutV2
+        summary={summary}
+        classInfo={classInfo}
+        classEndsSoon={classEndsSoon}
+        returnUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}${summary.successHref}`}
+        onConfirmed={() => router.push(summary.successHref)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -664,9 +696,13 @@ export default function PaymentCheckout() {
                 currency={summary.currency}
                 hideBreakdown
                 submitLabel={
+                  // "Book lesson and pay" was on every checkout, including a
+                  // monthly class subscription. Only a 1:1 lesson is a lesson.
                   summary.isSecureSpot
-                    ? `Secure your spot · $${summary.total.toFixed(2)} ${summary.currency}`
-                    : `Book lesson and pay · $${summary.total.toFixed(2)} ${summary.currency}`
+                    ? `Secure your spot · ${money(summary.total)}`
+                    : summary.isSubscription
+                      ? `Pay ${money(summary.total)}`
+                      : `Book lesson and pay · ${money(summary.total)}`
                 }
                 returnUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}${summary.successHref}`}
                 onConfirmed={() => router.push(summary.successHref)}
