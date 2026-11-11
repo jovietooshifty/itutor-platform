@@ -7,7 +7,7 @@ import {
   BookOpen, Globe, Lock, Plus, Users, Search,
   TrendingUp, Eye, Settings as SettingsIcon,
   MoreVertical, Calendar as CalendarIcon, Trash2,
-  Sparkles,
+  Sparkles, Share2, Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
@@ -407,7 +407,9 @@ function LessonCard({
 }) {
   const m = LESSON_KIND_META[l.kind] ?? LESSON_KIND_META['group-recurring'];
   const [menuOpen, setMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPublic = l.visibility === 'public';
 
   const next = l.nextSessionDate ? new Date(l.nextSessionDate) : null;
@@ -421,6 +423,45 @@ function LessonCard({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [menuOpen]);
+
+  // Clearing on unmount stops a pending reset firing against a dead card.
+  useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current); }, []);
+
+  /**
+   * Share the class.
+   *
+   * The link is the canonical /student/explore/<id>, not the legacy
+   * /classes/<id> the roster tab still copies: that one only 308s here, and a
+   * redirect is a hop some link-preview scrapers decline to follow.
+   *
+   * Phones get the real share sheet; everything else falls back to the
+   * clipboard, which is the whole job on a desktop browser.
+   */
+  const shareClass = async () => {
+    const url = `${window.location.origin}/student/explore/${l.id}`;
+
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: l.title, text: `Join ${l.title} on iTutor`, url });
+        return;
+      } catch (err) {
+        // A dismissed share sheet is a choice, not a failure — copying a link
+        // behind the user's back after they backed out would be a surprise.
+        if ((err as DOMException | undefined)?.name === 'AbortError') return;
+        // Anything else (no permission, insecure context) falls through.
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard blocked: the menu still reaches the class, so stay silent
+      // rather than throw a toast the tutor cannot act on.
+    }
+  };
 
   return (
     <div className="group relative rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg hover:-translate-y-0.5 hover:border-brand/30 transition-all flex flex-col">
@@ -483,10 +524,14 @@ function LessonCard({
             className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-ink text-white text-xs font-semibold hover:bg-ink/90 transition">
             <Eye className="size-3.5" /> Open class
           </Link>
-          <Link href={`/tutor/classes/${l.id}?tab=settings`} aria-label="Class settings"
+          <button
+            type="button"
+            onClick={shareClass}
+            aria-label={copied ? 'Class link copied' : 'Share class'}
+            title={copied ? 'Link copied' : 'Share class'}
             className="inline-flex items-center justify-center size-9 rounded-lg border border-border bg-background text-muted-foreground hover:text-ink hover:border-ink transition">
-            <SettingsIcon className="size-4" />
-          </Link>
+            {copied ? <Check className="size-4 text-brand" /> : <Share2 className="size-4" />}
+          </button>
           <div ref={menuRef} className="relative">
             <button
               aria-label="More options"
@@ -496,7 +541,9 @@ function LessonCard({
             </button>
             {menuOpen && (
               <div className="absolute right-0 bottom-full mb-1 w-52 bg-card border border-border rounded-xl shadow-lg z-20 py-1 text-sm">
-                <Link href={`/tutor/classes/${l.id}`}
+                {/* Carries ?tab=settings now that the gear button, which was
+                    the only direct route to that tab, has become Share. */}
+                <Link href={`/tutor/classes/${l.id}?tab=settings`}
                   className="flex items-center gap-2 px-3 py-2 hover:bg-muted text-ink transition">
                   <SettingsIcon className="size-4 text-muted-foreground" /> Open settings
                 </Link>
