@@ -64,6 +64,8 @@ const under = (pathname: string, href: string) => pathname === href || pathname.
 function activeFromPath(pathname: string | null): string | undefined {
   if (!pathname) return undefined;
   if (ACCOUNT_PREFIXES.some((p) => under(pathname, p))) return 'account';
+  // A tutor is opened from Explore (class page or the 1:1 tutors list).
+  if (under(pathname, '/parent/tutors')) return 'explore';
   // Longest href first, so /parent/classes does not shadow a future
   // /parent/classes/[groupId] belonging to another tab.
   const match = [...TABS]
