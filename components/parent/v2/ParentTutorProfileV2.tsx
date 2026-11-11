@@ -28,13 +28,10 @@
  * The sheet says what was checked and, plainly, what was not — implying
  * vetting the platform has not done would be worse than saying nothing.
  *
- * BOOK A 1:1 — there is no parent-initiated 1:1 booking flow to send a parent
- * to. A 1:1 is requested by the CHILD from their own account
- * (/api/bookings/direct-book, student-only) and comes to the parent to approve
- * and pay (/api/parent/approvals). /api/bookings/create has a parent branch,
- * but it inserts a PARENT_APPROVED, payment_required booking with no checkout
- * behind it — wiring a button to it would leave an unpaid booking that reads
- * as approved. So "Book a 1:1" explains the real route. PROVISIONAL: no frame.
+ * BOOK A 1:1 — the parent books for their child directly: ParentBookOneToOneSheet
+ * picks child, subject, length and slot, then POST /api/parent/bookings/direct-book
+ * (the student booking logic with the child as student, the parent as payer)
+ * hands off to /payments/checkout. PROVISIONAL visuals: no frame.
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
@@ -45,6 +42,7 @@ import { Button, ClassRow, NavRow, StepList, SummaryRow } from '@/components/ui'
 import { cn } from '@/lib/utils';
 import { DetailScreen, DetailSkeleton, EmptyCard } from './DetailScreen';
 import { Sheet } from './Sheet';
+import { ParentBookOneToOneSheet } from './ParentBookOneToOneSheet';
 import { subjectCode, subjectColor } from './subjectTile';
 import { scheduleLine } from './ParentClassDetailV2';
 
@@ -513,47 +511,15 @@ export default function ParentTutorProfileV2() {
         </p>
       </Sheet>
 
-      {/* Book a 1:1 — PROVISIONAL, no frame. Explains the real route. */}
-      <Sheet
+      {/* Book a 1:1 — the parent books for their child directly
+          (ParentBookOneToOneSheet, POST /api/parent/bookings/direct-book). */}
+      <ParentBookOneToOneSheet
         open={sheet === 'book'}
         onClose={() => setSheet(null)}
-        title={`Book a 1:1 with ${first}`}
-        footer={
-          <>
-            {tutor.related ? (
-              <Button variant="outline" block size="lg" onClick={() => router.push(messageHref)}>
-                Message {first} first
-              </Button>
-            ) : null}
-            <Button variant="dark" block size="lg" onClick={() => setSheet(null)}>
-              Close
-            </Button>
-          </>
-        }
-      >
-        {rateLabel ? (
-          <div className="flex flex-col rounded-ds-card bw-hair border-border bg-surface-card px-ds-card py-ds-2">
-            <SummaryRow label="1:1 lessons" value={rateLabel} />
-          </div>
-        ) : null}
-        <StepList
-          steps={[
-            {
-              title: `${childLabel} picks a time`,
-              detail: `From their own iTutor account, on ${first}’s profile, where ${first}’s open times are.`,
-            },
-            {
-              title: 'You approve and pay',
-              detail: 'The request comes to you under Classes › Waiting on you. Nothing is booked until you do.',
-            },
-            { title: `${first} confirms`, detail: 'The session then appears on your calendar.' },
-          ]}
-        />
-        <p className="font-body text-[13px] text-ink-muted">
-          You cannot pick a time for your child from here yet. If you have let your child pay for themselves, their
-          request goes straight through without coming to you.
-        </p>
-      </Sheet>
+        tutorId={tutor.id}
+        tutorFirstName={first}
+        subjects={subjects}
+      />
     </DetailScreen>
   );
 }

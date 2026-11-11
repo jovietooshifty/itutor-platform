@@ -317,7 +317,7 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
               </p>
               {/* ChildPickerCheck runs the §5 checks (schedule clash, level)
                   before any card is entered. Reused as is. */}
-              <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false} />
+              <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false} variant="ds" />
               {isPaid && !isPreorder ? (
                 <CheckoutCreditsChoice groupId={group.id} value={creditChoice} onChange={setCreditChoice} />
               ) : null}
@@ -397,7 +397,7 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
                 </div>
 
                 {/* The dialog's own h2 already asks it. */}
-                <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false} />
+                <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false}/>
 
                 {isPaid && !isPreorder ? (
                   <CheckoutCreditsChoice groupId={group.id} value={creditChoice} onChange={setCreditChoice} />

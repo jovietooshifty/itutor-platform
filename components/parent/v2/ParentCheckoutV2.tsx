@@ -159,7 +159,7 @@ export function ParentCheckoutV2({
       : 'Cancel or reschedule for free up to 24 hours before the lesson.';
 
   return (
-    <DetailScreen backLabel={first ? `Enrol ${first}` : 'Payment'} fallbackHref="/parent/classes">
+    <DetailScreen centered backLabel={first ? (s.isSubscription || s.isSecureSpot ? `Enrol ${first}` : `Book for ${first}`) : 'Payment'} fallbackHref="/parent/classes">
       {/* The class */}
       <div className="flex items-center gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card">
         <SubjectTile code={subjectCode(subject)} color={subjectColor(subject)} size={52} />
