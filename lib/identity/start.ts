@@ -178,6 +178,10 @@ async function startFresh(
     created = await impl.createSession({ tutorId, attempt, returnUrl: opts.returnUrl, country });
   } catch (err) {
     console.error(`[identity/start] ${target} create failed:`, (err as Error).message);
+    if ((err as { providerStatus?: number }).providerStatus) {
+      // A permissions problem is ours to fix, not the teacher's: say so and do not invite retries.
+      return fail(502, 'provider_permission', 'The identity check is not switched on yet. Please contact support.', { support: true });
+    }
     return fail(502, 'provider_error', 'Could not start the identity check. Please try again.');
   }
 

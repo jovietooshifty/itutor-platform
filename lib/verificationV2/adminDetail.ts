@@ -17,6 +17,8 @@ const ACTION_LABEL: Record<string, string> = {
   REQUEST_INFO: 'Asked for more information',
   APPROVE_CREDENTIAL: 'Credential approved',
   REJECT_CREDENTIAL: 'Credential not approved',
+  REAPPLY: 'Applied again after the verification was removed',
+  RESET: 'Verification reset to not started',
 };
 
 /** The whole status history, oldest first: what the teacher did and what each admin decided. */

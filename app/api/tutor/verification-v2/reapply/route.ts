@@ -30,6 +30,18 @@ export async function POST() {
     // Profile last: if this step fails the teacher is still revoked and can simply press the button again.
     const moved = await setProfileStatus({ tutorId, to: 'REVERIFICATION_REQUIRED', actor: 'tutor', db });
     if (!moved.ok) return statusErrorResponse(moved);
+    // The audit trail (best effort: a failure to write it never undoes the teacher's new start).
+    const { error: auditError } = await db.from('tutor_verification_v2_decisions').insert({
+      tutor_id: tutorId,
+      actor_id: tutorId,
+      actor_role: 'system',
+      action: 'REAPPLY',
+      from_status: 'REVOKED',
+      to_status: 'IN_PROGRESS',
+      profile_from_status: 'REVOKED',
+      profile_to_status: 'REVERIFICATION_REQUIRED',
+    });
+    if (auditError) console.error('[verification-v2/reapply] audit not saved:', auditError.message);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const setup = schemaNotReady(err);

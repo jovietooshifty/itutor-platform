@@ -1,4 +1,4 @@
-// Applies the verification migrations (270-278) to an EMBEDDED Postgres (PGlite) with
+// Applies the verification migrations (270-279) to an EMBEDDED Postgres (PGlite) with
 // stubs of the Supabase pieces they lean on, then asserts the behaviour they promise:
 // RLS as teacher / student / admin / service role, the guard triggers, the 3-extras
 // limit, the append-only audit, the legacy-status mapping, and that every rollback
@@ -127,7 +127,7 @@ await db.exec(`
     ('${P3}','tutor','p3@x','PENDING',NULL);
   INSERT INTO public.tutor_verification_v2 (tutor_id) VALUES ('${L2}');
 `);
-for (const f of ['274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql', '277_verification_legal_name.sql', '278_verification_legal_name_display.sql']) {
+for (const f of ['274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql', '277_verification_legal_name.sql', '278_verification_legal_name_display.sql', '279_verification_audit_actions.sql']) {
   const e = await run(read(mig(f)), f);
   ok(`applies on a clean database: ${f}`, !e, e ?? '');
 }
@@ -380,6 +380,9 @@ ok('276 each carried-over teacher has one audit row', audit.length === 2 && audi
   ok('276 is safe to run twice', !again, again ?? '');
   const n = await q(`SELECT count(*)::int AS n FROM public.tutor_verification_v2_decisions WHERE reason = 'Carried over from the previous verification system'`);
   ok('276 running twice does not duplicate the audit rows', n[0].n === 2, JSON.stringify(n));
+  // 276 narrows the audit check again when re-run on its own; 279 (which follows it in the apply script) widens it.
+  const w279 = await run(read(mig('279_verification_audit_actions.sql')), '279 after 276 again');
+  ok('279 restores the audit check after 276 is re-run', !w279, w279 ?? '');
 }
 await expectError(`UPDATE public.tutor_verification_v2 SET source = 'bogus' WHERE tutor_id = '${L1}'`, /check/i, '276 source is constrained');
 await asRole('service_role', null, async () => {
@@ -445,18 +448,35 @@ await asRole('authenticated', ADM, async () => {
   ok('278 an admin can still correct a name', r.length === 1 && r[0].display_name === 'Admin Fix', JSON.stringify(r));
 });
 
+// ---------- 279 ----------
+await asRole('service_role', null, async () => {
+  const r = await q(`INSERT INTO public.tutor_verification_v2_decisions (tutor_id, actor_id, actor_role, action) VALUES ('${L1}','${L1}','system','REAPPLY'),('${L1}',NULL,'system','RESET') RETURNING id`);
+  ok('279 the audit accepts REAPPLY and RESET', r.length === 2, JSON.stringify(r));
+});
+
+// ---------- the hand reset script ----------
+{
+  const sql = read('scripts/reset-teacher-verification.sql').split('arjunrambally@myitutor.com').join('l1@x');
+  const e = await run(sql, 'reset-teacher-verification.sql');
+  ok('the reset script runs', !e, e ?? '');
+  const after = await q(`SELECT p.tutor_verification_status AS ps, v.status, v.identity_attempts, v.legal_first_name FROM public.profiles p JOIN public.tutor_verification_v2 v ON v.tutor_id = p.id WHERE p.id = '${L1}'`);
+  ok('the reset leaves a fresh application and an unverified profile', after[0]?.ps === 'UNVERIFIED' && after[0].status === 'IN_PROGRESS' && after[0].identity_attempts === 0 && after[0].legal_first_name === null, JSON.stringify(after));
+  const aud = await q(`SELECT count(*)::int AS n FROM public.tutor_verification_v2_decisions WHERE tutor_id = '${L1}' AND action = 'RESET'`);
+  ok('the reset writes an audit row', aud[0].n >= 1, JSON.stringify(aud));
+}
+
 // ---------- rollbacks ----------
-for (const f of ['278_verification_legal_name_display_rollback.sql', '277_verification_legal_name_rollback.sql', '276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql']) {
+for (const f of ['279_verification_audit_actions_rollback.sql', '278_verification_legal_name_display_rollback.sql', '277_verification_legal_name_rollback.sql', '276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql']) {
   const e = await run(read(rb(f)), f);
   ok(`rollback runs: ${f}`, !e, e ?? '');
 }
 const afterRb = await q(`SELECT column_name FROM information_schema.columns WHERE table_name='tutor_verification_v2' AND column_name IN ('identity_provider','identity_started_at','files_deleted_at')`);
 ok('rollbacks removed the added columns', afterRb.length === 0, JSON.stringify(afterRb));
-for (const f of ['272_verification_v2_review.sql', '273_verification_v2_redaction_deletion.sql', '274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql', '277_verification_legal_name.sql', '278_verification_legal_name_display.sql']) {
+for (const f of ['272_verification_v2_review.sql', '273_verification_v2_redaction_deletion.sql', '274_identity_providers.sql', '275_identity_outcomes.sql', '276_verification_any_order_and_legacy.sql', '277_verification_legal_name.sql', '278_verification_legal_name_display.sql', '279_verification_audit_actions.sql']) {
   const e = await run(read(mig(f)), f);
   ok(`re-applies after rollback: ${f}`, !e, e ?? '');
 }
-for (const f of ['278_verification_legal_name_display_rollback.sql', '277_verification_legal_name_rollback.sql', '276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql', '271_verification_security_hardening_rollback.sql', '270_teacher_verification_v2_rollback.sql']) {
+for (const f of ['279_verification_audit_actions_rollback.sql', '278_verification_legal_name_display_rollback.sql', '277_verification_legal_name_rollback.sql', '276_verification_any_order_and_legacy_rollback.sql', '275_identity_outcomes_rollback.sql', '274_identity_providers_rollback.sql', '273_verification_v2_redaction_deletion_rollback.sql', '272_verification_v2_review_rollback.sql', '271_verification_security_hardening_rollback.sql', '270_teacher_verification_v2_rollback.sql']) {
   const f2 = existsSync(`${REPO}/${rb(f)}`) ? f : null;
   if (!f2) { ok(`rollback file exists: ${f}`, false); continue; }
   const e = await run(read(rb(f)), f);

@@ -206,7 +206,7 @@ export async function diditPing(): Promise<DiditPing> {
       return {
         ok: false,
         status: res.status,
-        message: 'Didit refused the API key. Check it is the key of the right application and has the read:sessions permission.',
+        message: 'Didit refused the API key. Check it is the key of the right application and has the sessions read permission.',
       };
     }
     return { ok: false, status: res.status, message: `Didit answered with an unexpected status (${res.status}).` };
@@ -298,6 +298,13 @@ export const diditProvider: IdentityProvider = {
         metadata: { tutor_id: input.tutorId },
       },
     });
+    if (res.status === 401 || res.status === 403) {
+      // Plain words for the logs: the key is valid but may only be allowed to read sessions.
+      throw Object.assign(
+        new Error(`Didit refused the API key (${res.status}). The key needs the sessions read AND write permissions to create a session.`),
+        { providerStatus: res.status }
+      );
+    }
     if (!res.ok) throw new Error(`Didit create session failed (${res.status})${await safeDetail(res)}`);
     const body = (await res.json()) as { session_id?: string; url?: string };
     if (!body.session_id || !body.url) throw new Error('Didit returned no session or URL');
