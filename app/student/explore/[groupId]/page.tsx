@@ -25,6 +25,7 @@ import {
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
 import { StudentClassDetailV2, StudentClassJoinBar } from '@/components/student/v2/StudentClassDetailV2';
+import { StudentJoinSheet } from '@/components/student/v2/StudentJoinSheet';
 
 export default function ExploreClassDetailPage() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -139,29 +140,9 @@ export default function ExploreClassDetailPage() {
     );
   }
 
-  const joinModal =
-    step !== 'detail' ? (
-      <Modal onClose={() => setStep('detail')}>
-        {step === 'join' && (
-          <JoinFlow
-            group={group}
-            onBack={() => setStep('detail')}
-            onSuccess={(s) => { setStep(s); void fetchGroup(); }}
-            profile={profile}
-            hasLinkedParent={hasLinkedParent}
-            parentGate={parentGate}
-          />
-        )}
-        {step === 'joined' && <JoinedScreen group={group} kind="enrolled" />}
-        {step === 'awaiting-approval' && <JoinedScreen group={group} kind="awaiting-approval" />}
-        {step === 'awaiting-parent' && <JoinedScreen group={group} kind="awaiting-parent" />}
-        {step === 'cash-held' && <JoinedScreen group={group} kind="cash-held" />}
-      </Modal>
-    ) : null;
-
   if (v2) {
-    // The join flow is still the old modal; its frames (B1–B9) are the next
-    // step of this flow.
+    // The join step is a design-system Sheet. Same calls, same outcomes, same
+    // reload-on-success as the old <Modal><JoinFlow/></Modal> below.
     return (
       <StudentV2Shell
         width="wide"
@@ -169,7 +150,14 @@ export default function ExploreClassDetailPage() {
         bottomBar={<StudentClassJoinBar group={group} parentGate={parentGate} onJoin={startJoin} />}
       >
         <StudentClassDetailV2 group={group} parentGate={parentGate} onJoin={startJoin} />
-        {joinModal}
+        <StudentJoinSheet
+          group={group}
+          step={step}
+          onClose={() => setStep('detail')}
+          onSuccess={(s) => { setStep(s); void fetchGroup(); }}
+          profile={profile}
+          parentGate={parentGate}
+        />
       </StudentV2Shell>
     );
   }

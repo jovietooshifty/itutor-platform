@@ -222,7 +222,7 @@ function Redeem() {
           type="button"
           onClick={() => void redeem()}
           disabled={busy || !code.trim()}
-          className="ds-press h-12 shrink-0 rounded-ds-sm border-0 bg-[#13804a] px-[18px] font-body text-[15px] font-extrabold text-white shadow-[0_4px_0_#0d4f2d] cursor-pointer disabled:opacity-60"
+          className="h-12 shrink-0 rounded-ds-sm border-0 bg-[#13804a] transition-[background-color,transform,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent] enabled:hover:bg-[#0f6e3f] enabled:active:translate-y-[2px] enabled:active:shadow-[0_2px_0_#0d4f2d] px-[18px] font-body text-[15px] font-extrabold text-white shadow-[0_4px_0_#0d4f2d] cursor-pointer disabled:opacity-60"
         >
           {busy ? 'Redeeming…' : 'Redeem'}
         </button>

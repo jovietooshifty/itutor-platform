@@ -39,7 +39,8 @@ import {
 import { Button, Tag } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { ClassCover } from '@/components/parent/v2/ClassCover';
-import type { GroupData, ParentGate, SessionRow } from '@/components/classes/ClassDetailView';
+import { preorderFor, type GroupData, type ParentGate, type SessionRow } from '@/components/classes/ClassDetailView';
+import { SecureSpotTermsV2 } from '@/components/classes/SecureSpotTermsV2';
 import { classCta, type ClassCta } from '@/lib/classes/classCta';
 import { formatLevel } from '@/lib/utils/formatLevel';
 
@@ -198,6 +199,7 @@ export function StudentClassDetailV2({ group, parentGate, onJoin }: StudentClass
   const router = useRouter();
   const cta = useStudentClassCta(group, parentGate);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const preorder = useMemo(() => preorderFor(group), [group]);
 
   const subject = group.subject || group.name;
   const tutorName = group.tutor?.display_name || group.tutor?.full_name || 'Tutor';
@@ -264,7 +266,13 @@ export function StudentClassDetailV2({ group, parentGate, onJoin }: StudentClass
       <BasicsRow
         icon={<CreditCard size={18} weight="bold" aria-hidden />}
         title={cta.price > 0 ? `${money(cta.price)} a ${perLabel === 'mo' ? 'month' : 'session'}` : 'Free'}
-        sub={cta.price > 0 && group.price_monthly ? 'Cancel anytime' : null}
+        sub={
+          cta.price > 0 && group.price_monthly
+            ? preorder && !group.enrolled
+              ? 'First month paid up front · nothing renews by itself'
+              : 'Cancel anytime'
+            : null
+        }
       />
       {level ? (
         <BasicsRow icon={<GraduationCap size={18} weight="bold" aria-hidden />} title={level} />
@@ -343,6 +351,14 @@ export function StudentClassDetailV2({ group, parentGate, onJoin }: StudentClass
             </span>
             <Tag tone="warning">{relDays(next).toUpperCase()}</Tag>
           </div>
+        ) : null}
+
+        {/* Secure your spot: what is paid now, when the class starts, and what
+            happens at the start — before the button, not only in the sheet.
+            Only when the student is the one paying (a gated student's parent
+            pays, so "Pay today" would be wrong for them). */}
+        {preorder && cta.kind === 'secure-spot' ? (
+          <SecureSpotTermsV2 preorder={preorder} priceMonthly={group.price_monthly} audience="student" />
         ) : null}
 
         {group.description ? (

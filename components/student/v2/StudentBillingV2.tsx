@@ -258,10 +258,8 @@ export default function StudentBillingV2() {
 
   const help = (
     <div className="flex flex-col gap-ds-3">
-      <Link href="/student/transactions" className="ds-press flex items-center justify-between rounded-ds-card bg-surface-card bw-hair border-border p-ds-4 text-[16px] font-extrabold text-ink">
-        Payment history
-        <CaretRight size={20} weight="bold" aria-hidden />
-      </Link>
+      {/* Payment history removed (owner, 14 Nov): /student/transactions repeated
+          what this screen already shows, and now redirects here. */}
       <a
         href="mailto:support@myitutor.com?subject=Billing%20help"
         className="ds-press flex items-center justify-between rounded-ds-card bg-surface-card bw-hair border-border p-ds-4 text-[16px] font-extrabold text-ink"

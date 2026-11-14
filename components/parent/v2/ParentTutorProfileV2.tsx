@@ -518,6 +518,7 @@ export default function ParentTutorProfileV2() {
         onClose={() => setSheet(null)}
         tutorId={tutor.id}
         tutorFirstName={first}
+        tutorName={tutor.name}
         subjects={subjects}
       />
     </DetailScreen>

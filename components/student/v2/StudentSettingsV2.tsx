@@ -10,13 +10,15 @@
  * - Notifications. The old page's four switches wrote
  *   `profiles.notification_preferences`, which does not exist, so none of them
  *   ever saved. Only "Tips & offers" has a backend (profiles.marketing_consent,
- *   /api/account/marketing-consent). "Lesson reminders" always send, so the
+ *   /api/account/marketing-consent). "Lesson reminders" is now real too
+ *   (/api/account/lesson-reminders, migration 270; the reminder crons skip a
+ *   student who turned it off). Earlier note, kept for history: the
  *   row says so instead of offering a switch that would do nothing. Homework
  *   reminders and SMS alerts are not drawn: nothing sends either.
  * - Email / Password open sheets with the old page's exact flows (Supabase
  *   updateUser; the password change re-checks the current one first).
  * - Billing: Plan / Upgrade has no backend and is hidden; Payment history goes
- *   to /student/transactions; Payment methods stays "SOON", as drawn.
+ *   is gone (owner, 14 Nov: repetitive); Payment methods stays "SOON".
  * - Delete account: the old page's username-confirm flow, in a sheet.
  *
  * "More" (no frame, PROVISIONAL): the old sidebar's pages that the four tabs
@@ -167,13 +169,18 @@ function Field({ label, children, hint }: { label: string; children: ReactNode; 
 }
 
 const primaryBtn =
-  'ds-press h-[50px] w-full rounded-ds-sm border-0 bg-[#13804a] font-body text-[16px] font-extrabold text-white shadow-[0_4px_0_#0d4f2d] cursor-pointer disabled:opacity-60';
+  'h-[50px] w-full rounded-ds-sm border-0 bg-[#13804a] transition-[background-color,transform,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent] enabled:hover:bg-[#0f6e3f] enabled:active:translate-y-[2px] enabled:active:shadow-[0_2px_0_#0d4f2d] font-body text-[16px] font-extrabold text-white shadow-[0_4px_0_#0d4f2d] cursor-pointer disabled:opacity-60';
 
 export default function StudentSettingsV2() {
   const router = useRouter();
   const { profile, loading } = useProfile();
   const { uploadAvatar, deleteAvatar, uploading } = useAvatarUpload(profile?.id ?? '');
   const [marketing, setMarketing] = useState<boolean | null>(null);
+  // Lesson reminders (migration 270). null while loading; remindersFixed
+  // when the server cannot store the choice, so the switch shows on and locked.
+  const [reminders, setReminders] = useState<boolean | null>(null);
+  const [remindersFixed, setRemindersFixed] = useState(false);
+  const [savingReminders, setSavingReminders] = useState(false);
   const [savingMarketing, setSavingMarketing] = useState(false);
   const [sheet, setSheet] = useState<null | 'email' | 'password' | 'delete'>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
@@ -196,6 +203,19 @@ export default function StudentSettingsV2() {
   useEffect(() => {
     if (!profile?.id) return;
     let cancelled = false;
+    fetch('/api/account/lesson-reminders', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { enabled: true, available: false }))
+      .then((j) => {
+        if (cancelled) return;
+        setReminders(j.enabled !== false);
+        setRemindersFixed(j.available === false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setReminders(true);
+          setRemindersFixed(true);
+        }
+      });
     fetch('/api/account/marketing-consent', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : { marketing: null }))
       .then((j) => {
@@ -220,6 +240,23 @@ export default function StudentSettingsV2() {
     setConfirmPw('');
     setDeleteInput('');
     setSheet(s);
+  };
+
+  const toggleReminders = async () => {
+    if (reminders === null || remindersFixed) return;
+    const next = !reminders;
+    setSavingReminders(true);
+    setReminders(next);
+    const res = await fetch('/api/account/lesson-reminders', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: next }),
+    }).catch(() => null);
+    setSavingReminders(false);
+    if (!res?.ok) {
+      setReminders(!next);
+      flash(false, 'Could not save that. Try again.');
+    }
   };
 
   const toggleMarketing = async () => {
@@ -326,7 +363,7 @@ export default function StudentSettingsV2() {
 
   const name = profile.display_name || profile.full_name || profile.username || 'Student';
   const subjects = (profile.subjects_of_study ?? []) as string[];
-  const notifOn = 1 + (marketing ? 1 : 0);
+  const notifOn = (reminders !== false ? 1 : 0) + (marketing ? 1 : 0);
   const notifTotal = marketing === null ? 1 : 2;
 
   return (
@@ -407,9 +444,16 @@ export default function StudentSettingsV2() {
               <div className={cn(rowCls, 'min-h-[68px]')}>
                 <span className="min-w-0 flex-1">
                   <span className="block font-body text-[16px] font-extrabold text-ink">Lesson reminders</span>
-                  <span className="block font-body text-[14px] text-ink-muted">Before each class. Always on</span>
+                  <span className="block font-body text-[14px] text-ink-muted">
+                    {reminders === false ? 'Off. You won’t get emails before your classes' : 'Emails before each class'}
+                  </span>
                 </span>
-                <Switch on busy label="Lesson reminders are always on" onToggle={() => undefined} />
+                <Switch
+                  on={reminders !== false}
+                  busy={reminders === null || savingReminders || remindersFixed}
+                  label="Lesson reminders"
+                  onToggle={() => void toggleReminders()}
+                />
               </div>
               {marketing !== null ? (
                 <div className={cn(rowCls, 'min-h-[68px]')}>
@@ -441,7 +485,6 @@ export default function StudentSettingsV2() {
           <section className="flex flex-col gap-[10px]">
             <SectionTitle>Billing</SectionTitle>
             <Group>
-              <LinkRow href="/student/transactions" icon={<ClockCounterClockwise size={18} weight="bold" aria-hidden />} label="Payment history" />
               <div className={rowCls}>
                 <RowBody
                   tone="dashed"
@@ -464,8 +507,6 @@ export default function StudentSettingsV2() {
             <Group>
               <LinkRow href="/student/messages" icon={<ChatCircle size={18} weight="bold" aria-hidden />} label="Messages" />
               <LinkRow href="/student/ratings" icon={<Star size={18} weight="bold" aria-hidden />} label="Rate your lessons" />
-              <LinkRow href="/student/tools" icon={<Toolbox size={18} weight="bold" aria-hidden />} label="Study tools" />
-              <LinkRow href="/student/curriculum" icon={<Books size={18} weight="bold" aria-hidden />} label="Curriculum" />
             </Group>
           </section>
 

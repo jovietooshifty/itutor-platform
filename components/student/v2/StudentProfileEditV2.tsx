@@ -266,7 +266,7 @@ export default function StudentProfileEditV2() {
           type="button"
           onClick={() => void save()}
           disabled={saving}
-          className="ds-press h-[50px] min-w-0 flex-1 self-center rounded-ds-sm border-0 bg-[#13804a] font-body text-[16px] font-extrabold text-white shadow-[0_4px_0_#0d4f2d] cursor-pointer disabled:opacity-60"
+          className="h-[50px] min-w-0 flex-1 self-center rounded-ds-sm border-0 bg-[#13804a] transition-[background-color,transform,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent] enabled:hover:bg-[#0f6e3f] enabled:active:translate-y-[2px] enabled:active:shadow-[0_2px_0_#0d4f2d] font-body text-[16px] font-extrabold text-white shadow-[0_4px_0_#0d4f2d] cursor-pointer disabled:opacity-60"
         >
           {saving ? 'Saving…' : 'Save changes'}
         </button>

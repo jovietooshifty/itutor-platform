@@ -7,8 +7,21 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import ConversationView from '@/components/ConversationView';
 import { getDisplayName } from '@/lib/utils/displayName';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentMessagesV2 from '@/components/student/v2/StudentMessagesV2';
 
-export default function StudentConversationPage() {
+/** New UI: the same two-pane screen as /student/messages, with this thread open. */
+export default function StudentConversationRoute() {
+  const params = useParams();
+  const conversationId = params.conversationId as string;
+  return isNewUiEnabled() ? (
+    <StudentMessagesV2 initialConversationId={conversationId} />
+  ) : (
+    <StudentConversationPage />
+  );
+}
+
+function StudentConversationPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
   const params = useParams();

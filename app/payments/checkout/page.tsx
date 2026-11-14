@@ -37,6 +37,7 @@ import {
   type CheckoutClassInfo,
   type CheckoutSummary,
 } from '@/components/parent/v2/ParentCheckoutV2';
+import { StudentCheckoutFrame, StudentCheckoutV2 } from '@/components/student/v2/StudentCheckoutV2';
 
 // The shape lives with the parent presentation so both renderings read one type.
 type Summary = CheckoutSummary;
@@ -76,10 +77,12 @@ export default function PaymentCheckout() {
   }, []);
 
   const isParent = role === 'parent';
+  const isStudent = role === 'student';
   // A parent on the new UI gets the checkout inside the parent shell
-  // (Figma 160:6464). Students and everyone else keep the page below.
-  // Same state, same loaders, same payment form: only the drawing forks.
-  const v2 = isNewUiEnabled() && roleLoaded && isParent;
+  // (Figma 160:6464); a student gets the same blocks inside the student shell.
+  // Tutors, signed-out visitors and anyone with the flag off keep the page
+  // below. Same state, same loaders, same payment form: only the drawing forks.
+  const v2 = isNewUiEnabled() && roleLoaded && (isParent || isStudent);
   const [classInfo, setClassInfo] = useState<CheckoutClassInfo>(null);
   const browseHref = isParent ? '/parent/classes' : '/student/explore';
   const browseLabel = isParent ? 'Back to classes' : 'Back to Explore';
@@ -233,6 +236,30 @@ export default function PaymentCheckout() {
     };
   }, [v2, summary?.groupId]);
 
+  if (v2 && isStudent && loading) {
+    return (
+      <StudentCheckoutFrame fallbackHref="/student/find-tutors">
+        <DetailSkeleton rows={3} />
+      </StudentCheckoutFrame>
+    );
+  }
+
+  if (v2 && isStudent && (error || !summary)) {
+    return (
+      <StudentCheckoutFrame fallbackHref="/student/find-tutors" title="Checkout unavailable">
+        <EmptyCard
+          title={error || 'Something went wrong.'}
+          body="Nothing was charged."
+          action={
+            <Link href={browseHref} className="ds-link font-display text-[15px] font-extrabold text-ink underline underline-offset-4">
+              {browseLabel}
+            </Link>
+          }
+        />
+      </StudentCheckoutFrame>
+    );
+  }
+
   if (v2 && loading) {
     return (
       <DetailScreen backLabel="Back" fallbackHref="/parent/classes">
@@ -256,6 +283,10 @@ export default function PaymentCheckout() {
       </DetailScreen>
     );
   }
+
+  // On the new UI the role decides which design draws the page; until it is
+  // known, draw nothing rather than flash the old spinner at a student or parent.
+  if (isNewUiEnabled() && !roleLoaded) return null;
 
   if (loading) {
     return (
@@ -306,6 +337,18 @@ export default function PaymentCheckout() {
     oneMonthOut.setMonth(oneMonthOut.getMonth() + 1);
     return endsAt < oneMonthOut.getTime();
   })();
+
+  if (v2 && isStudent) {
+    return (
+      <StudentCheckoutV2
+        summary={summary}
+        classInfo={classInfo}
+        classEndsSoon={classEndsSoon}
+        returnUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}${summary.successHref}`}
+        onConfirmed={() => router.push(summary.successHref)}
+      />
+    );
+  }
 
   if (v2) {
     return (

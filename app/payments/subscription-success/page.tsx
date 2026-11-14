@@ -15,6 +15,11 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase/client';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import { fetchClassDetail } from '@/lib/classes/fetchClassDetail';
+import type { GroupData } from '@/components/classes/ClassDetailView';
+import { SubscriptionSuccessV2 } from '@/components/checkout/SubscriptionSuccessV2';
 
 const CONFIRM_TIMEOUT_MS = 45_000;
 const POLL_INTERVAL_MS = 1_500;
@@ -82,6 +87,50 @@ export default function SubscriptionSuccess() {
   useEffect(() => {
     poll();
   }, [poll]);
+
+  // ── New UI (presentation only) ───────────────────────────────────────
+  // Who is looking decides the shell and where "my class" is: this page used
+  // to send a parent to /student/*, which AuthProvider bounces them out of.
+  const [role, setRole] = useState<string | null>(null);
+  const [roleLoaded, setRoleLoaded] = useState(false);
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setRoleLoaded(true); return; }
+      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      setRole((data as { role: string | null } | null)?.role ?? null);
+      setRoleLoaded(true);
+    })();
+  }, []);
+  const v2Role = role === 'parent' || role === 'student' ? role : null;
+  const v2 = isNewUiEnabled() && roleLoaded && v2Role !== null;
+
+  // The class, for its name and — for a secured spot — its dates. Read-only,
+  // the same loader the class pages use.
+  const [group, setGroup] = useState<GroupData | null>(null);
+  useEffect(() => {
+    if (!v2 || !confirmed?.groupId) return;
+    let cancelled = false;
+    fetchClassDetail(confirmed.groupId)
+      .then((g) => { if (!cancelled) setGroup(g); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [v2, confirmed?.groupId]);
+
+  if (isNewUiEnabled() && !roleLoaded) return null;
+
+  if (v2 && v2Role) {
+    return (
+      <SubscriptionSuccessV2
+        role={v2Role}
+        state={state}
+        slow={slow}
+        error={error}
+        confirmed={confirmed}
+        group={group}
+      />
+    );
+  }
 
   if (state === 'waiting') {
     return (

@@ -35,7 +35,8 @@ import { Button, Card, NavRow, SummaryRow, Tag } from '@/components/ui';
 import { DsIcon } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
 import { ClassCover } from './ClassCover';
-import type { GroupData, SessionRow } from '@/components/classes/ClassDetailView';
+import { preorderFor, type GroupData, type SessionRow } from '@/components/classes/ClassDetailView';
+import { SecureSpotTermsV2 } from '@/components/classes/SecureSpotTermsV2';
 import { formatAstTimeRange } from '@/lib/utils/scheduleFormat';
 import { formatLevelShort } from '@/lib/utils/formatLevel';
 import { calculateGrossAmountForProvider } from '@/lib/payments/grossUp';
@@ -430,6 +431,7 @@ function BrowseView({
         : 'Join class';
 
   const pane = layout === 'pane';
+  const preorder = isPreorder ? preorderFor(group) : null;
 
   const feeLine = charge
     ? `+ ${money(charge.fee)} card processing · ${money(charge.total)} ${isPreorder ? 'for the first month' : 'a month'} in total`
@@ -576,6 +578,14 @@ function BrowseView({
           {!hasChildren ? linkChild : canAddChild ? <div>{joinButton(true)}</div> : null}
           {tutorRow}
         </aside>
+      ) : null}
+
+      {/* Secure a spot: what the parent pays now, when the class starts and
+          what happens at the start, before they choose a child. */}
+      {isPreorder && preorder && !pane ? (
+        <div className="lg:col-start-1">
+          <SecureSpotTermsV2 preorder={preorder} priceMonthly={group.price_monthly} audience="parent" />
+        </div>
       ) : null}
 
       {group.description ? (

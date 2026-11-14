@@ -6,9 +6,9 @@
  *
  * PRESENTATION ONLY. app/student/tutors/[tutorId]/page.tsx keeps every piece
  * of logic it had — loading, the username→uuid redirect, the dev-account
- * hiding, the paid-classes flag, the calendar and the whole 1:1 booking sheet
- * (D2/D3 have frames of their own and are still the old sheet) — and hands
- * this component what to draw. "Book a lesson" opens that same sheet.
+ * hiding, the paid-classes flag — and hands this component what to draw.
+ * "Book a lesson" opens the shared stepped sheet,
+ * components/booking/OneToOneBookingSheet (the old modal stays for the old UI).
  *
  * From the frame: photo + name + subjects + tag, a three-cell stat strip
  * (rate · sessions · rating), About with Read more, Teaches chips, Reviews,
@@ -277,7 +277,7 @@ export function StudentTutorBookBar({
         type="button"
         onClick={onBook}
         disabled={disabled}
-        className="ds-press h-[50px] shrink-0 rounded-ds-sm border-0 bg-[#13804a] px-[18px] font-body text-[16px] font-extrabold text-white shadow-[0_4px_0_#0d4f2d] cursor-pointer disabled:opacity-50 disabled:shadow-none"
+        className="h-[50px] shrink-0 rounded-ds-sm border-0 bg-[#13804a] transition-[background-color,transform,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent] enabled:hover:bg-[#0f6e3f] enabled:active:translate-y-[2px] enabled:active:shadow-[0_2px_0_#0d4f2d] px-[18px] font-body text-[16px] font-extrabold text-white shadow-[0_4px_0_#0d4f2d] cursor-pointer disabled:opacity-50 disabled:shadow-none"
       >
         Book a lesson
       </button>

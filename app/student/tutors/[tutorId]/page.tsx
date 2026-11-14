@@ -19,6 +19,7 @@ import {
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
 import { StudentTutorProfileV2, StudentTutorBookBar } from '@/components/student/v2/StudentTutorProfileV2';
+import { OneToOneBookingSheet } from '@/components/booking/OneToOneBookingSheet';
 import ClassesSection from '@/components/tutor/public/ClassesSection';
 import BlurredBannerBackdrop from '@/components/tutor/BlurredBannerBackdrop';
 import TutorCredentials from '@/components/TutorCredentials';
@@ -257,6 +258,9 @@ export default function TutorProfilePage() {
   const [groupReviews, setGroupReviews] = useState<GroupReview[]>([]);
   const [voted, setVoted] = useState<Record<string, 'up' | 'down' | undefined>>({});
   const [showBookingSheet, setShowBookingSheet] = useState(false);
+  // New UI: the shared stepped sheet (components/booking/OneToOneBookingSheet)
+  // replaces the old modal below. The old UI keeps the old modal.
+  const [v2BookOpen, setV2BookOpen] = useState(false);
   const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
   const [pickedTime, setPickedTime] = useState<number | null>(null);
   const [pickedDay, setPickedDay] = useState(0);
@@ -485,7 +489,8 @@ export default function TutorProfilePage() {
     // opens the sheet, which is what that route is for.
     if (new URLSearchParams(window.location.search).get('book') === '1on1' || (isNewUiEnabled() && mode === 'book')) {
       autoOpenedRef.current = true;
-      openBookingSheet();
+      if (isNewUiEnabled()) setV2BookOpen(true);
+      else openBookingSheet();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, tutor]);
@@ -997,6 +1002,19 @@ export default function TutorProfilePage() {
         </div>
       )}
 
+      {newUi && (
+        <OneToOneBookingSheet
+          mode="student"
+          open={v2BookOpen}
+          onClose={() => setV2BookOpen(false)}
+          tutorId={tutor.id}
+          tutorName={getDisplayName(tutor)}
+          tutorFirstName={getDisplayName(tutor).split(' ')[0] || getDisplayName(tutor)}
+          subjects={tutor.subjects.map((s) => ({ id: s.id, label: s.name, rate: s.price_per_hour_ttd }))}
+          lengths={DURATION_OPTIONS}
+        />
+      )}
+
       {selectedSubject && (
         <SuggestTimeModal
           isOpen={suggestTimeModalOpen}
@@ -1022,7 +1040,7 @@ export default function TutorProfilePage() {
         tutor.subjects.length > 0 ? (
           <StudentTutorBookBar
             rateLabel={v2Rate}
-            onBook={openBookingSheet}
+            onBook={() => setV2BookOpen(true)}
             disabled={v2Rate === null}
             note={v2Rate === null ? 'This tutor has not set a rate yet' : undefined}
           />

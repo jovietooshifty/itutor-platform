@@ -29,6 +29,7 @@ import { invalidateCredits } from '@/lib/credits/useCredits';
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import { DetailScreen, DetailSkeleton, EmptyCard } from '@/components/parent/v2/DetailScreen';
 import { Sheet } from '@/components/parent/v2/Sheet';
+import { SecureSpotTermsV2 } from '@/components/classes/SecureSpotTermsV2';
 import { ParentClassDetailV2, type ChildEnrolment } from '@/components/parent/v2/ParentClassDetailV2';
 import { Button } from '@/components/ui';
 
@@ -178,7 +179,8 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
   // seat. This page used to send every priced class to /subscribe, which meant
   // a preorder class became a recurring subscription in a parent's hands, and
   // failed outright once the child had a secure-spot hold of their own.
-  const isPreorder = Boolean(preorderFor(group));
+  const preorder = preorderFor(group);
+  const isPreorder = Boolean(preorder);
 
   const enroll = async (childId: string) => {
     setBusy(true);
@@ -320,6 +322,11 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
               <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false} variant="ds" />
               {isPaid && !isPreorder ? (
                 <CheckoutCreditsChoice groupId={group.id} value={creditChoice} onChange={setCreditChoice} />
+              ) : null}
+              {/* Securing a spot: the terms again at the point of choosing,
+                  before the parent is sent to the card form. */}
+              {isPreorder && preorder ? (
+                <SecureSpotTermsV2 preorder={preorder} priceMonthly={group.price_monthly} audience="parent" compact />
               ) : null}
               {error ? (
                 <p role="alert" className="font-body text-[13px] font-extrabold text-danger">{error}</p>

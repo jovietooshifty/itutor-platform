@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * The checkout, for a parent on the new UI. Figma "Checkout – Maths"
+ * The checkout on the new UI — parent (ParentCheckoutV2, in DetailScreen) and,
+ * through CheckoutV2Body, the student (StudentCheckoutV2). Figma "Checkout – Maths"
  * `160:6464`, with the card form from "Pay by card – Stripe payment form"
  * `198:1837` and the declined note from `160:6322`.
  *
@@ -84,21 +85,53 @@ const dateOnly = (iso: string) =>
     timeZone: TZ,
   });
 
-export function ParentCheckoutV2({
-  summary,
-  classInfo,
-  classEndsSoon,
-  returnUrl,
-  onConfirmed,
-}: {
+export interface CheckoutV2Props {
   summary: CheckoutSummary;
   classInfo: CheckoutClassInfo;
   classEndsSoon: boolean;
   returnUrl: string;
   onConfirmed: () => void;
-}) {
+}
+
+/** The parent's checkout: the shared body inside the parent DetailScreen. */
+export function ParentCheckoutV2(props: CheckoutV2Props) {
+  const s = props.summary;
+  const first = s.forStudent ? s.forStudent.split(' ')[0] : null;
+  return (
+    <DetailScreen centered backLabel={first ? (s.isSubscription || s.isSecureSpot ? `Enrol ${first}` : `Book for ${first}`) : 'Payment'} fallbackHref="/parent/classes">
+      <CheckoutV2Body {...props} viewer="parent" />
+    </DetailScreen>
+  );
+}
+
+/**
+ * The checkout blocks, without a shell — shared by the parent (above) and the
+ * student (components/student/v2/StudentCheckoutV2). The blocks and the
+ * payment form are identical for both; only who the copy addresses differs:
+ *
+ * - parent: "For Jovan Smith" under the class (unchanged from before).
+ * - student paying for themself: no "For" line — it is theirs.
+ * - student whose parent is the payer (`forStudent` set, viewer a student):
+ *   the class is theirs, the charge is on the parent's account, so it says so.
+ */
+export function CheckoutV2Body({
+  summary,
+  classInfo,
+  classEndsSoon,
+  returnUrl,
+  onConfirmed,
+  viewer,
+}: CheckoutV2Props & { viewer: 'parent' | 'student' }) {
   const s = summary;
   const first = s.forStudent ? s.forStudent.split(' ')[0] : null;
+  const forLine =
+    viewer === 'parent'
+      ? first
+        ? `For ${s.forStudent}`
+        : null
+      : s.forStudent
+        ? 'Billed to your parent’s account · the place is yours'
+        : null;
   const subject = s.classProfile?.subject || s.subject;
   const title = s.classProfile?.name || s.subject;
   const start = s.startAt ? new Date(s.startAt) : null;
@@ -159,14 +192,14 @@ export function ParentCheckoutV2({
       : 'Cancel or reschedule for free up to 24 hours before the lesson.';
 
   return (
-    <DetailScreen centered backLabel={first ? (s.isSubscription || s.isSecureSpot ? `Enrol ${first}` : `Book for ${first}`) : 'Payment'} fallbackHref="/parent/classes">
+    <>
       {/* The class */}
       <div className="flex items-center gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card">
         <SubjectTile code={subjectCode(subject)} color={subjectColor(subject)} size={52} />
         <div className="flex min-w-0 flex-col gap-[2px]">
           <p className="text-[15px] font-extrabold leading-[18px] text-ink">{title}</p>
           {subtitle ? <p className="text-[13px] text-ink-muted">{subtitle}</p> : null}
-          {first ? <p className="text-[13px] text-ink-muted">For {s.forStudent}</p> : null}
+          {forLine ? <p className="text-[13px] text-ink-muted">{forLine}</p> : null}
         </div>
       </div>
 
@@ -228,7 +261,7 @@ export function ParentCheckoutV2({
           </Link>
         </p>
       </section>
-    </DetailScreen>
+    </>
   );
 }
 
