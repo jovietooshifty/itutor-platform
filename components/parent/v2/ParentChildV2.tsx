@@ -619,8 +619,9 @@ function ChildBillingV2({ childId, first }: { childId: string; first: string }) 
         />
       </div>
       <p className="font-body text-[13px] text-ink-muted">
-        Turning self-pay on takes effect immediately. A security email goes to you either way, and
-        changing your password turns it back off for every child on your account.
+        Self-pay is on by default when {first} connects to you. If you turn it off and back on, that
+        takes effect immediately, a security email goes to you, and changing your password turns it
+        back off.
       </p>
       {note ? <p role="status" className="font-body text-[13px] font-extrabold text-ink">{note}</p> : null}
       {error ? <p role="alert" className="font-body text-[13px] font-extrabold text-danger">{error}</p> : null}

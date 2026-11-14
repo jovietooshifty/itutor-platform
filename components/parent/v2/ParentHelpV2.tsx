@@ -63,7 +63,7 @@ const SECTIONS: Array<{ id: string; title: string; items: QA[] }> = [
       },
       {
         q: 'Can my child pay for their own classes?',
-        a: 'Only if you switch on self-pay on their page (Account › your child). It takes effect immediately, a security email goes to you, and changing your password turns it back off.',
+        a: 'Yes, by default. A child who connects to you keeps paying for their own classes until you switch self-pay off on their page (Account › your child). If you switch it back on, a security email goes to you, and changing your password turns it off again.',
       },
     ],
   },
