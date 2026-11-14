@@ -7,6 +7,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { installReadOnlyGuard } from '@/lib/readOnly/guard';
+
+// Read-only live preview: belt and braces with instrumentation.ts.
+if (typeof window === 'undefined') installReadOnlyGuard('server');
 
 /**
  * Get a Supabase client with service role key

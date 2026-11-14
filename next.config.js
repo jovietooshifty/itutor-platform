@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Read-only live preview: instrumentation.ts installs the fetch guard.
+  experimental: { instrumentationHook: true },
     // Don't try to prerender API routes
     generateBuildId: async () => {
       return 'build-' + Date.now()

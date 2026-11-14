@@ -1,5 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { installReadOnlyGuard } from '@/lib/readOnly/guard';
+
+// Read-only live preview: belt and braces with instrumentation.ts.
+if (typeof window !== 'undefined') installReadOnlyGuard('browser');
 
 const REMEMBER_ME_KEY = 'itutor_remember_me';
 

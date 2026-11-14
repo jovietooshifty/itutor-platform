@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import ReadOnlyGuard from '@/components/readOnly/ReadOnlyGuard';
 import { Inter, Space_Grotesk, Archivo } from 'next/font/google';
 import localFont from 'next/font/local';
 import { AuthProvider } from '@/components/AuthProvider';
@@ -91,6 +92,7 @@ export default function RootLayout({
       className={`${inter.variable} ${spaceGrotesk.variable} ${archivo.variable} ${atkinson.variable} scroll-smooth`}
     >
       <body>
+        <ReadOnlyGuard />
         <SuppressHydrationWarnings />
         <AuthProvider>
           {children}
