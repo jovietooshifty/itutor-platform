@@ -20,6 +20,8 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, MessageSquare, Send, ShieldCheck } from 'lucide-react';
 import ParentShell from '@/components/parent/ParentShell';
+import ParentMessagesV2 from '@/components/parent/v2/ParentMessagesV2';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import { useProfile } from '@/lib/hooks/useProfile';
 import {
   getMessages,
@@ -39,6 +41,14 @@ type Tutor = {
 type Msg = { id: string; content: string; sender_id: string; created_at: string };
 
 export default function ParentMessagesPage() {
+  // New UI: its own screen with back links (thread → list → Settings).
+  if (isNewUiEnabled()) {
+    return (
+      <Suspense fallback={null}>
+        <ParentMessagesV2 />
+      </Suspense>
+    );
+  }
   return (
     <ParentShell>
       {/* useSearchParams needs a Suspense boundary for the ?tutor= deep link. */}
@@ -276,7 +286,7 @@ function MessagesContent() {
                   <button
                     onClick={send}
                     disabled={sending || !draft.trim()}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] disabled:opacity-50"
                   >
                     {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                     Send

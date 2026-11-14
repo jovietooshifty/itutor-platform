@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_PATH=./node_modules next dev",
-    "build": "next build",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=6144 next build",
     "start": "next start",
     "lint": "next lint",
     "staging:env:check": "npx ts-node scripts/validate-staging-env.ts",
@@ -64,6 +64,7 @@
     "eslint": "^8",
     "eslint-config-next": "^14.2.0",
     "pg": "^8.20.0",
+    "playwright-core": "^1.64.1",
     "postcss": "^8",
     "supabase": "^2.77.0",
     "tailwindcss": "^3.3.0",

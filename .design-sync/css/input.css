@@ -1,0 +1,26 @@
+/* design-sync stylesheet source. Compiled by build-assets.mjs into
+ * build/ds.css, which is cfg.cssEntry. Any import below must stay first. */
+@import "../../components/ui/ds-tokens.css";
+
+/*
+ * THE FONT VARIABLES NEXT NORMALLY DEFINES.
+ *
+ * ds-tokens.css sets, inside .ds-root:
+ *   --font-display: var(--font-archivo), Archivo, system-ui, sans-serif;
+ *   --font-sans:    var(--font-atkinson), 'Atkinson Hyperlegible Next', ...
+ * In the app, next/font defines --font-archivo and --font-atkinson on <html>.
+ * Outside Next they do not exist, and a custom property that references an
+ * undefined variable with no fallback is INVALID AT COMPUTED-VALUE TIME: the
+ * whole of --font-display / --font-sans is discarded, so every heading and
+ * body string would silently render in the browser default - both typefaces
+ * gone, with no error anywhere. Pointing the variables at the family names
+ * that fonts/fonts.css declares makes the stacks resolve.
+ */
+:root {
+  --font-archivo: 'Archivo';
+  --font-atkinson: 'Atkinson Hyperlegible Next';
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

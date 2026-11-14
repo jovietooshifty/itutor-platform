@@ -34,7 +34,7 @@ export function SectionHeader({
         <button
           type="button"
           onClick={onAction}
-          className="border-0 bg-transparent p-0 font-extrabold text-[14px] text-brand-edge cursor-pointer"
+          className="ds-link border-0 bg-transparent p-0 font-extrabold text-[14px] text-brand-edge cursor-pointer"
         >
           {action}
         </button>

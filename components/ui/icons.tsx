@@ -19,9 +19,13 @@ import {
   CreditCard,
   GraduationCap,
   House,
+  Lifebuoy,
+  Lock,
   MagnifyingGlass,
   Play,
+  SlidersHorizontal,
   User,
+  Users,
   type Icon as PhosphorIcon,
   type IconWeight,
 } from '@phosphor-icons/react';
@@ -36,7 +40,11 @@ export type IconName =
   | 'chat'
   | 'search'
   | 'chevron'
-  | 'play';
+  | 'play'
+  | 'users'
+  | 'filters'
+  | 'lock'
+  | 'help';
 
 const ICONS: Record<IconName, PhosphorIcon> = {
   home: House,
@@ -49,6 +57,10 @@ const ICONS: Record<IconName, PhosphorIcon> = {
   search: MagnifyingGlass,
   chevron: CaretRight,
   play: Play,
+  users: Users,
+  filters: SlidersHorizontal,
+  lock: Lock,
+  help: Lifebuoy,
 };
 
 export interface DsIconProps {

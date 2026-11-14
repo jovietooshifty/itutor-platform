@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ParentAccessError, requireParentContext, requireParentChild } from '@/lib/server/parentAccess';
+import { loadChildClasses } from '@/lib/server/parentChildClasses';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,12 +27,28 @@ export async function GET(_request: NextRequest, { params }: Params) {
     // The extra columns exist so the Classes tab can render the SAME card the
     // marketplace does. A class that loses its banner, price and tutor the moment
     // a child joins reads as a different object to the parent who joined it.
-    const { data: groups } = groupIds.length
-      ? await admin
-          .from('groups')
-          .select('id, name, subject, form_level, cover_image, price_monthly, tutor_id, schedule_data, session_schedule, average_rating')
-          .in('id', groupIds)
-      : { data: [] as any[] };
+    //
+    // TIERED, because one missing column fails the WHOLE select and PostgREST
+    // returns null rather than throwing. That is what made every class on the
+    // child page read "Class by Tutor": a column absent in some environments
+    // (session_schedule / average_rating) emptied the lookup, and every row fell
+    // back to the placeholder name. The first tier that answers wins.
+    let groups: any[] = [];
+    if (groupIds.length) {
+      const tiers = [
+        'id, name, subject, form_level, cover_image, price_monthly, tutor_id, schedule_data, session_schedule, average_rating',
+        'id, name, subject, form_level, cover_image, price_monthly, tutor_id, schedule_data',
+        'id, name, subject, tutor_id',
+      ];
+      for (const cols of tiers) {
+        const res = await admin.from('groups').select(cols).in('id', groupIds);
+        if (!res.error) {
+          groups = (res.data ?? []) as any[];
+          break;
+        }
+        console.error('[parent overview] groups select failed, trying fewer columns:', res.error.message);
+      }
+    }
     const groupTutorIds = [...new Set((groups ?? []).map((g: any) => g.tutor_id).filter(Boolean))];
     const { data: groupTutors } = groupTutorIds.length
       ? await admin.from('profiles').select('id, full_name, display_name').in('id', groupTutorIds)
@@ -57,6 +74,36 @@ export async function GET(_request: NextRequest, { params }: Params) {
         joinedAt: m.joined_at,
       };
     });
+
+    // `current` is the shared definition (lib/server/parentChildClasses): not
+    // archived, and a live membership OR a live subscription. The page counts
+    // and lists from this flag rather than re-deriving it from `status`, which
+    // counted an archived class and missed a class held only by subscription.
+    const current = (await loadChildClasses(admin, [childId])).get(childId) ?? [];
+    const currentIds = new Set(current.map((c) => c.groupId));
+    const listed = new Set<string>();
+    const enrollmentsOut: Array<Record<string, unknown>> = enrollments.map((e) => {
+      listed.add(e.groupId);
+      return { ...e, current: currentIds.has(e.groupId) };
+    });
+    for (const c of current) {
+      if (listed.has(c.groupId)) continue;
+      enrollmentsOut.push({
+        groupId: c.groupId,
+        name: c.className,
+        subject: c.subject,
+        formLevel: null,
+        coverImage: null,
+        priceMonthly: c.priceMonthly,
+        rating: null,
+        tutorName: c.tutorName ?? 'Tutor',
+        scheduleData: null,
+        sessionSchedule: null,
+        status: 'active',
+        joinedAt: null,
+        current: true,
+      });
+    }
 
     // 1:1 booking history
     const { data: bk } = await admin
@@ -86,7 +133,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
     return NextResponse.json({
       child: { name: child.display_name || child.full_name || 'Child' },
-      enrollments,
+      enrollments: enrollmentsOut,
       bookings,
     });
   } catch (error) {

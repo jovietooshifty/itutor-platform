@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import Link from 'next/link';
 import { CreditCard, CheckCircle, AlertCircle, Clock, RefreshCw, CalendarCheck2, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,7 +28,22 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-TT', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/**
+ * SCREEN_MAP logic row 1: this route is REPLACED by the Classes tab, but it is
+ * not deleted. An old bookmark, an email link and the badge in the old nav all
+ * still point here, so with the new UI on it redirects rather than 404s; with
+ * the flag off it renders exactly what it always did.
+ */
 export default function ParentSubscriptionsPage() {
+  const router = useRouter();
+  const newUi = isNewUiEnabled();
+
+  useEffect(() => {
+    if (newUi) router.replace('/parent/my-classes');
+  }, [newUi, router]);
+
+  if (newUi) return null;
+
   return <ParentShell><SubscriptionsContent /></ParentShell>;
 }
 
@@ -102,7 +119,7 @@ function SubscriptionsContent() {
           <div className="mx-auto size-12 rounded-2xl bg-brand-soft text-brand-deep grid place-items-center mb-4"><GraduationCap className="size-5"/></div>
           <h2 className="font-bold text-ink">No active subscriptions</h2>
           <p className="text-sm text-muted-foreground mt-1">Enroll a child in a class to see subscriptions here.</p>
-          <Link href="/parent/classes" className="mt-4 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-brand text-white text-sm font-semibold hover:bg-brand-deep">Find classes</Link>
+          <Link href="/parent/classes" className="mt-4 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-brand text-[#0d2318] text-sm font-semibold hover:bg-brand-deep">Find classes</Link>
         </div>
       ) : (
         <div className="space-y-3">

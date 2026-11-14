@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -10,6 +11,9 @@ import { cn } from '@/lib/utils';
 import PendingRequestsSection from '@/components/student/PendingRequestsSection';
 import YourTutorsSection from '@/components/student/YourTutorsSection';
 import MyAttendance from '@/components/student/MyAttendance';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import StudentClassesV2 from '@/components/student/v2/StudentClassesV2';
 
 type Lesson = {
   key: string;
@@ -46,7 +50,18 @@ function gradientForSubject(subject: string, index: number): string {
   return GRADIENTS[index % GRADIENTS.length];
 }
 
-export default function MyClassesPage() {
+/** New UI (Figma 2:1088) behind NEXT_PUBLIC_NEW_UI_ENABLED; fixed at build time. */
+export default function MyClassesRoute() {
+  return isNewUiEnabled() ? (
+    <StudentV2Shell width="wide" title="My Classes">
+      <StudentClassesV2 />
+    </StudentV2Shell>
+  ) : (
+    <MyClassesPage />
+  );
+}
+
+function MyClassesPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -55,7 +70,7 @@ export default function MyClassesPage() {
 
   useEffect(() => {
     if (profileLoading) return;
-    if (!profile || profile.role !== 'student') { router.push('/login'); return; }
+    if (!profile || profile.role !== 'student') { router.push(nonStudentRedirect(profile)); return; }
     fetchLessons();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, profileLoading]);

@@ -85,7 +85,7 @@ export function BottomNav({
             {item.badge ? (
               <i
                 aria-label="Needs attention"
-                className="absolute top-0 right-3 h-[10px] w-[10px] rounded-ds-xs bg-danger border-bold border-ink"
+                className="absolute top-0 right-3 h-[10px] w-[10px] rounded-ds-xs bg-danger bw-bold border-ink"
               />
             ) : null}
           </button>

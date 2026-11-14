@@ -12,12 +12,18 @@
 
 export { AppHeader, type AppHeaderProps, type HeaderAction } from './AppHeader';
 export { BottomNav, DEFAULT_NAV, type BottomNavProps, type NavItem } from './BottomNav';
+export { SideNav, type SideNavProps } from './SideNav';
+export { Segmented, type SegmentedProps, type SegmentedOption } from './Segmented';
 export { Button, type ButtonProps } from './Button';
 export { Card, type CardProps } from './Card';
 export { ClassRow, type ClassRowProps } from './ClassRow';
 export { Countdown, type CountdownProps } from './Countdown';
 export { DsPortal, DS_ROOT_CLASS, type DsPortalProps } from './DsPortal';
 export { DsIcon, type DsIconProps, type IconName } from './icons';
+export { IconNote, type IconNoteProps } from './IconNote';
+export { NavRow, type NavRowProps } from './NavRow';
+export { StepList, type Step, type StepListProps } from './StepList';
+export { SummaryRow, type SummaryRowProps } from './SummaryRow';
 export { NewUiShell, type NewUiShellProps } from './NewUiShell';
 export { QuestProgress, type QuestProgressProps } from './QuestProgress';
 export { SectionHeader, type SectionHeaderProps } from './SectionHeader';

@@ -1,3 +1,4 @@
+import { lessonRemindersOff } from '@/lib/reminders/lessonReminderOptOut';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendReminderEmail } from '@/lib/email/sendReminderEmail';
 import { getServiceClient } from '@/lib/supabase/server';
@@ -119,6 +120,16 @@ async function processDueReminders(request: NextRequest) {
       }
 
       const recipientId = reminder.recipient_type === 'student' ? session.student_id : session.tutor_id;
+
+      // A student who switched lesson reminders off (migration 270): cancel the
+      // queued row rather than leave it pending, so it is not retried.
+      if (reminder.recipient_type === 'student') {
+        const off = await lessonRemindersOff(supabase, [recipientId]);
+        if (off.has(recipientId)) {
+          await supabase.from('session_reminders').update({ status: 'cancelled' }).eq('id', reminder.id);
+          continue;
+        }
+      }
       const counterpartId = reminder.recipient_type === 'student' ? session.tutor_id : session.student_id;
 
       const profileIds = [recipientId, counterpartId];

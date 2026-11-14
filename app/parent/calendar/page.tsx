@@ -24,6 +24,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Ban, Calendar as CalendarIcon, Check, Clock, Loader2, X } from 'lucide-react';
 import ParentShell from '@/components/parent/ParentShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentCalendarV2 from '@/components/parent/v2/ParentCalendarV2';
 
 type Child = { id: string; name: string; color: string };
 
@@ -62,6 +64,7 @@ const OUTCOME = {
 } as const;
 
 export default function ParentCalendarPage() {
+  if (isNewUiEnabled()) return <ParentCalendarV2 />;
   return (
     <ParentShell>
       <CalendarContent />

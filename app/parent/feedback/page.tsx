@@ -20,6 +20,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Clock, Loader2, MessageSquare, MessageSquareQuote } from 'lucide-react';
 import ParentShell from '@/components/parent/ParentShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentFeedbackV2 from '@/components/parent/v2/ParentFeedbackV2';
 import RequestFeedbackPanel from '@/components/parent/RequestFeedbackPanel';
 import { markFeedbackSeen } from '@/lib/parent/feedbackSeen';
 
@@ -53,6 +55,7 @@ type OpenRequest = {
 };
 
 export default function ParentFeedbackPage() {
+  if (isNewUiEnabled()) return <ParentFeedbackV2 />;
   return (
     <ParentShell>
       <FeedbackContent />

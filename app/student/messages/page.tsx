@@ -1,5 +1,6 @@
 'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -11,8 +12,15 @@ import { getRelativeTime } from '@/lib/utils/calendar';
 import { Search, Send, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ParentVisibilityNotice from '@/components/messaging/ParentVisibilityNotice';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentMessagesV2 from '@/components/student/v2/StudentMessagesV2';
 
-export default function StudentMessagesPage() {
+/** New UI (PROVISIONAL visuals, no Figma frame) behind NEXT_PUBLIC_NEW_UI_ENABLED; fixed at build time. */
+export default function StudentMessagesRoute() {
+  return isNewUiEnabled() ? <StudentMessagesV2 /> : <StudentMessagesPage />;
+}
+
+function StudentMessagesPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
 
@@ -24,7 +32,7 @@ export default function StudentMessagesPage() {
 
   useEffect(() => {
     if (profileLoading) return;
-    if (!profile || profile.role !== 'student') { router.push('/login'); return; }
+    if (!profile || profile.role !== 'student') { router.push(nonStudentRedirect(profile)); return; }
     loadConversations();
   }, [profile, profileLoading, router]);
 

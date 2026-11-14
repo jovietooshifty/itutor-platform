@@ -37,7 +37,12 @@ export async function GET(request: NextRequest) {
     const nowIso = new Date().toISOString();
 
     const occurrences: OccurrenceInput[] = [];
-    const meta = new Map<string, { label: string; start: string; type: '1:1' | 'group' }>();
+    // `end` is carried so a surface can total time in class (student Home's
+    // "hours studied") without a second query.
+    const meta = new Map<
+      string,
+      { label: string; start: string; end: string | null; type: '1:1' | 'group' }
+    >();
 
     // 1:1 sessions — skipped when scoped to a class.
     if (!groupId) {
@@ -74,6 +79,7 @@ export async function GET(request: NextRequest) {
         meta.set(`session:${s.id}`, {
           label: `1:1 with ${tutorName.get(s.tutor_id) ?? 'your tutor'}`,
           start: s.scheduled_start_at,
+          end: s.scheduled_end_at,
           type: '1:1',
         });
         occurrences.push({
@@ -160,6 +166,7 @@ export async function GET(request: NextRequest) {
           meta.set(`group_occurrence:${o.id}`, {
             label: groupName.get(gid) ?? 'Group class',
             start: o.scheduled_start_at,
+            end: o.scheduled_end_at,
             type: 'group',
           });
           occurrences.push({
@@ -189,6 +196,7 @@ export async function GET(request: NextRequest) {
           key,
           label: m?.label ?? 'Class',
           start: m?.start ?? o.scheduledStart,
+          end: m?.end ?? null,
           type: m?.type ?? 'group',
           status: o.outcome,
           lateMinutes: o.lateMinutes,

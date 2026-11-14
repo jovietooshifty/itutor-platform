@@ -17,6 +17,9 @@ import LogoutConfirmModal from '@/components/LogoutConfirmModal';
 import { FEEDBACK_SEEN_EVENT } from '@/lib/parent/feedbackSeen';
 import CampaignCta from '@/components/classMatchWeek/CampaignCta';
 import { rewardsVisible, useCredits } from '@/lib/credits/useCredits';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
+import { parentInitials } from '@/components/parent/v2/initials';
 
 type NavItem = { to: string; label: string; icon: ComponentType<{ className?: string }>; exact?: boolean; tint: string };
 
@@ -58,7 +61,40 @@ const allNav: NavItem[] = [
 
 const COLLAPSE_KEY = 'itutor.parentSidebar.collapsed';
 
+/**
+ * ONE SHELL PER APP. With the new UI on, every parent page gets the new
+ * chrome, not just the five Main tabs.
+ *
+ * Before this, four screens had the new header and five-tab bar and the
+ * other twelve fell back to the dark sidebar with seven different sections,
+ * a different header and a different typeface — so a single tap could move
+ * a parent between two apps, and on a phone the old pages added a SECOND
+ * bottom bar with seven 10px tabs. The Profile tab was the clearest case:
+ * it led to Settings, where the new nav vanished entirely.
+ *
+ * Branching here rather than editing sixteen pages means pages reached from
+ * the tabs — class detail, children, calendar, notifications — are covered
+ * too, including any added later. The old shell is untouched and still
+ * renders for everyone the flag is off for.
+ *
+ * This changes the CHROME only. The content of the older screens is still
+ * the old content; it is legible because the parent app was already light
+ * (only its sidebar was dark), but these screens have not been redesigned.
+ */
 export default function ParentShell({ children }: { children: React.ReactNode }) {
+  if (isNewUiEnabled()) return <ParentShellV2Bridge>{children}</ParentShellV2Bridge>;
+  return <ParentShellLegacy>{children}</ParentShellLegacy>;
+}
+
+// Split out so the legacy shell keeps its own hooks: calling them above the
+// branch would run notification subscriptions and credit fetches for the new
+// chrome too, which has its own.
+function ParentShellV2Bridge({ children }: { children: React.ReactNode }) {
+  const { profile } = useProfile();
+  return <ParentV2Shell initials={parentInitials(profile)}>{children}</ParentV2Shell>;
+}
+
+function ParentShellLegacy({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { profile, loading } = useProfile();
@@ -187,7 +223,7 @@ export default function ParentShell({ children }: { children: React.ReactNode })
                   </span>
                   {!collapsed && <span className="flex-1">{item.label}</span>}
                   {!collapsed && badgeFor(item.to) > 0 && (
-                    <span className="min-w-5 rounded-full bg-brand px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+                    <span className="min-w-5 rounded-full bg-brand px-1.5 py-0.5 text-center text-[10px] font-bold text-[#0d2318]">
                       {badgeFor(item.to)}
                     </span>
                   )}
@@ -200,7 +236,7 @@ export default function ParentShell({ children }: { children: React.ReactNode })
         <div className="relative p-3 border-t border-white/10">
           <button onClick={() => setProfileOpen(o => !o)}
             className={cn('w-full flex items-center gap-3 rounded-xl hover:bg-white/5 transition px-2 py-2', collapsed && 'justify-center px-0')}>
-            <div className="size-9 rounded-full bg-brand grid place-items-center text-white text-sm font-semibold shrink-0">{initials}</div>
+            <div className="size-9 rounded-full bg-brand grid place-items-center text-[#0d2318] text-sm font-semibold shrink-0">{initials}</div>
             {!collapsed && (
               <>
                 <div className="min-w-0 flex-1 text-left">
@@ -256,7 +292,7 @@ export default function ParentShell({ children }: { children: React.ReactNode })
               </Link>
               <Link href="/parent/notifications" className="relative size-9 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" title="Notifications">
                 <Bell className="size-4" />
-                {unread > 0 && <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-brand text-[10px] font-bold text-white grid place-items-center">{unread}</span>}
+                {unread > 0 && <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-brand text-[10px] font-bold text-[#0d2318] grid place-items-center">{unread}</span>}
               </Link>
               <Link href="/parent/settings" className="size-9 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" title="Settings">
                 <Settings className="size-4" />
@@ -285,7 +321,7 @@ export default function ParentShell({ children }: { children: React.ReactNode })
                     {/* The kit's bottom bar carries an Approvals count. Same
                         reason as the sidebar: a request nobody sees expires. */}
                     {badgeFor(item.to) > 0 && (
-                      <span className="absolute -right-1 -top-1 grid min-w-[16px] place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                      <span className="absolute -right-1 -top-1 grid min-w-[16px] place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-[#0d2318]">
                         {badgeFor(item.to)}
                       </span>
                     )}

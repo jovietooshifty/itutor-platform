@@ -1,7 +1,9 @@
 ﻿'use client';
 
+import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types/database';
@@ -22,7 +24,7 @@ type ProfileWithRating = Profile & {
   } | null;
 };
 
-export default function StudentSearchResultsPage() {
+function StudentSearchResultsPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -57,7 +59,7 @@ export default function StudentSearchResultsPage() {
     if (profileLoading) return;
     
     if (!profile || profile.role !== 'student') {
-      router.push('/login');
+      router.push(nonStudentRedirect(profile));
       return;
     }
 
@@ -506,3 +508,20 @@ export default function StudentSearchResultsPage() {
   );
 }
 
+
+/**
+ * New UI: this old results page has no frame. Tutor search lives on Explore's
+ * 1:1 tutors tab, so send the student there rather than into the old design.
+ * Flag off: the page as it was.
+ */
+export default function StudentSearchRoute() {
+  return isNewUiEnabled() ? <ToExplore /> : <StudentSearchResultsPage />;
+}
+
+function ToExplore() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/student/find-tutors?tab=tutors');
+  }, [router]);
+  return null;
+}

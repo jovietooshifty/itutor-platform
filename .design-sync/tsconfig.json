@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@/lib/utils": ["./lib/utils.ts"],
+      "@/*": ["./*"],
+      "next/link": ["./.design-sync/shims/next-link.tsx"]
+    }
+  }
+}

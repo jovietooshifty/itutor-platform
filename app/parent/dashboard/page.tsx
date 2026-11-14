@@ -11,6 +11,10 @@ import { supabase } from '@/lib/supabase/client';
 import CampaignDashboardBanner from '@/components/classMatchWeek/CampaignDashboardBanner';
 import CampaignJoinCard from '@/components/classMatchWeek/CampaignJoinCard';
 import DashboardRewardsCard from '@/components/credits/DashboardRewardsCard';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
+import { parentInitials } from '@/components/parent/v2/initials';
+import ParentHomeV2 from '@/components/parent/v2/ParentHomeV2';
 
 type ChildData = {
   id: string; name: string; initials: string; hue: number;
@@ -18,7 +22,24 @@ type ChildData = {
 };
 
 export default function ParentDashboardPage() {
-  return <ParentShell><DashboardContent /></ParentShell>;
+  // The old dark dashboard stays the default. isNewUiEnabled() reads a
+  // NEXT_PUBLIC_ variable, so this resolves at build time and the two trees
+  // never alternate between renders — no hook-order hazard from the branch.
+  return isNewUiEnabled() ? <ParentHomeV2Route /> : <ParentShell><DashboardContent /></ParentShell>;
+}
+
+/** Figma 160:1828 / 160:2057 / 160:2208 — see components/parent/v2. */
+function ParentHomeV2Route() {
+  const { profile } = useProfile();
+  const name = profile?.display_name || profile?.full_name || '';
+  const firstName = name.split(' ')[0] || 'there';
+  const initials = parentInitials(profile);
+
+  return (
+    <ParentV2Shell initials={initials} width="wide">
+      <ParentHomeV2 firstName={firstName} />
+    </ParentV2Shell>
+  );
 }
 
 function DashboardContent() {
@@ -70,7 +91,7 @@ function DashboardContent() {
             left the nav. */}
         <Link
           href="/parent/classes"
-          className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep sm:self-auto"
+          className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-[#0d2318] hover:bg-brand-deep sm:self-auto"
         >
           <Search className="size-4" /> Find a class
         </Link>
@@ -112,7 +133,7 @@ function DashboardContent() {
           </div>
           <h2 className="font-bold text-ink">No children linked yet</h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">Link your child's student account to manage their classes and payments.</p>
-          <Link href="/parent/children" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-brand text-white text-sm font-semibold hover:bg-brand-deep">
+          <Link href="/parent/children" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-brand text-[#0d2318] text-sm font-semibold hover:bg-brand-deep">
             <Plus className="size-4" /> Invite a child
           </Link>
           <div className="mt-6 flex justify-center gap-4 text-xs">
@@ -123,7 +144,7 @@ function DashboardContent() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-ink">My children</h2>
-            <Link href="/parent/children" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-deep">
+            <Link href="/parent/children" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand text-[#0d2318] text-sm font-semibold hover:bg-brand-deep">
               <Plus className="size-4" /> Invite a child
             </Link>
           </div>
