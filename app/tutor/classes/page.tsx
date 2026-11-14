@@ -130,6 +130,19 @@ function LessonsContent() {
 
       if (apiGroups.length === 0) { setLessons([]); return; }
 
+      // Members and next session come from the tutor's own stats endpoint, not
+      // the marketplace listing: when the listing call fell back to the bare
+      // `groups` read above, every card showed "0/15 · Next —" for classes
+      // with paying students and sessions booked twice a week.
+      const stats = new Map<string, { memberCount: number; nextSessionAt: string | null }>();
+      try {
+        const sRes = await fetch('/api/tutor/class-stats', { cache: 'no-store' });
+        if (sRes.ok) {
+          const sJson = await sRes.json();
+          for (const c of sJson.classes ?? []) stats.set(c.id, c);
+        }
+      } catch { /* cards fall back to the listing's own figures */ }
+
       setLessons(apiGroups.map((g: any, i: number): Lesson => ({
         id: g.id,
         title: g.name || 'Untitled class',
@@ -137,14 +150,14 @@ function LessonsContent() {
         level: g.form_level || g.level || '—',
         kind: (g.max_students ?? g.maxStudents ?? 20) === 1 ? '1on1-recurring' : 'group-recurring',
         capacity: g.max_students ?? g.maxStudents ?? 0,
-        enrolled: g.member_count ?? g.enrollmentCount ?? 0,
+        enrolled: stats.get(g.id)?.memberCount ?? g.member_count ?? g.enrollmentCount ?? 0,
         pricePerSession: g.price_per_session ?? g.price_monthly ?? null,
         visibility: g.visibility === 'private' ? 'private' : 'public',
         thumbnailGradient: GRADIENTS[i % GRADIENTS.length],
         coverImage: g.cover_image ?? g.coverImage ?? g.header_image ?? null,
         totalSessionsRun: g.session_count ?? 0,
         earningsTtd: g.estimated_earnings ?? 0,
-        nextSessionDate: g.nextSession?.scheduledAt ?? g.next_occurrence?.scheduled_start_at ?? null,
+        nextSessionDate: stats.get(g.id)?.nextSessionAt ?? g.nextSession?.scheduledAt ?? g.next_occurrence?.scheduled_start_at ?? null,
         createdAt: g.created_at,
       })));
     } catch (e) {
@@ -456,9 +469,8 @@ function LessonCard({
         <h3 className="font-bold text-ink leading-tight truncate">{l.title}</h3>
 
         {/* Stat strip */}
-        <div className="mt-4 grid grid-cols-3 divide-x divide-border rounded-xl border border-border overflow-hidden text-center bg-background">
+        <div className="mt-4 grid grid-cols-2 divide-x divide-border rounded-xl border border-border overflow-hidden text-center bg-background">
           <Stat label="Members" value={`${l.enrolled}/${l.capacity || '∞'}`} />
-          <Stat label="Upcoming" value={(l.totalSessionsRun ?? 0).toString()} />
           <Stat label="Next" value={upcoming ? next!.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'} tint={upcoming ? 'brand' : undefined} />
         </div>
 

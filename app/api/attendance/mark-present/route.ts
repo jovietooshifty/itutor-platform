@@ -14,7 +14,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient, getServiceClient } from '@/lib/supabase/server';
-import { recordStudentJoin, verifyJoinEvent } from '@/lib/server/attendance';
+import {
+  findJoinableGroupOccurrence,
+  isEnrolledInGroup,
+  recordStudentJoin,
+  recordTutorJoin,
+  verifyJoinEvent,
+} from '@/lib/server/attendance';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,13 +31,49 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ ok: false }, { status: 401 });
 
     const body = (await request.json().catch(() => ({}))) as { occurrenceType?: string; occurrenceId?: string; groupId?: string };
+    const admin = getServiceClient();
+
+    // Class-only form: { groupId }. Sent by Join buttons that know the class
+    // but not the occurrence (the student class page's "Join Now", the tutor's
+    // class Join). The server resolves the occurrence from the clock, and the
+    // TUTOR of the class is recorded in the tutor log — that row is what tells
+    // the attendance rules the session actually ran.
+    if (!body.occurrenceId && typeof body.groupId === 'string' && body.groupId) {
+      const groupId = body.groupId;
+      const occ = await findJoinableGroupOccurrence(admin, groupId);
+      if (!occ) return NextResponse.json({ ok: true, recorded: false, reason: 'no_open_session' });
+
+      const { data: group } = await admin.from('groups').select('tutor_id').eq('id', groupId).maybeSingle();
+      if (group?.tutor_id && group.tutor_id === user.id) {
+        await recordTutorJoin(admin, {
+          tutorId: user.id,
+          occurrenceType: 'group_occurrence',
+          occurrenceId: occ.id,
+          groupId,
+          joinSource: 'class-join',
+        });
+        return NextResponse.json({ ok: true, recorded: true, as: 'tutor' });
+      }
+
+      if (!(await isEnrolledInGroup(admin, user.id, groupId))) {
+        return NextResponse.json({ ok: true, recorded: false, reason: 'not_enrolled' });
+      }
+      const derived = await recordStudentJoin(admin, {
+        studentId: user.id,
+        occurrenceType: 'group_occurrence',
+        occurrenceId: occ.id,
+        groupId,
+        scheduledStart: occ.scheduledStart,
+        joinSource: 'class-join',
+      });
+      return NextResponse.json({ ok: true, recorded: true, status: derived.status });
+    }
+
     const occurrenceType = body.occurrenceType;
     const occurrenceId = body.occurrenceId;
     if ((occurrenceType !== 'session' && occurrenceType !== 'group_occurrence') || !occurrenceId) {
       return NextResponse.json({ ok: false }, { status: 400 });
     }
-
-    const admin = getServiceClient();
 
     // Never trust the body for anything but the identifier we then go and check.
     const verified = await verifyJoinEvent(admin, {
