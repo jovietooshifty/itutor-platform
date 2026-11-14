@@ -180,7 +180,9 @@ export function CheckoutV2Body({
         ? 'Nothing to cancel'
         : 'Any time, from Billing'
       : cancelBy
-        ? `Free until ${day(cancelBy)} · ${time(cancelBy)}`
+        ? cancelBy.getTime() > Date.now()
+          ? `Free until ${day(cancelBy)} · ${time(cancelBy)}`
+          : 'Not free: under 24 hours to go'
         : null;
 
   const terms = s.isSecureSpot
