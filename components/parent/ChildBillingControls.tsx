@@ -143,8 +143,9 @@ export default function ChildBillingControls({
         {/* Stated BEFORE it is touched, not after. */}
         <p className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-          Turning this on takes effect immediately. A security email goes to you either way, and
-          completing a password change turns it back off for every child on your account.
+          On by default when {first} connects to you. If you turn it off and back on, that takes
+          effect immediately, a security email goes to you, and completing a password change turns
+          it back off.
         </p>
       </div>
     </div>
