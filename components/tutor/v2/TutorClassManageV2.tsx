@@ -187,7 +187,7 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
         ? `Enrolment closed until ${shortDate(data.class.enrolmentClosedUntil)}`
         : c.state === 'full'
           ? `Full · ${seatText} seats taken`
-          : `Enrolment is open · ${c.seats ? `${seatText} seats taken` : `${c.students} enrolled`}`;
+          : `${c.visibility === 'private' ? 'Open · invite only' : 'Enrolment is open'} · ${c.seats ? `${seatText} seats taken` : `${c.students} enrolled`}`;
   const metaLine = [
     c.schedule,
     c.price > 0 ? `${money(c.price)}/${c.priceUnit ?? 'month'}` : 'Free',
@@ -278,9 +278,6 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
             <div className="flex flex-wrap gap-ds-2">
               <Button variant="primary" size="md" onClick={() => setShareOpen(true)}>
                 Add students
-              </Button>
-              <Button variant="outline" size="md" className="lg:hidden" onClick={() => setShareOpen(true)}>
-                Share
               </Button>
               <Button variant="outline" size="md" onClick={() => hub('settings')}>
                 {data.class.enrolmentClosedUntil || c.state === 'paused' ? 'Manage break' : 'Pause'}
