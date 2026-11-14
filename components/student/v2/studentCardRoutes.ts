@@ -4,4 +4,5 @@ export const STUDENT_CARD_ROUTES: CardRoutes = {
   api: '/api/student/payment-methods',
   page: '/student/settings/payment-methods',
   settings: '/student/settings',
+  embedded: true,
 };

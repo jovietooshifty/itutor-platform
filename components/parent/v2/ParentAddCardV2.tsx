@@ -103,7 +103,7 @@ export default function ParentAddCardV2({ routes = PARENT_CARD_ROUTES }: { route
   }, []);
 
   return (
-    <DetailScreen backLabel="Payment methods" fallbackHref={routes.page} title="Add a card">
+    <DetailScreen backLabel="Payment methods" fallbackHref={routes.page} title="Add a card" shell={!routes.embedded}>
       {failed || !stripePromise ? (
         <EmptyCard title="Cards cannot be added right now" body="Nothing has been saved or charged. Try again in a moment." />
       ) : !clientSecret ? (

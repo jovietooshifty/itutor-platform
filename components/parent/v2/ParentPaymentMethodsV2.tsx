@@ -55,7 +55,7 @@ const brandName = (b: string) => BRAND[b] ?? (b ? b[0].toUpperCase() + b.slice(1
 const expiry = (c: Card) => `${String(c.expMonth).padStart(2, '0')}/${String(c.expYear).slice(-2)}`;
 
 /** Where the screen reads and writes. Parent by default; the student Settings passes its own. */
-export type CardRoutes = { api: string; page: string; settings: string };
+export type CardRoutes = { api: string; page: string; settings: string; /** Page already sits in a shell (student). */ embedded?: boolean };
 export const PARENT_CARD_ROUTES: CardRoutes = {
   api: '/api/parent/payment-methods',
   page: '/parent/settings/payment-methods',
@@ -106,7 +106,7 @@ export default function ParentPaymentMethodsV2({ routes = PARENT_CARD_ROUTES }: 
   };
 
   return (
-    <DetailScreen backLabel="Settings" fallbackHref={routes.settings} title="Payment methods">
+    <DetailScreen backLabel="Settings" fallbackHref={routes.settings} title="Payment methods" shell={!routes.embedded}>
       {status === 'loading' ? (
         <DetailSkeleton rows={1} />
       ) : status === 'error' ? (

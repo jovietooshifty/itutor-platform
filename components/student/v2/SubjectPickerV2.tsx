@@ -112,7 +112,7 @@ export default function SubjectPickerV2({
               >
                 <span className="min-w-0 flex-1 font-body text-[15px] font-bold text-ink">{s.name}</span>
                 <span className="shrink-0 rounded-ds-xs bg-surface-sunken px-ds-2 py-[3px] text-[12px] font-extrabold uppercase tracking-[0.04em] text-ink">
-                  {[s.curriculum, s.level].filter(Boolean).join(' ')}
+                  {Array.from(new Set([s.curriculum, s.level].filter(Boolean))).join(' ')}
                 </span>
                 <Plus size={16} weight="bold" className="shrink-0 text-ink" aria-hidden />
               </button>
