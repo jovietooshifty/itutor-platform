@@ -1,5 +1,6 @@
 // Student accepts or declines a parent invite. Only the invited student may
-// respond. On accept: set the child's billing_mode + create the parent_child_link
+// respond. On accept: create the parent_child_link with self-pay ON (billing_mode
+// self_allowed) and set the child's mirror to match
 // (the ONLY place a link is now created), then notify the parent. On decline:
 // mark declined + notify the parent. This is the consent gate that replaces the
 // old instant linking.
@@ -45,13 +46,23 @@ export async function POST(request: NextRequest, { params }: Params) {
   const childName = child?.display_name || child?.full_name || 'Your child';
 
   if (action === 'accept') {
-    // Set billing mode first, then create the link (write-order preserved from
-    // the old link-child flow). Guard against a pre-existing link.
-    await admin.from('profiles').update({ billing_mode: 'parent_required', updated_at: now }).eq('id', invite.child_id);
+    // DEFAULT IS SELF-PAY. A connected student keeps paying for their own
+    // classes, with no approval gate, until the parent turns self-pay off on
+    // the child's page. The link's column defaults (migration 224) still say
+    // parent_required / requires_approval, so both are written explicitly.
+    // self_pay_enabled_by stays null, which revokeAllSelfPay leaves alone. The
+    // profiles mirror is written only when a link is created, so re-accepting
+    // never overrides a choice the parent already made.
     const { data: existing } = await admin
       .from('parent_child_links').select('id').eq('parent_id', invite.parent_id).eq('child_id', invite.child_id).maybeSingle();
     if (!existing) {
-      await admin.from('parent_child_links').insert({ parent_id: invite.parent_id, child_id: invite.child_id });
+      await admin.from('parent_child_links').insert({
+        parent_id: invite.parent_id,
+        child_id: invite.child_id,
+        billing_mode: 'self_allowed',
+        requires_approval: false,
+      });
+      await admin.from('profiles').update({ billing_mode: 'self_allowed', updated_at: now }).eq('id', invite.child_id);
     }
     await admin.from('parent_child_invites').update({ status: 'accepted', responded_at: now }).eq('id', invite.id);
     await admin.from('notifications').insert({
