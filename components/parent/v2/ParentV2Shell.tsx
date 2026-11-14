@@ -23,12 +23,17 @@
  * files.
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { NewUiShell, type NavItem } from '@/components/ui';
 import ParentAccountSheet from '@/components/parent/v2/ParentAccountSheet';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
+import { NotificationsPopover, prefersNotificationsPopover } from '@/components/ui/NotificationsPopover';
+
+// Loaded on first open only.
+const ParentNotificationsV2 = dynamic(() => import('./ParentNotificationsV2'), { ssr: false });
 
 const TABS: Array<NavItem & { href: string }> = [
   { id: 'home', label: 'Home', icon: 'home', href: '/parent/dashboard' },
@@ -102,6 +107,9 @@ export default function ParentV2Shell({
   // did nothing. It now opens the account sheet, which is also where the
   // five sidebar sections the tab bar displaced now live.
   const [accountOpen, setAccountOpen] = useState(false);
+  // Large screens: the bell opens a popup instead of the page.
+  const [notifOpen, setNotifOpen] = useState(false);
+  const closeNotif = useCallback(() => setNotifOpen(false), []);
   const { profile } = useProfile();
   const profileName = profile?.display_name || profile?.full_name || undefined;
 
@@ -144,7 +152,9 @@ export default function ParentV2Shell({
       unread={unread}
       initials={initials}
       onHeaderAction={(action) => {
-        if (action === 'bell') router.push('/parent/notifications');
+        if (action !== 'bell') return;
+        if (prefersNotificationsPopover() && pathname !== '/parent/notifications') setNotifOpen((o) => !o);
+        else router.push('/parent/notifications');
       }}
       onAccount={() => setAccountOpen(true)}
       onSelect={(id) => {
@@ -175,6 +185,10 @@ export default function ParentV2Shell({
     >
       {children}
     </NewUiShell>
+
+    <NotificationsPopover open={notifOpen} onClose={closeNotif}>
+      {notifOpen ? <ParentNotificationsV2 variant="panel" /> : null}
+    </NotificationsPopover>
 
     <ParentAccountSheet
       open={accountOpen}

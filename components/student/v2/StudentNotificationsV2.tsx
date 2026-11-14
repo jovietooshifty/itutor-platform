@@ -62,7 +62,18 @@ function when(iso: string) {
     .replace(/(\d+) (\w+)/, '$2 $1');
 }
 
-export default function StudentNotificationsV2() {
+type Props = {
+  /**
+   * page: the full /student/notifications screen (phones, and any direct link).
+   * panel: the bell popup on large screens (NotificationsPopover) — one column,
+   * a fixed header, and only the list scrolls.
+   */
+  variant?: 'page' | 'panel';
+  /** Lets the shell keep its bell dot in step as rows are read. */
+  onUnreadChange?: (count: number) => void;
+};
+
+export default function StudentNotificationsV2({ variant = 'page', onUnreadChange }: Props = {}) {
   const router = useRouter();
   const { profile, loading } = useProfile();
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -96,6 +107,9 @@ export default function StudentNotificationsV2() {
   }, [load]);
 
   const unread = rows?.filter((r) => !r.is_read).length ?? 0;
+  useEffect(() => {
+    if (rows !== null) onUnreadChange?.(unread);
+  }, [rows, unread, onUnreadChange]);
   const shown = useMemo(
     () => (rows ?? []).filter((r) => filter === 'all' || !r.is_read),
     [rows, filter]
@@ -126,6 +140,116 @@ export default function StudentNotificationsV2() {
     if (r.link && r.link.startsWith('/')) router.push(r.link);
   };
 
+  const renderRow = (r: Row, compact: boolean) => {
+    const ic = iconFor(r);
+    return (
+      <button
+        key={r.id}
+        type="button"
+        onClick={() => void open(r)}
+        className={cn(
+          'ds-press flex w-full items-start gap-ds-3 rounded-ds-card bg-surface-card text-left cursor-pointer',
+          compact ? 'p-ds-3' : 'p-ds-card',
+          r.is_read ? 'bw-hair border-border' : 'bw-bold border-ink'
+        )}
+      >
+        <span className={cn('flex shrink-0 items-center justify-center rounded-ds-sm', compact ? 'size-9' : 'size-11', ic.cls)}>{ic.icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start gap-ds-2">
+            <span className={cn('min-w-0 flex-1 font-extrabold text-ink', compact ? 'text-[15px] leading-[19px]' : 'text-[16px] leading-[20px]')}>{r.title}</span>
+            <span className="flex shrink-0 items-center gap-ds-1h pt-[2px] text-[13px] font-bold text-ink-muted">
+              {!r.is_read ? <i className="size-2 rounded-[2px] bg-brand" aria-label="Unread" /> : null}
+              {when(r.created_at)}
+            </span>
+          </span>
+          {r.message ? (
+            <span className={cn('mt-ds-1 block text-ink-muted', compact ? 'line-clamp-2 text-[13px] leading-[18px]' : 'text-[14px] leading-[19px]')}>
+              {r.message}
+            </span>
+          ) : null}
+        </span>
+      </button>
+    );
+  };
+
+  const filterControl = (
+    <Segmented
+      label="Show"
+      options={[
+        { id: 'all', label: 'All' },
+        { id: 'unread', label: unread > 0 ? `Unread · ${unread}` : 'Unread' },
+      ]}
+      value={filter}
+      onChange={setFilter}
+    />
+  );
+
+  if (variant === 'panel') {
+    return (
+      <>
+        <div className="flex flex-col gap-ds-3 bw-b-hair border-border p-ds-4">
+          <div className="flex items-center gap-ds-2">
+            <h2 className="m-0 font-display text-[20px] font-extrabold text-ink">Notifications</h2>
+            {unread > 0 ? <Tag tone="orange" className="text-[12px] normal-case tracking-normal">{`${unread} new`}</Tag> : null}
+            {unread > 0 ? (
+              <button
+                type="button"
+                onClick={() => void markAll()}
+                className="ds-link ml-auto border-0 bg-transparent p-0 text-[14px] font-extrabold text-brand-edge cursor-pointer"
+              >
+                Mark all read
+              </button>
+            ) : null}
+          </div>
+          {filterControl}
+        </div>
+        <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overscroll-contain p-ds-4">
+          {error ? (
+            <p className="m-0 mb-ds-3 rounded-ds-card bg-danger-soft bw-hair border-danger p-ds-3 text-[14px] font-bold text-ink">
+              We couldn&apos;t load your notifications.
+            </p>
+          ) : null}
+          {rows === null ? (
+            <div className="flex flex-col gap-ds-2" aria-busy>
+              <div className="h-[72px] animate-pulse rounded-ds-card bg-surface-sunken" />
+              <div className="h-[72px] animate-pulse rounded-ds-card bg-surface-sunken" />
+              <div className="h-[72px] animate-pulse rounded-ds-card bg-surface-sunken" />
+            </div>
+          ) : shown.length === 0 ? (
+            <div className="flex flex-col items-center gap-ds-2 px-ds-4 py-ds-6 text-center">
+              <span className="flex size-11 items-center justify-center rounded-ds-sm bg-surface-sunken text-ink">
+                <Bell size={22} aria-hidden />
+              </span>
+              <p className="m-0 font-display text-[17px] font-extrabold text-ink">
+                {filter === 'unread' ? 'All caught up' : 'No notifications yet'}
+              </p>
+              <p className="m-0 max-w-[32ch] text-[14px] text-ink-muted">
+                Class reminders, payments and messages from your tutors show up here.
+              </p>
+            </div>
+          ) : (
+            groups
+              .filter(([, list]) => list.length > 0)
+              .map(([label, list]) => (
+                <section key={label} className="flex flex-col gap-ds-2 [&+section]:mt-ds-4">
+                  <h3 className="m-0 text-[12px] font-extrabold uppercase tracking-[1.2px] text-ink-muted">{label}</h3>
+                  {list.map((r) => renderRow(r, true))}
+                </section>
+              ))
+          )}
+        </div>
+        <Link
+          href="/student/settings"
+          className="ds-press flex items-center gap-ds-2 bw-t-hair border-border px-ds-4 py-ds-3 text-[14px] font-extrabold text-ink"
+        >
+          <SlidersHorizontal size={18} weight="bold" aria-hidden />
+          <span className="flex-1">Choose what you get</span>
+          <CaretRight size={16} weight="bold" aria-hidden />
+        </Link>
+      </>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-ds-4">
       <div className="flex items-center gap-ds-3">
@@ -134,15 +258,7 @@ export default function StudentNotificationsV2() {
       </div>
 
       <div className="lg:max-w-[420px]">
-        <Segmented
-          label="Show"
-          options={[
-            { id: 'all', label: 'All' },
-            { id: 'unread', label: unread > 0 ? `Unread · ${unread}` : 'Unread' },
-          ]}
-          value={filter}
-          onChange={setFilter}
-        />
+        {filterControl}
       </div>
 
       {error ? (
@@ -187,32 +303,7 @@ export default function StudentNotificationsV2() {
                 ) : null}
               </div>
               <div className="grid gap-ds-3 lg:grid-cols-2">
-                {list.map((r) => {
-                  const ic = iconFor(r);
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => void open(r)}
-                      className={cn(
-                        'ds-press flex w-full items-start gap-ds-3 rounded-ds-card bg-surface-card p-ds-card text-left cursor-pointer',
-                        r.is_read ? 'bw-hair border-border' : 'bw-bold border-ink'
-                      )}
-                    >
-                      <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-ds-sm', ic.cls)}>{ic.icon}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-start gap-ds-2">
-                          <span className="min-w-0 flex-1 text-[16px] font-extrabold leading-[20px] text-ink">{r.title}</span>
-                          <span className="flex shrink-0 items-center gap-ds-1h pt-[2px] text-[13px] font-bold text-ink-muted">
-                            {!r.is_read ? <i className="size-2 rounded-[2px] bg-brand" aria-label="Unread" /> : null}
-                            {when(r.created_at)}
-                          </span>
-                        </span>
-                        {r.message ? <span className="mt-ds-1 block text-[14px] leading-[19px] text-ink-muted">{r.message}</span> : null}
-                      </span>
-                    </button>
-                  );
-                })}
+                {list.map((r) => renderRow(r, false))}
               </div>
             </section>
           ))
