@@ -33,10 +33,13 @@ export interface DetailScreenProps {
   /** One centred column (checkout): the reading column otherwise sits at the
    *  left of the 1280 frame, which on a payment screen reads as misplaced. */
   centered?: boolean;
+  /** false when the caller already wraps the page in a shell (the student
+   *  Settings › Payment methods pages reuse this screen inside StudentV2Shell). */
+  shell?: boolean;
   children: ReactNode;
 }
 
-export function DetailScreen({ backLabel, fallbackHref, title, action, width = 'reading', centered = false, children }: DetailScreenProps) {
+export function DetailScreen({ backLabel, fallbackHref, title, action, width = 'reading', centered = false, shell = true, children }: DetailScreenProps) {
   const router = useRouter();
   const { profile } = useProfile();
 
@@ -45,13 +48,7 @@ export function DetailScreen({ backLabel, fallbackHref, title, action, width = '
     else router.push(fallbackHref);
   };
 
-  return (
-    <ParentV2Shell
-      initials={parentInitials(profile)}
-      nav={false}
-      width={centered ? 'wide' : width}
-      title={typeof title === 'string' ? title : undefined}
-    >
+  const body = (
       <div className={centered ? 'mx-auto flex w-full max-w-[720px] flex-col gap-ds-4' : 'flex flex-col gap-ds-4'}>
         <button
           type="button"
@@ -75,6 +72,16 @@ export function DetailScreen({ backLabel, fallbackHref, title, action, width = '
         ) : null}
         {children}
       </div>
+  );
+  if (!shell) return body;
+  return (
+    <ParentV2Shell
+      initials={parentInitials(profile)}
+      nav={false}
+      width={centered ? 'wide' : width}
+      title={typeof title === 'string' ? title : undefined}
+    >
+      {body}
     </ParentV2Shell>
   );
 }

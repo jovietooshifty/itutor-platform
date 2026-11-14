@@ -300,7 +300,7 @@ export default function ExploreMarketplace({ variant = 'student' }: { variant?: 
   // The only thing the variant decides. Everything below is shared.
   const classHref = (id) => (isParent ? `/parent/classes/${id}` : `/student/explore/${id}`);
   const enrolledClassHref = (id) => (isParent ? `/parent/classes/${id}` : `/student/classes/${id}`);
-  const tutorHref = (id) => (isParent ? `/parent/tutors/${id}` : `/student/tutors/${id}/book`);
+  const tutorHref = (id) => (isParent ? `/parent/tutors/${id}` : `/student/tutors/${id}`);
   const { profile, loading } = useProfile();
   const router = useRouter();
   const [tutors, setTutors] = useState<Tutor[]>([]);

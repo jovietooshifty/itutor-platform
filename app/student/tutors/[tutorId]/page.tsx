@@ -485,10 +485,13 @@ export default function TutorProfilePage() {
     // calendar rendered beside the profile AND a modal thrown over it on load.
     // Desktop uses the sidebar; below lg the "Book a 1:1" button (which is not
     // mode-gated) still opens the sheet.
-    // New UI (Figma D1): no booking sidebar to fight, so arriving on /book
-    // opens the sheet, which is what that route is for.
-    if (new URLSearchParams(window.location.search).get('book') === '1on1' || (isNewUiEnabled() && mode === 'book')) {
+    // New UI: arriving on /book no longer opens the sheet either. It popped
+    // up when the tutor fetch finished, which on a phone was usually
+    // mid-scroll, and a stray tap then skipped a step. A deep-link only opens
+    // it if the student hasn't started scrolling yet.
+    if (new URLSearchParams(window.location.search).get('book') === '1on1') {
       autoOpenedRef.current = true;
+      if (window.scrollY > 24) return;
       if (isNewUiEnabled()) setV2BookOpen(true);
       else openBookingSheet();
     }

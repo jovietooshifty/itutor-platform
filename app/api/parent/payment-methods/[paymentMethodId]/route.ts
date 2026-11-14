@@ -23,7 +23,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     if (outcome === 'not_found') return NextResponse.json({ error: 'Not found' }, { status: 404 });
     if (outcome === 'in_use') {
       return NextResponse.json(
-        { error: 'in_use', message: 'This card pays for a class. Add another card before removing it.' },
+        { error: 'in_use', message: 'This card pays for your subscription. Add another card before removing it.' },
         { status: 409 }
       );
     }

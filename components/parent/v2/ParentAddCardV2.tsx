@@ -24,6 +24,7 @@ import { getStripe } from '@/components/booking/StripePaymentForm';
 import { Button } from '@/components/ui';
 import { DetailScreen, DetailSkeleton, EmptyCard } from './DetailScreen';
 import { FormError } from './accountKit';
+import { PARENT_CARD_ROUTES, type CardRoutes } from './ParentPaymentMethodsV2';
 
 function Note() {
   return (
@@ -38,7 +39,7 @@ function Note() {
   );
 }
 
-function AddCardForm() {
+function AddCardForm({ routes }: { routes: CardRoutes }) {
   const router = useRouter();
   const stripe = useStripe();
   const elements = useElements();
@@ -53,14 +54,14 @@ function AddCardForm() {
     const { error: err } = await stripe.confirmSetup({
       elements,
       redirect: 'if_required',
-      confirmParams: { return_url: `${window.location.origin}/parent/settings/payment-methods` },
+      confirmParams: { return_url: `${window.location.origin}${routes.page}` },
     });
     if (err) {
       setBusy(false);
       setError(err.message ?? 'The card could not be saved. Check the details and try again.');
       return;
     }
-    router.replace('/parent/settings/payment-methods');
+    router.replace(routes.page);
   };
 
   return (
@@ -77,7 +78,7 @@ function AddCardForm() {
   );
 }
 
-export default function ParentAddCardV2() {
+export default function ParentAddCardV2({ routes = PARENT_CARD_ROUTES }: { routes?: CardRoutes }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const stripePromise = getStripe();
@@ -86,7 +87,7 @@ export default function ParentAddCardV2() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/parent/payment-methods/setup-intent', { method: 'POST' });
+        const res = await fetch(`${routes.api}/setup-intent`, { method: 'POST' });
         if (!res.ok) throw new Error();
         const json = await res.json();
         if (!cancelled) setClientSecret(json.clientSecret ?? null);
@@ -98,10 +99,11 @@ export default function ParentAddCardV2() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <DetailScreen backLabel="Payment methods" fallbackHref="/parent/settings/payment-methods" title="Add a card">
+    <DetailScreen backLabel="Payment methods" fallbackHref={routes.page} title="Add a card" shell={!routes.embedded}>
       {failed || !stripePromise ? (
         <EmptyCard title="Cards cannot be added right now" body="Nothing has been saved or charged. Try again in a moment." />
       ) : !clientSecret ? (
@@ -117,7 +119,7 @@ export default function ParentAddCardV2() {
             },
           }}
         >
-          <AddCardForm />
+          <AddCardForm routes={routes} />
         </Elements>
       )}
     </DetailScreen>
