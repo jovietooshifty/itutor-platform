@@ -169,6 +169,7 @@ export default function TutorHomeV2() {
           )}
 
           <AttentionCard
+            afterAlert={urgentIsDanger}
             // Phones already showed the first payment failure above.
             actions={urgentIsDanger ? rest : data.actions}
             all={data.actions}
@@ -244,8 +245,10 @@ function AttentionCard({
   actions,
   all,
   messages,
+  afterAlert,
   className,
 }: {
+  afterAlert: boolean;
   actions: Action[];
   all: Action[];
   messages: HomeData['messages'];
@@ -260,7 +263,7 @@ function AttentionCard({
     <section className={cn('flex flex-col gap-ds-2', phoneEmpty && 'max-lg:hidden', desktopEmpty && 'lg:hidden', className)}>
       <h2 className="m-0 hidden font-display text-[18px] font-extrabold text-ink lg:block">Needs your attention</h2>
       <Card>
-        <div className="pb-ds-1 text-[16px] font-extrabold text-ink lg:hidden">Also needs you</div>
+        <div className="pb-ds-1 text-[16px] font-extrabold text-ink lg:hidden">{afterAlert ? 'Also needs you' : 'Needs your attention'}</div>
         <ul className="m-0 flex list-none flex-col p-0">
           {/* Desktop shows every action; phones show what the alert card didn't. */}
           {all.map((a, i) => {
