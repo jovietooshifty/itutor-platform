@@ -19,6 +19,9 @@ import { supabase } from '@/lib/supabase/client';
 import { fmtTTD } from '@/lib/utils/formatCurrency';
 import { formatLevel, LEVEL_LABELS } from '@/lib/utils/formatLevel';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
+import TutorClassManageV2 from '@/components/tutor/v2/TutorClassManageV2';
 import { uploadStreamAttachment } from '@/lib/utils/streamAttachments';
 import PaymentHistoryPanel from '@/components/students/PaymentHistoryPanel';
 import { generateHistoryForMember, getPaymentStatus, getMembershipStatus, MEMBERSHIP_META, type MemberBilling } from '@/lib/utils/paymentCycles';
@@ -219,10 +222,53 @@ function classCapacity(
 }
 
 export default function TutorLessonDetailPage() {
+  if (isNewUiEnabled()) {
+    return (
+      <TutorV2Shell width="wide" title="Class">
+        <ClassPageV2 />
+      </TutorV2Shell>
+    );
+  }
   return (
     <TutorShell>
       <ClassHubContent />
     </TutorShell>
+  );
+}
+
+const HUB_TABS: Tab[] = ['stream', 'sessions', 'roster', 'payments', 'settings', 'analytics'];
+
+/**
+ * New UI: the Manage overview (canvas m10/d03) by default; the full class hub
+ * whenever the URL asks for something only the hub does — a `?tab=`, the
+ * post-create `?schedule=1` pop-up, or the Google/Zoom OAuth return — and for
+ * anyone the overview won't serve (an admin entering as tutor).
+ */
+function ClassPageV2() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const id = params?.id as string | undefined;
+  const { profile, loading } = useProfile();
+  // Live, not captured once: the overview's buttons and the hub's "Class
+  // overview" link navigate within this same mounted page. The hub tidies the
+  // address bar with history.replaceState, which useSearchParams does not see,
+  // so the hub stays up after it strips its own params.
+  const wantsHub = ['tab', 'schedule', 'error', 'success'].some((k) => searchParams?.has(k));
+  const [overviewFailed, setOverviewFailed] = useState(false);
+  const onUnavailable = useMemo(() => () => setOverviewFailed(true), []);
+
+  if (loading || !id) return null;
+  const hub = wantsHub || overviewFailed || profile?.role !== 'tutor';
+  if (!hub) return <TutorClassManageV2 classId={id} onUnavailable={onUnavailable} />;
+  return (
+    <div className="flex flex-col gap-ds-3">
+      {profile?.role === 'tutor' && !overviewFailed ? (
+        <Link href={`/tutor/classes/${id}`} className="w-fit text-[14px] font-extrabold text-ink-muted no-underline hover:text-ink">
+          ← Class overview
+        </Link>
+      ) : null}
+      <ClassHubContent />
+    </div>
   );
 }
 
@@ -243,6 +289,8 @@ function ClassHubContent() {
   const [arrival] = useState(() => ({
     schedule: searchParams?.get('schedule') === '1',
     sessionsTab: searchParams?.get('tab') === 'sessions',
+    // The new UI's Manage overview opens the hub at a given tab.
+    tab: HUB_TABS.find((t) => t === searchParams?.get('tab')) ?? null,
     oauthError: searchParams?.get('error') ?? null,
   }));
 
@@ -251,7 +299,7 @@ function ClassHubContent() {
   const [sessions, setSessions] = useState<GroupSession[]>([]);
   const [posts, setPosts] = useState<StreamPost[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>(() => (arrival.schedule || arrival.sessionsTab ? 'sessions' : 'stream'));
+  const [tab, setTab] = useState<Tab>(() => (arrival.schedule || arrival.sessionsTab ? 'sessions' : arrival.tab ?? 'stream'));
   const [settingsDirty, setSettingsDirty] = useState(false);
 
   // The scheduling pop-up lives here rather than in SessionsTab so it outlives
