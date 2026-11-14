@@ -18,6 +18,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
+import { Button, Card } from '@/components/ui';
 
 type PendingClass = {
   id: string;
@@ -96,6 +99,51 @@ export default function EndDateGate({ children }: { children: React.ReactNode })
     d.setFullYear(d.getFullYear() + 2);
     return d.toISOString().slice(0, 10);
   })();
+
+  if (isNewUiEnabled()) {
+    // Same gate inside the new shell, so the tab bar stays and the tutor can
+    // still reach Home and Messages — the point of scoping this gate at all.
+    return (
+      <TutorV2Shell title="Classes">
+        <div className="flex flex-col gap-ds-4">
+          <h1 className="ds-page-title m-0 font-display font-extrabold text-ink">Add end dates to your classes</h1>
+          <p className="m-0 text-[15px] leading-[22px] text-ink-muted">
+            Classes now need a date they finish, so students stop being billed once the class ends. Set one for{' '}
+            {pending.length === 1 ? 'this class' : `these ${pending.length} classes`} to keep managing classes and payouts.
+          </p>
+          {pending.map((c) => (
+            <Card key={c.id} className="gap-ds-3">
+              <div className="min-w-0">
+                <div className="truncate text-[15px] font-extrabold">{c.name}</div>
+                <div className="text-[13px] text-ink-muted">
+                  {c.subject || 'No subject'} · created{' '}
+                  {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </div>
+                {fieldErrors[c.id] && <div className="mt-ds-1 text-[13px] font-bold text-danger">{fieldErrors[c.id]}</div>}
+              </div>
+              <label className="flex flex-col gap-ds-1 text-[13px] font-extrabold">
+                Ends on
+                <input
+                  type="date"
+                  min={today}
+                  max={maxDate}
+                  value={values[c.id] ?? ''}
+                  onChange={(e) => setValues((v) => ({ ...v, [c.id]: e.target.value }))}
+                  className="rounded-ds-btn bw-hair border-border bg-surface-card px-ds-3 py-ds-2 font-body text-[16px] font-normal text-ink"
+                />
+              </label>
+            </Card>
+          ))}
+          {error && (
+            <Card tone="alert" body={error} />
+          )}
+          <Button variant="primary" size="lg" block onClick={save} disabled={!allFilled || saving}>
+            {saving ? 'Saving…' : 'Save end dates'}
+          </Button>
+        </div>
+      </TutorV2Shell>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
