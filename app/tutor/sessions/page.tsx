@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import TutorShell from '@/components/tutor/TutorShell';
+import { markClassJoin } from '@/lib/attendance/markClassJoin';
 
 type SessionRow = {
   id: string;
@@ -353,6 +354,7 @@ function TutorClassJoinButton({ groupId }: { groupId: string }) {
   const [loading, setLoading] = useState(false);
 
   const join = async () => {
+    markClassJoin(groupId); // attendance: proves the session ran
     // Open the tab now, while we are still inside the click. The POST can
     // take a few seconds when it has to mint a Meet room, and a window.open
     // that runs after an await is no longer tied to a user gesture, so popup

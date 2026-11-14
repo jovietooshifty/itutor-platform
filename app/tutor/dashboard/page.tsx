@@ -4,7 +4,7 @@ import { useEffect, useState, ComponentType } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Users, CalendarDays, DollarSign, Eye, Lock, Plus, Clock, BookOpen,
+  Users, CalendarDays, DollarSign, Lock, Plus, Clock, BookOpen,
   UserCircle, ArrowRight, Video, MessageSquare, Star, Wallet, PenLine, CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,7 +19,6 @@ type DashboardStats = {
   activeStudents: number;
   upcomingSessions: number;
   monthEarnings: number;
-  profileViews: number;
 };
 
 type UpcomingSession = {
@@ -52,7 +51,7 @@ function DashboardContent() {
   const { profile, loading } = useProfile();
   const completion = useTutorCompletion(profile);
   const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats>({ activeStudents: 0, upcomingSessions: 0, monthEarnings: 0, profileViews: 0 });
+  const [stats, setStats] = useState<DashboardStats>({ activeStudents: 0, upcomingSessions: 0, monthEarnings: 0 });
   const [upcoming, setUpcoming] = useState<UpcomingSession[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [joinRequests, setJoinRequests] = useState<{ id: string; studentId: string; studentName: string; groupId: string; groupName: string; joinedAt: string }[]>([]);
@@ -98,11 +97,13 @@ function DashboardContent() {
           .gte('scheduled_start_at', now.toISOString())
           .order('scheduled_start_at', { ascending: true })
           .limit(5),
-        supabase
-          .from('bookings')
-          .select('student_id', { count: 'exact', head: true })
-          .eq('tutor_id', tutorId)
-          .in('status', ['CONFIRMED', 'confirmed']),
+        // Group-class students AND 1:1 students, by the Clients page's roster
+        // rule. Counting confirmed bookings alone read 0 for a tutor whose
+        // students are all in a class.
+        fetch('/api/tutor/class-stats', { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j) => ({ count: typeof j?.activeStudents === 'number' ? j.activeStudents : null }))
+          .catch(() => ({ count: null })),
         fetch('/api/tutor/wallet').then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
 
@@ -158,7 +159,6 @@ function DashboardContent() {
         activeStudents: studentCount ?? 0,
         upcomingSessions: allUpcoming.length,
         monthEarnings: monthTotal,
-        profileViews: 0,
       });
 
       const { data: recentRatings } = await supabase
@@ -235,11 +235,10 @@ function DashboardContent() {
       </header>
 
       <section>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
           <StatCard icon={Users} label="Active students" value={String(stats.activeStudents)} locked={!listed} />
           <StatCard icon={CalendarDays} label="Upcoming sessions" value={String(stats.upcomingSessions)} locked={!listed} />
           <StatCard icon={DollarSign} label="This month (TTD)" value={stats.monthEarnings.toLocaleString()} locked={!listed} />
-          <StatCard icon={Eye} label="Profile views" value={String(stats.profileViews)} locked={!listed} showLockIcon />
         </div>
       </section>
 

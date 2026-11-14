@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { CommentSection } from '@/components/ratings/CommentSection';
 import { occurrenceTitle } from '@/lib/utils/scheduleFormat';
+import { markClassJoin } from '@/lib/attendance/markClassJoin';
 
 /* ─── Types ──────────────────────────────────────────── */
 
@@ -352,7 +353,7 @@ export default function EnrolledClassPage({ params }: { params: { groupId: strin
             </div>
           </div>
           {!blocked && (
-            <JoinSessionButton link={classLink.link} checking={classLink.checking} />
+            <JoinSessionButton groupId={groupId} link={classLink.link} checking={classLink.checking} />
           )}
         </div>
       </div>
@@ -585,7 +586,7 @@ function useClassLink(groupId: string, initialLink: string | null, enabled: bool
 
 /* ─── Join session button ───────────────────────────── */
 
-function JoinSessionButton({ link, checking }: { link: string | null; checking: boolean }) {
+function JoinSessionButton({ groupId, link, checking }: { groupId: string; link: string | null; checking: boolean }) {
   if (!link) {
     return (
       <div className="w-full sm:w-auto shrink-0">
@@ -606,6 +607,7 @@ function JoinSessionButton({ link, checking }: { link: string | null; checking: 
         href={link}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => markClassJoin(groupId)}
         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-brand text-white font-semibold text-sm hover:bg-brand/90 transition"
       >
         <Video className="size-4" /> Join Now
@@ -1129,6 +1131,7 @@ function SessionsTab({ groupId, userId, group, meetingLink }: {
                   href={meetingLink}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => markClassJoin(groupId)}
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand/90">
                   <Video className="size-3.5" /> Join
                 </a>

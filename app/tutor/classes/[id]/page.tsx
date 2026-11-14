@@ -124,6 +124,7 @@ import { formatOffersSeat, seatTypesFor, type ClassFormat } from '@/lib/utils/se
 import InPersonSection, { type InPersonDraft } from '@/components/tutor/classes/InPersonSection';
 import { usePhysicalClasses } from '@/lib/hooks/usePhysicalClasses';
 import PaymentsGrid from '@/components/tutor/classes/PaymentsGrid';
+import { markClassJoin } from '@/lib/attendance/markClassJoin';
 
 type GroupDetail = {
   id: string;
@@ -1260,6 +1261,9 @@ function SessionRow({ s, groupId, meetingLink, linkMode, classFormat, selected, 
   // a generated link opens a blank tab FIRST and points it at the link once
   // the POST answers — opening after the await is what got blocked.
   const handleJoin = async () => {
+    // Attendance: the tutor's join is what proves the session ran. Without it
+    // every student's record reads "class didn't run" for this session.
+    markClassJoin(groupId);
     setJoinError('');
     setJoinNeedsLink(false);
     if (linkMode === 'custom') {

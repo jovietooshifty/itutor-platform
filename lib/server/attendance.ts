@@ -178,6 +178,58 @@ function windowVerdict(
 }
 
 /**
+ * The occurrence of a group class whose join window is open right now, or null.
+ *
+ * Why this exists: most Join buttons only know the CLASS, not the occurrence —
+ * the student class page's "Join Now" is a plain link to the class room, and
+ * the tutor's Join mints or opens the class link. Before this, those buttons
+ * recorded nothing at all, so every past session read "class didn't run"
+ * (production had zero tutor join rows ever). Resolving the occurrence on the
+ * server from the clock also means the client cannot pick one.
+ *
+ * When two windows overlap (back-to-back sessions) the one that started most
+ * recently wins: that is the class the person is walking into.
+ */
+export async function findJoinableGroupOccurrence(
+  admin: SupabaseClient,
+  groupId: string,
+  now: Date = new Date()
+): Promise<{ id: string; scheduledStart: string; scheduledEnd: string | null } | null> {
+  const { data: gsRows } = await admin.from('group_sessions').select('id').eq('group_id', groupId);
+  const gsIds = ((gsRows ?? []) as Array<{ id: string }>).map((r) => r.id);
+  if (gsIds.length === 0) return null;
+
+  // Any occurrence whose window could contain `now` started no later than
+  // 30 min from now; a generous lower bound covers long sessions.
+  const upper = new Date(now.getTime() + JOIN_WINDOW_OPENS_MINUTES * MINUTE_MS).toISOString();
+  const lower = new Date(now.getTime() - 12 * 60 * MINUTE_MS).toISOString();
+
+  const { data: occ } = await admin
+    .from('group_session_occurrences')
+    .select('id, scheduled_start_at, scheduled_end_at, status, cancelled_at')
+    .in('group_session_id', gsIds)
+    .gte('scheduled_start_at', lower)
+    .lte('scheduled_start_at', upper)
+    .order('scheduled_start_at', { ascending: false });
+
+  const open = ((occ ?? []) as Array<{
+    id: string;
+    scheduled_start_at: string;
+    scheduled_end_at: string | null;
+    status: string | null;
+    cancelled_at: string | null;
+  }>).filter(
+    (o) =>
+      !o.cancelled_at &&
+      String(o.status ?? '').toUpperCase() !== 'CANCELLED' &&
+      windowVerdict(o.scheduled_start_at, o.scheduled_end_at, now) === 'ok'
+  );
+
+  const pick = open.find((o) => new Date(o.scheduled_start_at).getTime() <= now.getTime()) ?? open[open.length - 1];
+  return pick ? { id: pick.id, scheduledStart: pick.scheduled_start_at, scheduledEnd: pick.scheduled_end_at } : null;
+}
+
+/**
  * Decides whether to believe a claimed join.
  *
  * Why this exists: /api/attendance/mark-present writes with the service role,
