@@ -18,7 +18,7 @@
  * "Awaiting parent" rows have no source and are not drawn.
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button, Card, QuestProgress, SectionHeader, SubjectTile, Tag } from '@/components/ui';
@@ -84,15 +84,27 @@ const ACTION_TAG: Record<Action['tone'], 'danger' | 'warning' | 'outline'> = {
 
 export default function TutorHomeV2() {
   const router = useRouter();
-  const { data, isLoading, isError, refetch } = useQuery<HomeData>({
-    queryKey: ['tutor-home'],
-    queryFn: async () => {
+  // Plain fetch: tutor routes have no QueryClientProvider (useQuery crashed the page).
+  const [data, setData] = useState<HomeData | null>(null);
+  const [isLoading, setLoading] = useState(true);
+  const [isError, setError] = useState(false);
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
       const res = await fetch('/api/tutor/home', { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json?.success) throw new Error(json?.error || 'Could not load Home');
-      return json.data as HomeData;
-    },
-  });
+      setData(json.data as HomeData);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   if (isLoading) {
     return (
