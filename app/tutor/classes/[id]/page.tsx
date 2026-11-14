@@ -730,7 +730,9 @@ function ClassHubContent() {
   return (
     // The bleed margins undo TutorShell's padding; the new shell has none to
     // undo, and bleeding there pulls the hero over the "Class overview" link.
-    <div className={newUi ? 'overflow-hidden rounded-ds-card' : '-mx-4 lg:-mx-8 -mt-6 lg:-mt-8'}>
+    // Rounded on the hero itself, not via overflow-hidden here, which would
+    // stop the sticky admin banner from sticking.
+    <div className={newUi ? undefined : '-mx-4 lg:-mx-8 -mt-6 lg:-mt-8'}>
       {/* Admin "acting as tutor" banner — mandatory, never ambiguous. */}
       {adminMode && (
         <div className="sticky top-0 z-30 flex items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-center text-xs font-semibold text-amber-950">
@@ -741,10 +743,10 @@ function ClassHubContent() {
       {/* Banner header */}
       {/* 176px could not hold chips + title + the stacked price boxes on a
           phone; the new UI gives it room. The old UI is left as it was. */}
-      <div className={cn('relative', newUi ? 'h-64 lg:h-52' : 'h-44 lg:h-52', !group.coverImage && (group.thumbnailGradient ?? 'from-brand to-emerald-400'), !group.coverImage && 'bg-gradient-to-br')}
+      <div className={cn('relative', newUi ? 'h-64 rounded-ds-card lg:h-52' : 'h-44 lg:h-52', !group.coverImage && (group.thumbnailGradient ?? 'from-brand to-emerald-400'), !group.coverImage && 'bg-gradient-to-br')}
         style={group.coverImage ? { backgroundImage: `url(${group.coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
         {group.coverImage && (
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
         )}
         <Link href={adminMode ? '/admin/classes' : '/tutor/classes'} className="absolute top-4 left-4 inline-flex items-center gap-1 text-xs font-semibold text-white/95 bg-black/30 hover:bg-black/40 px-3 py-1.5 rounded-full backdrop-blur">
           <ArrowLeft className="size-3.5" /> {adminMode ? 'Class Admin' : 'All Classes'}
