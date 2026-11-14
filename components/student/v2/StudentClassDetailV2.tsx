@@ -295,7 +295,7 @@ export function StudentClassDetailV2({ group, parentGate, onJoin }: StudentClass
         <ClassCover
           image={group.cover_image}
           subject={subject}
-          className="h-[120px] rounded-ds-card md:h-[200px] lg:h-[240px]"
+          className="aspect-[4/1] rounded-ds-card"
         />
 
         <div className="flex flex-col gap-ds-2">

@@ -279,10 +279,9 @@ function LessonCard({
       )}
       style={{ ['--i' as string]: index }}
     >
-      {/* Always the subject colour block, never the tutor's upload. The frames
-          draw every card that way, and one uploaded photo ("Caribbean History
-          Prep", the only class with a cover_image) broke the grid's rhythm. */}
-      <ClassCover subject={lesson.subject || lesson.title} className="h-[112px] lg:h-[128px]" />
+      {/* The tutor's banner when there is one, else the subject colour block,
+          both in the banner's own 4:1 box so nothing is cropped. */}
+      <ClassCover image={lesson.coverImage} subject={lesson.subject || lesson.title} className="aspect-[4/1]" />
       <div className="flex flex-col gap-ds-2 p-ds-card">
         <div className="flex items-start justify-between gap-ds-3">
           <h3 className="font-display text-[16px] font-extrabold leading-[20px] text-ink">{lesson.title}</h3>
@@ -437,10 +436,17 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
       <ChipRow chips={chips} activeChip={activeChip} onChipChange={onChipChange} />
 
       {loading ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
-          <Skeleton height={showingLessons ? 210 : 96} />
-          <Skeleton height={showingLessons ? 210 : 96} />
-          <Skeleton height={showingLessons ? 210 : 96} />
+        <div
+          className={cn(
+            'grid gap-ds-3 lg:gap-ds-4',
+            showingLessons
+              ? 'grid-cols-[repeat(auto-fill,minmax(min(420px,100%),1fr))]'
+              : 'grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))]'
+          )}
+        >
+          <Skeleton height={showingLessons ? 250 : 96} />
+          <Skeleton height={showingLessons ? 250 : 96} />
+          <Skeleton height={showingLessons ? 250 : 96} />
         </div>
       ) : showingLessons ? (
         <>
@@ -455,10 +461,12 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
               onClear={narrowed ? onClearSearch : undefined}
             />
           ) : (
-            // One column on a phone, as drawn; from there as many 300px+
-            // columns as fit (PROVISIONAL: no wide frame), so a monitor gets
-            // three or four cards a row rather than two huge ones.
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
+            // One column on a phone; two on a desktop. Class cards carry the
+            // tutor's 4:1 banner, which is dense with text: at the old 300px
+            // minimum (four a row) it was ~75px tall and unreadable. 420px+
+            // columns give at most two in the 1280 frame, ~150px tall banners.
+            // PROVISIONAL: no wide frame.
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(420px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
               {lessons.map((l, i) => {
                 const enrolled = enrolledIds.has(l.id);
                 return (
