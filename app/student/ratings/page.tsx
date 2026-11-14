@@ -8,6 +8,9 @@ import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import { StarRow } from '@/components/ratings/StarInput';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import StudentRatingsV2 from '@/components/student/v2/StudentRatingsV2';
 
 type OneOnOneRating = {
   id: string;
@@ -34,7 +37,18 @@ type GroupRating = {
 
 type Tab = '1on1' | 'group';
 
-export default function StudentRatings() {
+/** New UI (PROVISIONAL, no Figma frame) behind NEXT_PUBLIC_NEW_UI_ENABLED; fixed at build time. */
+export default function StudentRatingsRoute() {
+  return isNewUiEnabled() ? (
+    <StudentV2Shell width="wide" title="Ratings">
+      <StudentRatingsV2 />
+    </StudentV2Shell>
+  ) : (
+    <StudentRatings />
+  );
+}
+
+function StudentRatings() {
   const { profile, loading } = useProfile();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('1on1');

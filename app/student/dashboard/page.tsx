@@ -1,6 +1,9 @@
 'use client';
 
 import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import StudentHomeV2 from '@/components/student/v2/StudentHomeV2';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useProfile } from '@/lib/hooks/useProfile';
@@ -33,7 +36,23 @@ type EnrichedSession = Session & {
   subject?: { id: string; label?: string; name?: string } | null;
 };
 
-export default function StudentDashboard() {
+/**
+ * The new UI (Figma 2:444) when NEXT_PUBLIC_NEW_UI_ENABLED is on; the old
+ * dashboard otherwise. The flag is fixed at build time, so the two trees never
+ * alternate between renders. StudentLayoutSwitch lists this route, so the old
+ * StudentShell is not wrapped around the new one.
+ */
+export default function StudentDashboardPage() {
+  return isNewUiEnabled() ? (
+    <StudentV2Shell width="wide" title="Home">
+      <StudentHomeV2 />
+    </StudentV2Shell>
+  ) : (
+    <StudentDashboard />
+  );
+}
+
+function StudentDashboard() {
   const { profile, loading } = useProfile();
   const router = useRouter();
   const searchParams = useSearchParams();

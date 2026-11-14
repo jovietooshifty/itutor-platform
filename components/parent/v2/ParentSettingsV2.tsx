@@ -1,27 +1,23 @@
 'use client';
 
 /**
- * ParentSettingsV2 — frame `160:7984`, read from Figma rather than inferred.
+ * ParentSettingsV2 — frame `160:7981` (phone `160:7984`), read from Figma.
  *
- * Two things the frame settles that the build had wrong:
+ * NOW THE ACCOUNT TAB'S ROOT (QA handoff §1). The frame draws a "Home" back
+ * link and no tab bar, from when Settings was a detail screen off the account
+ * sheet. The handoff overrides that: the fifth tab is Account, it lands here,
+ * so this screen shows the nav and has no back link. Deliberate deviation.
  *
- * NO BOTTOM NAV, AND A BACK LINK TO HOME. Settings is a detail screen reached
- * from the account sheet, not a tab destination. The Profile TAB goes to the
- * Profile screen (`160:8114`), which does carry the nav with Profile active.
- * SCREEN_MAP calls the account menu the "Profile tab root"; the frames
- * disagree with it, and the frames win.
+ * THE LIST IS SIX ROWS, as drawn: Profile, Payment methods, Notifications,
+ * Security, Billing, Help and support — each opening its own screen (no more
+ * ?section= switcher). Above it sit two cards: the parent's own account
+ * (which also opens Profile) and one per linked child.
  *
- * THE LIST IS SIX ROWS, not the five-section switcher this route used to be:
- * Profile, Payment methods, Notifications, Security, Billing, Help and
- * support — each with a one-line description. Above it sit two cards: the
- * parent's own account, and one per linked child.
- *
- * ONE DELIBERATE ADDITION, flagged rather than hidden. Calendar, Feedback and
- * Rewards are real routes with no frame in this file — SCREEN_MAP sources
- * them from Alejandro's file with node ids still pending. The old sidebar
- * carried them; the five-tab bar does not. Matching the frame exactly would
- * leave three live screens reachable only by typing a URL, so they are in a
- * second group, visually separate, until a frame says otherwise.
+ * ONE DELIBERATE ADDITION, flagged rather than hidden. Calendar, Feedback,
+ * Messages and Rewards are real routes with no frame in this file. The old
+ * sidebar carried them; the five-tab bar does not. Matching the frame exactly
+ * would leave live screens reachable only by typing a URL, so they are in a
+ * second group, visually separate (PROVISIONAL), until a frame says otherwise.
  */
 
 import { useEffect, useState } from 'react';
@@ -29,25 +25,29 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase/client';
 import { useProfile } from '@/lib/hooks/useProfile';
+import { Receipt, SignOut } from '@phosphor-icons/react';
 import { DsIcon, type IconName } from '@/components/ui/icons';
 import { rewardsVisible, useCredits } from '@/lib/credits/useCredits';
 import '@/components/ui/ds-tokens.css';
 
 type Child = { id: string; name: string };
 
-const ROWS: Array<{ href: string; icon: IconName; label: string; detail: string }> = [
+type RowDef = { href: string; icon: IconName | 'receipt'; label: string; detail: string };
+
+const ROWS: RowDef[] = [
   { href: '/parent/profile', icon: 'profile', label: 'Profile', detail: 'Name, username, email' },
-  { href: '/parent/settings?section=billing', icon: 'billing', label: 'Payment methods', detail: 'Cards on file' },
-  { href: '/parent/settings?section=notifications', icon: 'bell', label: 'Notifications', detail: 'Classes and payments' },
-  { href: '/parent/settings?section=security', icon: 'lock', label: 'Security', detail: 'Password' },
-  { href: '/parent/billing', icon: 'billing', label: 'Billing', detail: 'Receipts' },
+  { href: '/parent/settings/payment-methods', icon: 'billing', label: 'Payment methods', detail: 'Cards on file' },
+  { href: '/parent/settings/notifications', icon: 'bell', label: 'Notifications', detail: 'Classes and payments' },
+  { href: '/parent/settings/security', icon: 'lock', label: 'Security', detail: 'Password' },
+  { href: '/parent/billing', icon: 'receipt', label: 'Billing', detail: 'Receipts' },
   { href: '/parent/help', icon: 'help', label: 'Help and support', detail: 'Contact the iTutor team' },
 ];
 
-// See the header note: real routes with no frame in this file.
-const UNFRAMED: Array<{ href: string; icon: IconName; label: string; detail: string }> = [
+// See the header note: real routes with no frame in this file. PROVISIONAL.
+const UNFRAMED: RowDef[] = [
   { href: '/parent/calendar', icon: 'classes', label: 'Calendar', detail: 'Every session in one place' },
   { href: '/parent/feedback', icon: 'chat', label: 'Feedback', detail: 'Reports from your tutors' },
+  { href: '/parent/messages', icon: 'chat', label: 'Messages', detail: "Conversations with your children's tutors" },
 ];
 
 function Row({
@@ -57,7 +57,7 @@ function Row({
   onClick,
   first,
 }: {
-  icon: IconName;
+  icon: RowDef['icon'];
   label: string;
   detail: string;
   onClick: () => void;
@@ -75,7 +75,8 @@ function Row({
       )}
     >
       <span className="shrink-0 text-ink">
-        <DsIcon name={icon} size={22} />
+        {/* The frame's Billing row draws a receipt, which the DS icon set lacks. */}
+        {icon === 'receipt' ? <Receipt size={22} aria-hidden /> : <DsIcon name={icon} size={22} />}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="font-display text-[15px] font-extrabold leading-[19px] text-ink">{label}</span>
@@ -167,26 +168,11 @@ export function ParentSettingsV2() {
     .toUpperCase();
 
   const rows = rewardsVisible(credits.data)
-    ? [...UNFRAMED, { href: '/parent/rewards', icon: 'billing' as IconName, label: 'Rewards', detail: 'Your iTutor credits' }]
+    ? [...UNFRAMED, { href: '/parent/rewards', icon: 'billing' as const, label: 'Rewards', detail: 'Your iTutor credits' }]
     : UNFRAMED;
 
   return (
     <div className="flex flex-col gap-ds-4">
-      <button
-        type="button"
-        onClick={() => router.push('/parent/dashboard')}
-        className={cn(
-          'flex items-center gap-ds-2 self-start border-0 bg-transparent p-0',
-          'font-display text-[16px] font-extrabold text-ink cursor-pointer',
-          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
-        )}
-      >
-        <span className="rotate-180">
-          <DsIcon name="chevron" size={20} />
-        </span>
-        Home
-      </button>
-
       <h1 className="ds-page-title">Settings</h1>
 
       <AccountCard
@@ -248,6 +234,7 @@ export function ParentSettingsV2() {
           'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
         )}
       >
+        <SignOut size={24} aria-hidden />
         Log out
       </button>
     </div>

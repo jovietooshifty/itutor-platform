@@ -77,6 +77,8 @@ export async function GET(_request: NextRequest) {
       past: boolean;
       outcome: string | null;
       lateMinutes: number | null;
+      /** The session was called off. Past ones also carry outcome 'cancelled'. */
+      cancelled: boolean;
     };
 
     const events: Event[] = [];
@@ -212,6 +214,7 @@ export async function GET(_request: NextRequest) {
               start: o.scheduled_start_at,
               end: o.scheduled_end_at,
               type: 'group',
+              cancelled: Boolean(o.cancelled_at),
               past: new Date(o.scheduled_start_at).getTime() < nowMs,
               outcome: null,
               lateMinutes: null,
@@ -252,6 +255,7 @@ export async function GET(_request: NextRequest) {
         start: s.scheduled_start_at,
         end: s.scheduled_end_at,
         type: '1:1',
+        cancelled: Boolean(s.cancelled_at),
         past: new Date(s.scheduled_start_at).getTime() < nowMs,
         outcome: null,
         lateMinutes: null,

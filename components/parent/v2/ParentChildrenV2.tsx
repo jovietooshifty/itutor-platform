@@ -119,7 +119,7 @@ export default function ParentChildrenV2() {
   }
 
   return (
-    <DetailScreen backLabel="Back" fallbackHref="/parent/profile" title="Your children">
+    <DetailScreen backLabel="Settings" fallbackHref="/parent/settings" title="Your children">
       {loading && profile?.id ? (
         <DetailSkeleton rows={2} />
       ) : (

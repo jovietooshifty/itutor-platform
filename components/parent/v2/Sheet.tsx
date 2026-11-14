@@ -15,6 +15,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { DsPortal } from '@/components/ui/DsPortal';
+import { X } from '@phosphor-icons/react';
 
 export interface SheetProps {
   open: boolean;
@@ -59,17 +60,32 @@ export function Sheet({ open, onClose, title, label, children, footer }: SheetPr
           aria-modal="true"
           aria-label={label ?? (typeof title === 'string' ? title : undefined)}
           className={cn(
-            'relative flex max-h-[88vh] w-full max-w-[430px] flex-col md:max-w-[520px]',
+            'relative flex max-h-[88dvh] w-full max-w-[430px] flex-col md:max-w-[480px]',
             'rounded-t-ds-card md:rounded-ds-card bw-hair border-border bg-surface-card'
           )}
         >
           <span className="mx-auto mt-ds-2 h-[4px] w-[36px] md:hidden shrink-0 rounded-ds-full bg-line-soft" aria-hidden />
-          <h2 className="px-ds-card pb-ds-2 pt-ds-2 md:pt-ds-card font-display text-[20px] font-extrabold leading-[24px] text-ink">
-            {title}
-          </h2>
+          {/* Title row with a close button: Escape and the scrim were the only
+              ways out, and neither is visible on a phone. */}
+          <div className="flex items-start gap-ds-3 px-ds-card pb-ds-2 pt-ds-2 md:pt-ds-card">
+            <h2 className="m-0 min-w-0 flex-1 pt-[6px] font-display text-[20px] font-extrabold leading-[24px] text-ink">{title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="ds-press -mr-ds-2 flex size-11 shrink-0 items-center justify-center rounded-ds-sm border-0 bg-transparent text-ink cursor-pointer"
+            >
+              <X size={20} weight="bold" aria-hidden />
+            </button>
+          </div>
           <div className="flex flex-col gap-ds-3 overflow-y-auto px-ds-card pb-ds-card">{children}</div>
           {footer ? (
-            <div className="flex flex-col gap-ds-2 bw-t-hair border-line-soft p-ds-card lg:items-end">{footer}</div>
+            // Full-width actions, stacked on a phone and side by side from md.
+            // The old lg:items-end shrank every button to its label and left
+            // them stranded at the left of a wide dialog.
+            <div className="flex flex-col gap-ds-2 bw-t-hair border-line-soft p-ds-card md:flex-row [&>*]:w-full md:[&>*]:flex-1">
+              {footer}
+            </div>
           ) : null}
         </div>
       </div>

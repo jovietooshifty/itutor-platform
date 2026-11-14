@@ -16,7 +16,10 @@ import {
   BadgeCheck, ChevronLeft, ChevronRight, X, Check, MapPin,
   ThumbsUp, ThumbsDown, HeartHandshake, Lightbulb, BookOpen,
 } from 'lucide-react';
-import { getTutorPublicCalendar } from '@/lib/services/bookingService';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import { StudentTutorProfileV2, StudentTutorBookBar } from '@/components/student/v2/StudentTutorProfileV2';
+import { OneToOneBookingSheet } from '@/components/booking/OneToOneBookingSheet';
 import ClassesSection from '@/components/tutor/public/ClassesSection';
 import BlurredBannerBackdrop from '@/components/tutor/BlurredBannerBackdrop';
 import TutorCredentials from '@/components/TutorCredentials';
@@ -71,122 +74,13 @@ type TutorProfile = {
   total_reviews: number;
 };
 
-// ── Availability helpers ──────────────────────────────────────────────────────
+// Availability helpers live in lib/bookings/slots.ts (shared with the parent
+// booking sheet).
+import {
+  DURATION_OPTIONS, effectiveWindows, emptySlots, fmtTime, loadCalendar, minBookableStartHour,
+  slotToISO, startsForDuration, type DayAvail, type Window,
+} from '@/lib/bookings/slots';
 
-type Window = { start: number; end: number };
-type DayAvail = { date: Date; windows: Window[]; booked: Window[] };
-
-const SLOT_STEP = 0.5;
-const MIN_BOOKING_LEAD_MINUTES = 15;
-const DURATION_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
-
-function fmtTime(h: number) {
-  const hr = Math.floor(h);
-  const m = Math.round((h - hr) * 60);
-  const ampm = hr >= 12 ? 'PM' : 'AM';
-  const h12 = ((hr + 11) % 12) + 1;
-  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
-}
-
-function effectiveWindows(windows: Window[], booked: Window[]): Window[] {
-  let out = windows.map((w) => ({ ...w }));
-  for (const b of booked) {
-    const next: Window[] = [];
-    for (const w of out) {
-      if (b.end <= w.start || b.start >= w.end) { next.push(w); continue; }
-      if (b.start > w.start) next.push({ start: w.start, end: b.start });
-      if (b.end < w.end) next.push({ start: b.end, end: w.end });
-    }
-    out = next;
-  }
-  return out.filter((w) => w.end - w.start >= SLOT_STEP);
-}
-
-function minBookableStartHour(date: Date): number | null {
-  const cutoff = new Date(Date.now() + MIN_BOOKING_LEAD_MINUTES * 60 * 1000);
-  const day = new Date(date);
-  day.setHours(0, 0, 0, 0);
-  const cutoffDay = new Date(cutoff);
-  cutoffDay.setHours(0, 0, 0, 0);
-
-  if (day < cutoffDay) return Number.POSITIVE_INFINITY;
-  if (day > cutoffDay) return null;
-
-  const cutoffHour = cutoff.getHours() + cutoff.getMinutes() / 60;
-  return Math.ceil(cutoffHour / SLOT_STEP) * SLOT_STEP;
-}
-
-function startsForDuration(eff: Window[], duration: number, date: Date): number[] {
-  const out: number[] = [];
-  const minStart = minBookableStartHour(date);
-  for (const w of eff) {
-    let t = Math.ceil(w.start / SLOT_STEP) * SLOT_STEP;
-    while (t + duration <= w.end + 1e-9) {
-      if (minStart == null || t >= minStart - 1e-9) {
-        out.push(Number(t.toFixed(2)));
-      }
-      t += SLOT_STEP;
-    }
-  }
-  return out;
-}
-
-function emptySlots(days = 30): DayAvail[] {
-  const out: DayAvail[] = [];
-  const start = new Date(); start.setHours(0, 0, 0, 0);
-  for (let i = 0; i < days; i++) {
-    const d = new Date(start); d.setDate(start.getDate() + i);
-    out.push({ date: d, windows: [], booked: [] });
-  }
-  return out;
-}
-
-function isoToHour(iso: string): number {
-  const d = new Date(iso);
-  return d.getHours() + d.getMinutes() / 60;
-}
-
-async function loadCalendar(tutorId: string, days = 30): Promise<DayAvail[]> {
-  const rangeStart = new Date(); rangeStart.setHours(0, 0, 0, 0);
-  const rangeEnd = new Date(rangeStart); rangeEnd.setDate(rangeStart.getDate() + days);
-
-  const cal = await getTutorPublicCalendar(tutorId, rangeStart.toISOString(), rangeEnd.toISOString());
-
-  return Array.from({ length: days }, (_, i) => {
-    const d = new Date(rangeStart); d.setDate(rangeStart.getDate() + i);
-    const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999);
-
-    const windows: Window[] = [];
-    for (const w of cal.availability_windows ?? []) {
-      const ws = new Date(w.start_at); const we = new Date(w.end_at);
-      if (we <= dayStart || ws >= dayEnd) continue;
-      const start = isoToHour(w.start_at);
-      const end = isoToHour(w.end_at);
-      if (end > start) windows.push({ start, end });
-    }
-
-    const booked: Window[] = [];
-    for (const b of cal.busy_blocks ?? []) {
-      const bs = new Date(b.start_at); const be = new Date(b.end_at);
-      if (be <= dayStart || bs >= dayEnd) continue;
-      booked.push({ start: isoToHour(b.start_at), end: isoToHour(b.end_at) });
-    }
-
-    return { date: d, windows, booked };
-  });
-}
-
-function slotToISO(date: Date, startHour: number, duration: number) {
-  const startH = Math.floor(startHour);
-  const startM = Math.round((startHour - startH) * 60);
-  const start = new Date(date); start.setHours(startH, startM, 0, 0);
-  const endHour = startHour + duration;
-  const endH = Math.floor(endHour);
-  const endM = Math.round((endHour - endH) * 60);
-  const end = new Date(date); end.setHours(endH, endM, 0, 0);
-  return { start: start.toISOString(), end: end.toISOString() };
-}
 
 // ── BookingCard ───────────────────────────────────────────────────────────────
 
@@ -364,6 +258,9 @@ export default function TutorProfilePage() {
   const [groupReviews, setGroupReviews] = useState<GroupReview[]>([]);
   const [voted, setVoted] = useState<Record<string, 'up' | 'down' | undefined>>({});
   const [showBookingSheet, setShowBookingSheet] = useState(false);
+  // New UI: the shared stepped sheet (components/booking/OneToOneBookingSheet)
+  // replaces the old modal below. The old UI keeps the old modal.
+  const [v2BookOpen, setV2BookOpen] = useState(false);
   const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
   const [pickedTime, setPickedTime] = useState<number | null>(null);
   const [pickedDay, setPickedDay] = useState(0);
@@ -588,9 +485,12 @@ export default function TutorProfilePage() {
     // calendar rendered beside the profile AND a modal thrown over it on load.
     // Desktop uses the sidebar; below lg the "Book a 1:1" button (which is not
     // mode-gated) still opens the sheet.
-    if (new URLSearchParams(window.location.search).get('book') === '1on1') {
+    // New UI (Figma D1): no booking sidebar to fight, so arriving on /book
+    // opens the sheet, which is what that route is for.
+    if (new URLSearchParams(window.location.search).get('book') === '1on1' || (isNewUiEnabled() && mode === 'book')) {
       autoOpenedRef.current = true;
-      openBookingSheet();
+      if (isNewUiEnabled()) setV2BookOpen(true);
+      else openBookingSheet();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, tutor]);
@@ -612,7 +512,23 @@ export default function TutorProfilePage() {
   const writtenGroupReviews = groupReviews.filter((r) => r.comment && r.comment.trim().length > 0);
   const priceLabel = !paidClassesEnabled ? 'Free' : (minPrice > 0 ? `TT$${minPrice}` : 'Rate not set');
 
+  // New UI (Figma 31:3796). Same state and handlers; only the profile view
+  // and its chrome change. The booking sheet below is shared by both.
+  const newUi = isNewUiEnabled();
+  const v2Rate = !paidClassesEnabled ? 'Free' : minPrice > 0 ? `TT$${minPrice}` : null;
+
   if (profileLoading || loading || !profile) {
+    if (newUi) {
+      return (
+        <StudentV2Shell width="wide" title="Tutor">
+          <div className="flex flex-col gap-ds-4" aria-busy>
+            <div className="h-[104px] animate-pulse rounded-ds-card bg-surface-sunken" />
+            <div className="h-[72px] animate-pulse rounded-ds-card bg-surface-sunken" />
+            <div className="h-[160px] animate-pulse rounded-ds-card bg-surface-sunken" />
+          </div>
+        </StudentV2Shell>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-itutor-green" />
@@ -621,11 +537,47 @@ export default function TutorProfilePage() {
   }
 
   if (!tutor) {
+    if (newUi) {
+      return (
+        <StudentV2Shell width="wide" title="Tutor">
+          <div className="flex flex-col items-start gap-ds-3">
+            <h1 className="ds-page-title m-0 font-display font-extrabold text-ink">Tutor not found</h1>
+            <Link href="/student/find-tutors?tab=tutors" className="ds-link font-body text-[16px] font-extrabold text-brand-edge">
+              Back to Explore
+            </Link>
+          </div>
+        </StudentV2Shell>
+      );
+    }
     return <div className="text-center py-12"><p className="text-gray-600">Tutor not found</p></div>;
   }
 
-  return (
+  const body = (
     <>
+      {newUi ? (
+        <StudentTutorProfileV2
+          tutor={{
+            id: tutor.id,
+            name: getDisplayName(tutor),
+            avatarUrl: tutor.avatar_url,
+            verified: tutor.tutor_verification_status === 'VERIFIED',
+            bio: tutor.bio,
+            subjects: tutor.subjects.map((s) => ({ id: s.id, name: s.name, price: s.price_per_hour_ttd })),
+            averageRating: tutor.average_rating,
+            totalReviews: tutor.total_reviews,
+            completedSessions,
+          }}
+          reviews={reviews.map((r) => ({
+            id: r.id,
+            stars: r.stars,
+            comment: r.comment,
+            who: (r.student?.full_name || 'A student').split(' ')[0],
+            when: new Date(r.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+          }))}
+          rateLabel={v2Rate}
+          showBook={tutor.subjects.length > 0}
+        />
+      ) : (
       <div className="max-w-5xl mx-auto space-y-6">
         <Link href="/student/find-tutors" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-ink">
           <ArrowLeft className="size-4" /> Back to Explore
@@ -915,6 +867,7 @@ export default function TutorProfilePage() {
         )}
         </div>
       </div>
+      )}
 
       {/* Mobile booking sheet */}
       {showBookingSheet && (
@@ -1049,6 +1002,19 @@ export default function TutorProfilePage() {
         </div>
       )}
 
+      {newUi && (
+        <OneToOneBookingSheet
+          mode="student"
+          open={v2BookOpen}
+          onClose={() => setV2BookOpen(false)}
+          tutorId={tutor.id}
+          tutorName={getDisplayName(tutor)}
+          tutorFirstName={getDisplayName(tutor).split(' ')[0] || getDisplayName(tutor)}
+          subjects={tutor.subjects.map((s) => ({ id: s.id, label: s.name, rate: s.price_per_hour_ttd }))}
+          lengths={DURATION_OPTIONS}
+        />
+      )}
+
       {selectedSubject && (
         <SuggestTimeModal
           isOpen={suggestTimeModalOpen}
@@ -1063,5 +1029,25 @@ export default function TutorProfilePage() {
         />
       )}
     </>
+  );
+
+  if (!newUi) return body;
+  return (
+    <StudentV2Shell
+      width="wide"
+      title={getDisplayName(tutor)}
+      bottomBar={
+        tutor.subjects.length > 0 ? (
+          <StudentTutorBookBar
+            rateLabel={v2Rate}
+            onBook={() => setV2BookOpen(true)}
+            disabled={v2Rate === null}
+            note={v2Rate === null ? 'This tutor has not set a rate yet' : undefined}
+          />
+        ) : null
+      }
+    >
+      {body}
+    </StudentV2Shell>
   );
 }

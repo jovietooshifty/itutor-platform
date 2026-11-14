@@ -426,6 +426,24 @@ export async function GET(
     const priceTtd = Number(md.price_ttd ?? '0');
     const processingFee = Number(md.processing_fee_ttd ?? '0');
 
+    // A parent booking a 1:1 for their child (payer ≠ student): name the
+    // child, as the subscription branch does, so the checkout says whose
+    // lesson this is.
+    let forStudent: string | null = null;
+    if (md.payer_id && md.student_id && md.payer_id !== md.student_id) {
+      const { data: st } = await createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      )
+        .from('profiles')
+        .select('full_name, display_name')
+        .eq('id', md.student_id)
+        .maybeSingle();
+      const sp = st as { full_name: string | null; display_name: string | null } | null;
+      forStudent = sp?.display_name || sp?.full_name || null;
+    }
+
     return NextResponse.json({
       status: intent.status,
       clientSecret: intent.client_secret,
@@ -445,6 +463,7 @@ export async function GET(
         bio: tutor?.bio ?? null,
       },
       subject: subject?.label || subject?.name || 'Tutoring session',
+      forStudent,
     });
   } catch (err) {
     console.error('[stripe/intent] Unhandled error:', err);

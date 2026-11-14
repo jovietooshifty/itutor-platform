@@ -10,7 +10,8 @@
  * - Four filters became two (All / Unread). "Enrolment" and "Alerts" matched
  *   on substrings of the type and hid rows they should have shown.
  * - Unread is marked by weight and a dark dot, not the old orange dot.
- * - The notification switches moved to Settings › Notifications, where every
+ * - The notification switches live only on Settings › Notifications
+ *   (/parent/settings/notifications), where every
  *   other setting lives; this screen links there.
  * - Every row that has somewhere to go opens it, and reading it marks it read.
  */
@@ -199,7 +200,7 @@ export default function ParentNotificationsV2() {
       )}
 
       <NavRow
-        href="/parent/settings?section=notifications"
+        href="/parent/settings/notifications"
         title="Notification settings"
         meta="Choose what we send you"
       />

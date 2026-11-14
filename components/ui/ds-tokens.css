@@ -126,6 +126,15 @@
 }
 
 /*
+ * Dashed, for use WITH a bw-* width. Tailwind's `border-dashed` loses to the
+ * bw-* rules above (same specificity, and they set border-style: solid), so
+ * it silently rendered solid. This rule comes after them, so it wins.
+ */
+.bw-dashed {
+  border-style: dashed;
+}
+
+/*
  * ── TYPE, MOTION AND PRESS FEEDBACK ─────────────────────────────────────
  *
  * PROVISIONAL: the system's frames are 390px and say nothing about desktop

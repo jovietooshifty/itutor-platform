@@ -279,7 +279,10 @@ function LessonCard({
       )}
       style={{ ['--i' as string]: index }}
     >
-      <ClassCover image={lesson.coverImage} subject={lesson.subject || lesson.title} className="h-[112px] lg:h-[128px]" />
+      {/* Always the subject colour block, never the tutor's upload. The frames
+          draw every card that way, and one uploaded photo ("Caribbean History
+          Prep", the only class with a cover_image) broke the grid's rhythm. */}
+      <ClassCover subject={lesson.subject || lesson.title} className="h-[112px] lg:h-[128px]" />
       <div className="flex flex-col gap-ds-2 p-ds-card">
         <div className="flex items-start justify-between gap-ds-3">
           <h3 className="font-display text-[16px] font-extrabold leading-[20px] text-ink">{lesson.title}</h3>

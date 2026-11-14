@@ -55,7 +55,9 @@ export function SummaryRow({
       <span className={cn('min-w-0 text-[14px] leading-[20px]', labelCls, total && 'font-extrabold')}>{label}</span>
       <span
         className={cn(
-          'flex-none text-right text-[14px] leading-[20px] tabular-nums',
+          // Shrinks and wraps: a long value (a subject list) used to overrun its
+          // label and the card edge, because it could not shrink.
+          'min-w-0 max-w-[70%] break-words text-right text-[14px] leading-[20px] tabular-nums',
           valueCls,
           total && 'text-[16px]'
         )}
