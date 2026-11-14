@@ -17,6 +17,12 @@ export interface NavItem {
   label: string;
   icon: IconName;
   badge?: boolean;
+  /** A number in place of the dot (unread messages). 0 or absent = none. */
+  count?: number;
+  /** Section heading this item starts under, in the lg sidebar only. */
+  group?: string;
+  /** Sidebar only: never in the phone tab bar (tutor Grow / Account items). */
+  sideOnly?: boolean;
 }
 
 export interface BottomNavProps {
@@ -49,7 +55,7 @@ export function BottomNav({
         className
       )}
     >
-      {items.map((item) => {
+      {items.filter((item) => !item.sideOnly).map((item) => {
         const current = item.id === active;
         return (
           <button
@@ -82,7 +88,14 @@ export function BottomNav({
               {item.label}
             </span>
 
-            {item.badge ? (
+            {item.count ? (
+              <i
+                aria-label={`${item.count} unread`}
+                className="absolute -top-1 right-2 min-w-[18px] rounded-full bg-danger px-1 text-center text-[10px] font-extrabold not-italic leading-[18px] text-white"
+              >
+                {item.count > 9 ? '9+' : item.count}
+              </i>
+            ) : item.badge ? (
               <i
                 aria-label="Needs attention"
                 className="absolute top-0 right-3 h-[10px] w-[10px] rounded-ds-xs bg-danger bw-bold border-ink"

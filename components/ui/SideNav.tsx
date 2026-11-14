@@ -31,10 +31,12 @@ export interface SideNavProps {
   logo?: ReactNode;
   /** Small mark for the 88px rail, where the full logo does not fit. */
   mark?: ReactNode;
+  /** Pinned to the foot of the lg sidebar (the tutor canvas draws a "me" card there). */
+  footer?: ReactNode;
   className?: string;
 }
 
-export function SideNav({ items = DEFAULT_NAV, active, onSelect, logo, mark, className }: SideNavProps) {
+export function SideNav({ items = DEFAULT_NAV, active, onSelect, logo, mark, footer, className }: SideNavProps) {
   return (
     <nav aria-label="Main" className={cn('flex w-[88px] flex-col bg-ink lg:w-[232px]', className)}>
       <div className="flex h-14 shrink-0 items-center justify-center lg:justify-start lg:px-ds-5">
@@ -42,12 +44,20 @@ export function SideNav({ items = DEFAULT_NAV, active, onSelect, logo, mark, cla
         {logo ? <span className="hidden lg:block">{logo}</span> : null}
       </div>
 
-      <div className="flex flex-col gap-ds-1 px-ds-2 pt-ds-3 lg:px-ds-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-ds-1 overflow-y-auto px-ds-2 pt-ds-3 lg:px-ds-3">
         {items.map((item) => {
           const current = item.id === active;
           return (
+            <div key={item.id} className="contents">
+            {item.group ? (
+              <>
+                <span aria-hidden className="mx-ds-2 my-ds-1 block h-px bg-ink-raised lg:hidden" />
+                <span className="hidden px-ds-2 pb-ds-1 pt-ds-3 text-[11px] font-extrabold uppercase tracking-[0.08em] text-on-ink-subtle lg:block">
+                  {item.group}
+                </span>
+              </>
+            ) : null}
             <button
-              key={item.id}
               type="button"
               aria-current={current ? 'page' : undefined}
               onClick={onSelect ? () => onSelect(item.id) : undefined}
@@ -76,16 +86,25 @@ export function SideNav({ items = DEFAULT_NAV, active, onSelect, logo, mark, cla
               >
                 {item.label}
               </span>
-              {item.badge ? (
+              {item.count ? (
+                <i
+                  aria-label={`${item.count} unread`}
+                  className="absolute right-ds-2 top-0 min-w-[18px] rounded-full bg-danger px-1 text-center text-[10px] font-extrabold not-italic leading-[18px] text-white lg:right-ds-3 lg:top-1/2 lg:-translate-y-1/2"
+                >
+                  {item.count > 99 ? '99+' : item.count}
+                </i>
+              ) : item.badge ? (
                 <i
                   aria-label="Needs attention"
                   className="absolute right-ds-3 top-ds-1 h-[10px] w-[10px] rounded-ds-xs bg-danger bw-bold border-ink lg:right-ds-3 lg:top-1/2 lg:-translate-y-1/2"
                 />
               ) : null}
             </button>
+            </div>
           );
         })}
       </div>
+      {footer ? <div className="mt-auto hidden shrink-0 px-ds-3 pb-ds-4 pt-ds-3 lg:block">{footer}</div> : null}
     </nav>
   );
 }
