@@ -24,7 +24,7 @@
  * every other student page keeps the old shell until its flow is built.
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { Gift } from '@phosphor-icons/react';
@@ -33,6 +33,10 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import { fmtCredits, rewardsVisible, useCredits } from '@/lib/credits/useCredits';
 import { parentInitials } from '@/components/parent/v2/initials';
+import { NotificationsPopover, prefersNotificationsPopover } from '@/components/ui/NotificationsPopover';
+
+// Loaded on first open only; the panel is not part of every page's bundle.
+const StudentNotificationsV2 = dynamic(() => import('./StudentNotificationsV2'), { ssr: false });
 
 // The old shell registered the push token; the new one has to as well, or a
 // student on the new UI silently stops getting class reminders.
@@ -86,6 +90,10 @@ export default function StudentV2Shell({
   const { profile } = useProfile();
   const credits = useCredits('lite', Boolean(profile?.id));
   const [unread, setUnread] = useState(false);
+  // Large screens: the bell opens a popup instead of the page (NotificationsPopover).
+  const [notifOpen, setNotifOpen] = useState(false);
+  const closeNotif = useCallback(() => setNotifOpen(false), []);
+  const onUnreadChange = useCallback((n: number) => setUnread(n > 0), []);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -138,7 +146,10 @@ export default function StudentV2Shell({
           ) : null
         }
         onHeaderAction={(action) => {
-          if (action === 'bell') router.push('/student/notifications');
+          if (action === 'bell') {
+            if (prefersNotificationsPopover() && pathname !== '/student/notifications') setNotifOpen((o) => !o);
+            else router.push('/student/notifications');
+          }
           if (action === 'search') router.push('/student/find-tutors');
         }}
         onAccount={() => router.push('/student/settings')}
@@ -183,6 +194,9 @@ export default function StudentV2Shell({
       >
         {children}
       </NewUiShell>
+      <NotificationsPopover open={notifOpen} onClose={closeNotif}>
+        {notifOpen ? <StudentNotificationsV2 variant="panel" onUnreadChange={onUnreadChange} /> : null}
+      </NotificationsPopover>
     </>
   );
 }
