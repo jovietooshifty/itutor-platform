@@ -7,6 +7,10 @@ import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
+import { ClassesSegment } from '@/components/tutor/v2/TutorClassesV2';
+import { useTeacherCampaignEntry } from '@/lib/hooks/useTeacherCampaignEntry';
 
 type SessionRow = {
   id: string;
@@ -42,10 +46,31 @@ type GroupFolder = {
 };
 
 export default function TutorSessionsPage() {
+  if (isNewUiEnabled()) {
+    // The Sessions half of the Classes tab (m08's segment). The list below is
+    // still the old content inside the new shell; its restyle is not in this
+    // phase. PROVISIONAL.
+    return (
+      <TutorV2Shell width="wide" title="Sessions">
+        <SessionsV2Frame />
+      </TutorV2Shell>
+    );
+  }
   return (
     <TutorShell>
       <SessionsContent />
     </TutorShell>
+  );
+}
+
+function SessionsV2Frame() {
+  const { profile } = useProfile();
+  const campaign = useTeacherCampaignEntry(profile);
+  return (
+    <div className="flex flex-col gap-ds-4">
+      <ClassesSegment value="sessions" campaign={Boolean(campaign.campaign)} />
+      <SessionsContent />
+    </div>
   );
 }
 
