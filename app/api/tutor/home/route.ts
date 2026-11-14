@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { authenticateUser, requireTutor } from '@/lib/api/groupAuth';
 import { fail, ok } from '@/lib/api/http';
 import { getServiceClient } from '@/lib/supabase/server';
-import { sessionPatternsToDisplay } from '@/lib/utils/scheduleFormat';
+import { loadTutorClasses } from '@/lib/tutor/classSummaries';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,8 +19,6 @@ export const dynamic = 'force-dynamic';
 
 /** Billing states where a family's payment did not go through. */
 const FAILED_STATES = ['GRACE', 'SUSPENDED', 'ACTIVATION_FAILED'];
-/** Enrolments that count as a student actually in the class. */
-const SEATED_STATES = ['ACTIVE', 'SECURED', 'GRACE', 'COMPLETED'];
 
 const AST_OFFSET_MS = 4 * 60 * 60 * 1000; // AST is UTC-4, no DST.
 
@@ -58,51 +56,20 @@ export async function GET(_req: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    const { data: groupRows } = await db
-      .from('groups')
-      .select('id, name, subject, status, price_monthly, price_per_session, max_students, cover_image, created_at')
-      .eq('tutor_id', user.id)
-      .is('archived_at', null)
-      .order('created_at', { ascending: false });
-    const groups = (groupRows ?? []).filter((g: any) => g.status !== 'ARCHIVED');
-    const groupIds = groups.map((g: any) => g.id);
-    const NONE = ['00000000-0000-0000-0000-000000000000'];
-    const ids = groupIds.length ? groupIds : NONE;
-
-    // ── Schedules and the next occurrence per class ──────────────────────
-    const { data: patterns } = await db
-      .from('group_sessions')
-      .select('id, group_id, title, recurrence_type, recurrence_days, start_time, duration_minutes, starts_on, ends_on')
-      .in('group_id', ids);
-
-    const { data: upcoming } = await db
-      .from('group_session_occurrences')
-      .select('id, scheduled_start_at, scheduled_end_at, session:group_sessions!inner(group_id, title)')
-      .in('session.group_id', ids)
-      .is('cancelled_at', null)
-      .gte('scheduled_end_at', nowIso)
-      .order('scheduled_start_at', { ascending: true })
-      .limit(200);
-
-    const nextByGroup = new Map<string, any>();
-    for (const o of upcoming ?? []) {
-      const gid = (o as any).session?.group_id;
-      if (gid && !nextByGroup.has(gid)) nextByGroup.set(gid, o);
-    }
-
-    // ── Enrolments ───────────────────────────────────────────────────────
-    const { data: enrolRows } = await db
-      .from('group_enrollments')
-      .select('id, group_id, student_id, status, enrolled_at, plan_price_ttd, grace_period_ends_at, student:profiles!student_id(full_name, display_name)')
-      .in('group_id', ids);
-    const enrolments = enrolRows ?? [];
-    const seated = enrolments.filter((e: any) => SEATED_STATES.includes(e.status));
-    const seatsByGroup = new Map<string, number>();
-    for (const e of seated) seatsByGroup.set(e.group_id, (seatsByGroup.get(e.group_id) ?? 0) + 1);
+    const {
+      groups,
+      ids,
+      upcoming,
+      enrolments,
+      seated,
+      seatsByGroup,
+      summaries,
+    } = await loadTutorClasses(db, user.id, now, {
+      enrolmentSelect:
+        'id, group_id, student_id, status, enrolled_at, plan_price_ttd, grace_period_ends_at, pause_reason, pause_start, pause_end, paused_at, student:profiles!student_id(full_name, display_name)',
+    });
 
     const groupName = (gid: string) => groups.find((g: any) => g.id === gid)?.name ?? 'your class';
-    const schedule = (gid: string) =>
-      sessionPatternsToDisplay((patterns ?? []).filter((p: any) => p.group_id === gid), { now }) ?? null;
 
     // ── Next 1:1 lesson ──────────────────────────────────────────────────
     const { data: nextOneToOne } = await db
@@ -170,7 +137,8 @@ export async function GET(_req: NextRequest) {
       });
     }
 
-    for (const g of groups.filter((x: any) => x.status === 'PUBLISHED' && !nextByGroup.has(x.id))) {
+    // A class on a tutor break has no sessions on purpose; it is not a fault.
+    for (const g of summaries.filter((x) => x.state === 'fix')) {
       actions.push({
         id: `sched-${g.id}`,
         tone: 'warn',
@@ -272,18 +240,7 @@ export async function GET(_req: NextRequest) {
     ).length;
 
     // ── Classes (Home shows a few; Classes shows all) ────────────────────
-    const classes = groups.slice(0, 4).map((g: any) => ({
-      id: g.id,
-      name: g.name,
-      subject: g.subject,
-      status: g.status,
-      schedule: schedule(g.id),
-      hasUpcoming: nextByGroup.has(g.id),
-      students: seatsByGroup.get(g.id) ?? 0,
-      seats: g.max_students ?? null,
-      price: Number(g.price_monthly ?? g.price_per_session ?? 0),
-      priceUnit: g.price_monthly != null ? 'month' : g.price_per_session != null ? 'session' : null,
-    }));
+    const classes = summaries.slice(0, 4);
 
     // ── Setup checklist (m07 / m07b) ─────────────────────────────────────
     const setup = {

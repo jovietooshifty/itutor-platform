@@ -25,20 +25,10 @@ import { Button, Card, QuestProgress, SectionHeader, SubjectTile, Tag } from '@/
 import { subjectCode, subjectColor } from '@/components/parent/v2/subjectTile';
 import { AST_TIME_ZONE } from '@/lib/utils/scheduleFormat';
 import { cn } from '@/lib/utils';
+import { classSubline, type ClassItem } from './classState';
 
 type Action = { id: string; tone: 'danger' | 'warn' | 'info'; tag: string; title: string; detail: string; href: string; cta: string };
-type ClassRowData = {
-  id: string;
-  name: string;
-  subject: string | null;
-  status: string | null;
-  schedule: string | null;
-  hasUpcoming: boolean;
-  students: number;
-  seats: number | null;
-  price: number;
-  priceUnit: 'month' | 'session' | null;
-};
+type ClassRowData = ClassItem;
 type HomeData = {
   name: string | null;
   next: null | { kind: 'class' | 'lesson'; href: string; title: string; start: string; end: string; students: number | null; seats: number | null };
@@ -306,14 +296,8 @@ function AttentionCard({
 
 function ClassLine({ c }: { c: ClassRowData }) {
   const label = c.subject || c.name;
-  const draft = c.status !== 'PUBLISHED';
-  const sub = draft
-    ? 'Draft · not published yet'
-    : !c.hasUpcoming
-      ? `No upcoming session · ${c.students} student${c.students === 1 ? '' : 's'}`
-      : [c.schedule, c.seats ? `${c.students} of ${c.seats} seats` : `${c.students} student${c.students === 1 ? '' : 's'}`]
-          .filter(Boolean)
-          .join(' · ');
+  const draft = c.state === 'draft';
+  const sub = classSubline(c);
   return (
     <Link href={`/tutor/classes/${c.id}`} className="ds-press block text-ink no-underline">
       <Card className="flex-row items-center gap-ds-3">

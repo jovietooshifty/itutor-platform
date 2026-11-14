@@ -18,6 +18,9 @@ import { formatLevel } from '@/lib/utils/formatLevel';
 import PauseAllClasses from '@/components/tutor/PauseAllClasses';
 import TeacherCampaignPanel from '@/components/classMatchWeek/teacher/TeacherCampaignPanel';
 import { useTeacherCampaignEntry } from '@/lib/hooks/useTeacherCampaignEntry';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
+import TutorClassesV2 from '@/components/tutor/v2/TutorClassesV2';
 
 type LessonKind = '1on1-oneoff' | '1on1-recurring' | 'group-oneoff' | 'group-recurring';
 
@@ -66,6 +69,16 @@ type Lesson = {
 };
 
 export default function TutorLessonsPage() {
+  if (isNewUiEnabled()) {
+    return (
+      <TutorV2Shell width="wide" title="Classes">
+        {/* useSearchParams needs a Suspense boundary in the App Router. */}
+        <Suspense fallback={null}>
+          <TutorClassesV2 />
+        </Suspense>
+      </TutorV2Shell>
+    );
+  }
   return (
     <TutorShell>
       {/* useSearchParams needs a Suspense boundary in the App Router. */}
