@@ -528,13 +528,9 @@ function BrowseView({
       )}
     >
       <div className={cn('flex flex-col gap-ds-4', !pane && 'lg:col-start-1')}>
-        {/* The subject colour block, as on its Explore card: the frames never
-            draw a tutor's upload, and opening a card should read as that card
-            growing. */}
-        <ClassCover
-          subject={label}
-          className={cn('rounded-ds-card', pane ? 'h-[140px]' : 'h-[132px] md:h-[200px] lg:h-[240px]')}
-        />
+        {/* Same cover as its Explore card (banner or colour block, 4:1), so
+            opening a card reads as that card growing. */}
+        <ClassCover image={group.cover_image} subject={label} className="aspect-[4/1] rounded-ds-card" />
         <div className="flex min-w-0 flex-col gap-ds-2">
           <h1 className="ds-page-title">{group.name}</h1>
           <div className="flex flex-wrap gap-ds-2">
