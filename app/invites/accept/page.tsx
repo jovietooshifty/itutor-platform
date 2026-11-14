@@ -110,7 +110,7 @@ export default function AcceptInvitePage() {
               {invite.parentName} wants to connect as your parent or guardian
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              If you accept, they’ll see your classes, bookings and billing — nothing else. Declining is fine and shares nothing.
+              If you accept, they’ll see your classes, bookings and billing — nothing else. You’ll keep paying for your own classes unless they change that. Declining is fine and shares nothing.
             </p>
 
             <div className="mt-5 rounded-2xl bg-muted/50 border border-border p-4 flex items-center justify-between gap-3">
