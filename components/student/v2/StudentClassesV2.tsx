@@ -37,11 +37,11 @@ import {
   Prohibit,
   X,
 } from '@phosphor-icons/react';
-import { Button, SubjectTile, Tag } from '@/components/ui';
+import { Button, Tag } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
-import { subjectCode, subjectColor } from '@/components/parent/v2/subjectTile';
+import { ClassCover } from '@/components/parent/v2/ClassCover';
 
 const TZ = 'America/Port_of_Spain';
 const AST_OFFSET_MS = 4 * 3_600_000;
@@ -52,6 +52,7 @@ type ClassCardData = {
   name: string;
   subject: string | null;
   tutorName: string | null;
+  coverImage?: string | null;
   next: { start: string; end: string | null } | null;
 };
 type UpcomingRow = {
@@ -75,7 +76,7 @@ type Tutor = {
   name: string;
   avatar: string | null;
   via: string | null;
-  quota: { used: boolean; reason: string | null };
+  quota: { used: boolean; pending?: boolean; reason: string | null };
 };
 
 const fmt = (iso: string, o: Intl.DateTimeFormatOptions, locale = 'en-GB') =>
@@ -113,14 +114,19 @@ function Panel({ className, children }: { className?: string; children: React.Re
   );
 }
 
+// The tutor's banner across the top at its own 4:1 shape (the same box as
+// Explore and the class page), so a class looks the same everywhere. No
+// banner: the subject colour block fills the same box. PROVISIONAL: frame
+// 2:1088 draws a 64px subject square; the owner asked for the banner here.
 function ClassCard({ c }: { c: ClassCardData }) {
   const label = c.subject || c.name;
   return (
     <Link
       href={`/student/classes/${c.id}`}
-      className="ds-press flex items-center gap-ds-card rounded-ds-card bg-surface-card bw-hair border-border p-[15px]"
+      className="ds-press flex flex-col overflow-hidden rounded-ds-card bg-surface-card bw-hair border-border"
     >
-      <SubjectTile code={subjectCode(label)} color={subjectColor(label)} size={64} className="text-[18px] font-black" />
+      <ClassCover image={c.coverImage} subject={label} className="aspect-[4/1]" />
+      <span className="flex items-center gap-ds-card p-[15px]">
       <span className="flex min-w-0 flex-1 flex-col gap-ds-1h">
         <span className="text-[17px] font-extrabold leading-[20px] text-ink">{c.name}</span>
         <span className="flex flex-wrap gap-ds-1h">
@@ -139,6 +145,7 @@ function ClassCard({ c }: { c: ClassCardData }) {
         </span>
       </span>
       <CaretRight size={20} weight="bold" className="shrink-0 text-ink" aria-hidden />
+      </span>
     </Link>
   );
 }
@@ -290,7 +297,13 @@ function Attendance({ rows, summary }: { rows: AttendanceRow[]; summary: Attenda
   );
 }
 
+// Feedback button states (owner, 14 Nov; Figma C8a-C8c):
+//   not asked yet ............ "Ask for feedback"
+//   sending / asked, waiting . "Processing" + "We asked the tutor…" line
+//   answered this month ...... "Used this month" + who asked and when
 function TutorCard({ t, onRequest, busy }: { t: Tutor; onRequest: () => void; busy: boolean }) {
+  const waiting = busy || (t.quota.used && t.quota.pending);
+  const label = waiting ? 'Processing' : t.quota.used ? 'Used this month' : 'Ask for feedback';
   return (
     <Panel className="gap-ds-card">
       <div className="flex items-center gap-ds-3">
@@ -309,7 +322,7 @@ function TutorCard({ t, onRequest, busy }: { t: Tutor; onRequest: () => void; bu
       </div>
       <div className="flex gap-[10px]">
         <Button size="lg" className="flex-1 px-ds-1h" disabled={t.quota.used || busy} onClick={onRequest}>
-          {t.quota.used ? 'Used this month' : 'Ask for feedback'}
+          {label}
         </Button>
         <Link
           href="/student/messages"
@@ -319,7 +332,13 @@ function TutorCard({ t, onRequest, busy }: { t: Tutor; onRequest: () => void; bu
           Message
         </Link>
       </div>
-      {t.quota.used && t.quota.reason ? <p className="m-0 text-[13px] leading-[18px] text-ink-muted">{t.quota.reason}</p> : null}
+      {waiting && !busy ? (
+        <p className="m-0 text-[13px] leading-[18px] text-ink-muted">
+          We asked the tutor for your feedback, we will notify you when they respond.
+        </p>
+      ) : t.quota.used && t.quota.reason ? (
+        <p className="m-0 text-[13px] leading-[18px] text-ink-muted">{t.quota.reason}</p>
+      ) : null}
     </Panel>
   );
 }
@@ -385,7 +404,7 @@ export default function StudentClassesV2() {
       });
       const json = await res.json().catch(() => ({}));
       // No timeframe, deliberately (§8.1). A 409 is normally the shared quota.
-      setNote(res.ok ? 'Requested. Your tutor will answer when they can.' : json.message ?? 'That could not be requested right now.');
+      setNote(res.ok ? "Feedback requested. You'll get a notification when they reply." : json.message ?? 'That could not be requested right now.');
       await loadTutors();
     } finally {
       setBusyTutor(null);
@@ -424,7 +443,7 @@ export default function StudentClassesV2() {
       <div className="flex flex-col gap-ds-4 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
         <div className="flex min-w-0 flex-col gap-ds-4">
           {!loaded ? (
-            <div className="h-[96px] animate-pulse rounded-ds-card bg-surface-sunken" aria-hidden />
+            <div className="h-[180px] animate-pulse rounded-ds-card bg-surface-sunken" aria-hidden />
           ) : classes.length === 0 ? (
             <Panel className="items-start gap-ds-2">
               <h2 className="m-0 font-display text-[18px] font-extrabold text-ink">No classes yet</h2>

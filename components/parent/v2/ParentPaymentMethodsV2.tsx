@@ -54,7 +54,15 @@ const BRAND: Record<string, string> = {
 const brandName = (b: string) => BRAND[b] ?? (b ? b[0].toUpperCase() + b.slice(1) : 'Card');
 const expiry = (c: Card) => `${String(c.expMonth).padStart(2, '0')}/${String(c.expYear).slice(-2)}`;
 
-export default function ParentPaymentMethodsV2() {
+/** Where the screen reads and writes. Parent by default; the student Settings passes its own. */
+export type CardRoutes = { api: string; page: string; settings: string };
+export const PARENT_CARD_ROUTES: CardRoutes = {
+  api: '/api/parent/payment-methods',
+  page: '/parent/settings/payment-methods',
+  settings: '/parent/settings',
+};
+
+export default function ParentPaymentMethodsV2({ routes = PARENT_CARD_ROUTES }: { routes?: CardRoutes }) {
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [cards, setCards] = useState<Card[]>([]);
@@ -65,7 +73,7 @@ export default function ParentPaymentMethodsV2() {
   const load = useCallback(async () => {
     setStatus('loading');
     try {
-      const res = await fetch('/api/parent/payment-methods', { cache: 'no-store' });
+      const res = await fetch(routes.api, { cache: 'no-store' });
       if (!res.ok) throw new Error();
       const json = await res.json();
       setCards(json.cards ?? []);
@@ -73,7 +81,7 @@ export default function ParentPaymentMethodsV2() {
     } catch {
       setStatus('error');
     }
-  }, []);
+  }, [routes.api]);
 
   useEffect(() => {
     void load();
@@ -84,7 +92,7 @@ export default function ParentPaymentMethodsV2() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/parent/payment-methods/${encodeURIComponent(removing.id)}`, { method: 'DELETE' });
+      const res = await fetch(`${routes.api}/${encodeURIComponent(removing.id)}`, { method: 'DELETE' });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(json.message ?? 'Could not remove the card. Try again.');
@@ -98,7 +106,7 @@ export default function ParentPaymentMethodsV2() {
   };
 
   return (
-    <DetailScreen backLabel="Settings" fallbackHref="/parent/settings" title="Payment methods">
+    <DetailScreen backLabel="Settings" fallbackHref={routes.settings} title="Payment methods">
       {status === 'loading' ? (
         <DetailSkeleton rows={1} />
       ) : status === 'error' ? (
@@ -136,10 +144,13 @@ export default function ParentPaymentMethodsV2() {
                     </span>
                     <span className={cn('font-body text-[13px]', c.expired ? 'text-danger' : 'text-ink-muted')}>
                       {c.expired ? `Expired ${expiry(c)}` : `Expires ${expiry(c)}`}
-                      {c.inUse ? ' · Pays for a class' : ''}
+                      {c.inUse ? ' · Pays for your subscription' : ''}
                     </span>
                   </span>
-                  {c.inUse ? null : (
+                  {/* A card a subscription charges can go only when another
+                      usable card is on file; the server moves the
+                      subscription to it first (owner, 14 Nov). */}
+                  {c.inUse && !cards.some((o) => o.id !== c.id && !o.expired) ? null : (
                     <button
                       type="button"
                       onClick={() => {
@@ -156,7 +167,7 @@ export default function ParentPaymentMethodsV2() {
             </ul>
           )}
 
-          <Button variant="outline" size="lg" block="always" onClick={() => router.push('/parent/settings/payment-methods/add')}>
+          <Button variant="outline" size="lg" block="always" onClick={() => router.push(`${routes.page}/add`)}>
             <span className="flex items-center justify-center gap-ds-2">
               <Plus size={20} weight="bold" aria-hidden />
               Add a card
@@ -181,7 +192,9 @@ export default function ParentPaymentMethodsV2() {
         }
       >
         <p className="font-body text-[14px] text-ink">
-          The card is taken off your account. Nothing is charged or refunded.
+          {removing?.inUse
+            ? 'Your subscription moves to your other card, then this one is taken off your account. Nothing is charged or refunded.'
+            : 'The card is taken off your account. Nothing is charged or refunded.'}
         </p>
         {error ? <FormError>{error}</FormError> : null}
       </Sheet>

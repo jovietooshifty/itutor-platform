@@ -85,9 +85,14 @@ export async function listParentCards(admin: AdminClient, parentId: string): Pro
 export type DetachOutcome = 'ok' | 'not_found' | 'in_use';
 
 /**
- * Detaches one of the parent's cards. Refuses a card a live subscription or
- * the customer default would charge: detaching it would make the next renewal
- * fail with no card, which is a worse outcome than keeping a card on file.
+ * Detaches one of the payer's cards (parent or self-paying student: the
+ * functions only take a profile id).
+ *
+ * A card that a live subscription or the customer default would charge is
+ * removed only when ANOTHER usable card is on file (owner, 14 Nov): the
+ * subscriptions and the customer default move to that card first, then this
+ * one is detached. With no other card it is refused, because the next renewal
+ * would fail with no card at all.
  */
 export async function detachParentCard(
   admin: AdminClient,
@@ -106,7 +111,46 @@ export async function detachParentCard(
   // Ownership: the card must be on THIS parent's Customer.
   if (idOf(pm.customer) !== customerId) return 'not_found';
   const used = await cardsInUse(stripe, customerId);
-  if (used.has(pm.id)) return 'in_use';
+  if (used.has(pm.id)) {
+    const replacement = await otherUsableCard(stripe, customerId, pm.id, used);
+    if (!replacement) return 'in_use';
+    await moveChargesTo(stripe, customerId, pm.id, replacement);
+  }
   await stripe.paymentMethods.detach(pm.id);
   return 'ok';
 }
+
+/** A card on the customer, other than `exceptId`, that has not expired. Prefers one already in use. */
+async function otherUsableCard(stripe: Stripe, customerId: string, exceptId: string, used: Set<string>): Promise<string | null> {
+  const now = new Date();
+  const usable: string[] = [];
+  for await (const pm of stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 100 })) {
+    if (pm.id === exceptId || !pm.card) continue;
+    const { exp_month, exp_year } = pm.card;
+    const expired = exp_year < now.getFullYear() || (exp_year === now.getFullYear() && exp_month < now.getMonth() + 1);
+    if (!expired) usable.push(pm.id);
+  }
+  return usable.find((id) => used.has(id)) ?? usable[0] ?? null;
+}
+
+/** Points every live subscription and the customer default that charge `fromId` at `toId`. */
+async function moveChargesTo(stripe: Stripe, customerId: string, fromId: string, toId: string): Promise<void> {
+  for await (const sub of stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 100 })) {
+    if (!LIVE.includes(sub.status)) continue;
+    if (idOf(sub.default_payment_method) === fromId) {
+      await stripe.subscriptions.update(sub.id, { default_payment_method: toId });
+    }
+  }
+  const customer = await stripe.customers.retrieve(customerId);
+  if (!(customer as Stripe.DeletedCustomer).deleted) {
+    const def = idOf((customer as Stripe.Customer).invoice_settings?.default_payment_method);
+    if (def === fromId || !def) {
+      await stripe.customers.update(customerId, { invoice_settings: { default_payment_method: toId } });
+    }
+  }
+}
+
+// Role-neutral names for the student routes; same functions.
+export const payerCustomerId = parentCustomerId;
+export const listSavedCards = listParentCards;
+export const detachSavedCard = detachParentCard;

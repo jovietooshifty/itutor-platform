@@ -20,9 +20,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Camera, Plus, X } from '@phosphor-icons/react';
-import AvatarUploadModal from '@/components/AvatarUploadModal';
-import SubjectMultiSelect from '@/components/SubjectMultiSelect';
+import { ArrowLeft, Camera, CaretDown, Plus, X } from '@phosphor-icons/react';
+import AvatarUploadModal from './AvatarUploadSheetV2';
+import SubjectPickerV2 from './SubjectPickerV2';
 import { Sheet } from '@/components/parent/v2/Sheet';
 import { parentInitials } from '@/components/parent/v2/initials';
 import { cn } from '@/lib/utils';
@@ -64,6 +64,7 @@ export default function StudentProfileEditV2() {
   const [error, setError] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [subjectsOpen, setSubjectsOpen] = useState(false);
+  const [levelOpen, setLevelOpen] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -206,16 +207,21 @@ export default function StudentProfileEditV2() {
         {/* Learning — 2:2532 */}
         <section className="flex flex-col gap-[14px]">
           <h2 className="m-0 font-display text-[18px] font-extrabold text-ink">Learning</h2>
-          <Field label="Level">
-            <select value={level} onChange={(e) => setLevel(e.target.value)} className={cn(inputCls, 'h-[50px] pl-ds-4')}>
-              <option value="">Choose your level</option>
-              {levelOptions.map((l) => (
-                <option key={l} value={l}>
-                  {levelLabel(l)}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {/* Our own picker, not the native <select>: on Android that opens
+              the OS's dark dialog, which looks like another app. */}
+          <div className="flex flex-col gap-[6px]">
+            <span id="level-label" className="font-body text-[15px] font-extrabold text-ink">Level</span>
+            <button
+              type="button"
+              aria-labelledby="level-label"
+              aria-haspopup="dialog"
+              onClick={() => setLevelOpen(true)}
+              className={cn(inputCls, 'ds-press flex h-[50px] items-center justify-between gap-ds-2 pl-ds-4 text-left cursor-pointer')}
+            >
+              <span className={level ? 'text-ink' : 'text-ink-muted'}>{level ? levelLabel(level) : 'Choose your level'}</span>
+              <CaretDown size={18} weight="bold" className="shrink-0 text-ink" aria-hidden />
+            </button>
+          </div>
           <Field label="School">
             <input value={school} onChange={(e) => setSchool(e.target.value)} autoComplete="organization" className={inputCls} />
           </Field>
@@ -286,7 +292,42 @@ export default function StudentProfileEditV2() {
           </button>
         }
       >
-        <SubjectMultiSelect selectedSubjects={subjects} onChange={setSubjects} />
+        <SubjectPickerV2 selected={subjects} onChange={setSubjects} autoFocus />
+      </Sheet>
+
+      <Sheet open={levelOpen} onClose={() => setLevelOpen(false)} title="Choose your level">
+        <div role="radiogroup" aria-label="Level" className="flex flex-col gap-ds-2">
+          {levelOptions.map((l) => {
+            const selected = level === l;
+            return (
+              <button
+                key={l}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => {
+                  setLevel(l);
+                  setLevelOpen(false);
+                }}
+                className={cn(
+                  'ds-press flex min-h-[52px] w-full items-center gap-ds-3 rounded-ds-card bg-surface-card px-ds-3 text-left cursor-pointer',
+                  selected ? 'bw-bold border-ink' : 'bw-hair border-border'
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    'flex size-5 flex-none items-center justify-center rounded-ds-full',
+                    selected ? 'bw-bold border-ink' : 'bw-hair border-border-strong'
+                  )}
+                >
+                  {selected ? <span className="size-2.5 rounded-ds-full bg-ink" /> : null}
+                </span>
+                <span className="font-body text-[16px] font-bold text-ink">{levelLabel(l)}</span>
+              </button>
+            );
+          })}
+        </div>
       </Sheet>
 
       <AvatarUploadModal

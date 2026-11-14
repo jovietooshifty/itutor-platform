@@ -66,12 +66,11 @@ function Panel({ title, aside, children, className }: { title: string; aside?: R
 const outlineBtn =
   'ds-press inline-flex h-12 items-center justify-center gap-ds-2 rounded-ds-sm bw-hair border-ink bg-surface-card px-ds-3 font-body text-[15px] font-extrabold text-ink no-underline cursor-pointer';
 
-function Share({ link }: { link: string }) {
+/** Copy and native-share for the invite link; shared by the buttons and the friend tiles. */
+function useShareLink(link: string) {
   const [copied, setCopied] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
-  const [showQr, setShowQr] = useState(false);
-  const [qr, setQr] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -80,10 +79,6 @@ function Share({ link }: { link: string }) {
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
-  useEffect(() => {
-    if (!showQr || qr) return;
-    void renderBrandedQr(link).then(setQr);
-  }, [showQr, qr, link]);
 
   const copy = async (then?: string) => {
     try {
@@ -103,6 +98,69 @@ function Share({ link }: { link: string }) {
       /* dismissed */
     }
   };
+  /** The phone's share sheet where there is one, otherwise copy. */
+  const shareOrCopy = (then: string) => (canShare ? void nativeShare() : void copy(then));
+  return { copied, hint, canShare, copy, nativeShare, shareOrCopy };
+}
+
+/**
+ * The friend tiles (frame 2:2049). An empty tile is a button that shares the
+ * link (owner, 14 Nov); joined friends and the reward tile stay as they were.
+ */
+function FriendTiles({ link, required, done, reward }: { link: string; required: number; done: number; reward: string }) {
+  const { hint, shareOrCopy } = useShareLink(link);
+  return (
+    <div className="flex flex-col gap-ds-2">
+      <div className="flex gap-ds-2" role="group" aria-label={`${done} of ${required} friends joined`}>
+        {Array.from({ length: required }, (_, i) => {
+          const last = i === required - 1;
+          const filled = i < done;
+          const tileCls = cn(
+            'flex h-[68px] min-w-0 flex-1 flex-col items-center justify-center gap-ds-1 rounded-ds-sm p-[2px]',
+            filled ? 'bw-bold border-ink bg-brand text-ink' : 'bw-bold bw-dashed border-border-strong text-ink-faint'
+          );
+          const inner = (
+            <>
+              {last ? <Gift size={22} weight="bold" aria-hidden /> : <UserPlus size={22} weight="bold" aria-hidden />}
+              <span className={cn('font-body text-[12px] font-extrabold', filled ? 'text-ink' : 'text-[#879489]')}>
+                {last ? reward : `Friend ${i + 1}`}
+              </span>
+            </>
+          );
+          if (filled || last) {
+            return (
+              <div key={i} className={tileCls} aria-label={last ? `Reward: ${reward}` : `Friend ${i + 1} joined`}>
+                {inner}
+              </div>
+            );
+          }
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => shareOrCopy('Link copied. Send it to a friend.')}
+              aria-label={`Friend ${i + 1}: share your link`}
+              className={cn(tileCls, 'ds-press bg-transparent font-body cursor-pointer')}
+            >
+              {inner}
+            </button>
+          );
+        })}
+      </div>
+      {hint ? <p className="m-0 font-body text-[13px] text-ink-muted">{hint}</p> : null}
+    </div>
+  );
+}
+
+function Share({ link }: { link: string }) {
+  const { copied, hint, canShare, copy, nativeShare } = useShareLink(link);
+  const [showQr, setShowQr] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!showQr || qr) return;
+    void renderBrandedQr(link).then(setQr);
+  }, [showQr, qr, link]);
+
   const whatsapp = `https://wa.me/?text=${encodeURIComponent(`${MESSAGE} ${link}`)}`;
 
   return (
@@ -145,12 +203,12 @@ function Share({ link }: { link: string }) {
       </div>
       {hint ? <p className="m-0 font-body text-[13px] text-ink-muted">{hint}</p> : null}
       {showQr ? (
-        <div className="flex flex-col items-center gap-ds-2 rounded-ds-sm bw-hair border-border bg-surface-card p-ds-4">
+        <div className="flex flex-col items-center gap-ds-2 rounded-ds-card bw-hair border-border bg-surface-card p-ds-4">
           {qr ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={qr} alt="QR code for your invite link" className="size-48" />
+            <img src={qr} alt="QR code for your invite link" className="size-52 rounded-ds-card bw-bold border-ink" />
           ) : (
-            <div className="grid size-48 place-items-center font-body text-[14px] text-ink-muted">Drawing…</div>
+            <div className="grid size-52 place-items-center rounded-ds-card bg-surface-sunken font-body text-[14px] text-ink-muted">Drawing…</div>
           )}
           <p className="m-0 font-body text-[13px] text-ink-muted">Let a friend scan this to open your link.</p>
           {qr ? (
@@ -340,26 +398,7 @@ export default function StudentRewardsV2() {
               </div>
 
               {required > 1 && required <= 6 ? (
-                <div className="flex gap-ds-2" aria-label={`${done} of ${required} friends joined`} role="img">
-                  {Array.from({ length: required }, (_, i) => {
-                    const last = i === required - 1;
-                    const filled = i < done;
-                    return (
-                      <div
-                        key={i}
-                        className={cn(
-                          'flex h-[68px] min-w-0 flex-1 flex-col items-center justify-center gap-ds-1 rounded-ds-sm p-[2px]',
-                          filled ? 'bw-bold border-ink bg-brand text-ink' : 'bw-bold bw-dashed border-border-strong text-ink-faint'
-                        )}
-                      >
-                        {last ? <Gift size={22} weight="bold" aria-hidden /> : <UserPlus size={22} weight="bold" aria-hidden />}
-                        <span className={cn('font-body text-[12px] font-extrabold', filled ? 'text-ink' : 'text-[#879489]')}>
-                          {last ? reward : `Friend ${i + 1}`}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+                <FriendTiles link={data.referral!.link} required={required} done={done} reward={reward} />
               ) : null}
 
               <ol className="m-0 flex list-none flex-col p-0">

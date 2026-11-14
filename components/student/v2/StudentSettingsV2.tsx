@@ -18,7 +18,9 @@
  * - Email / Password open sheets with the old page's exact flows (Supabase
  *   updateUser; the password change re-checks the current one first).
  * - Billing: Plan / Upgrade has no backend and is hidden; Payment history goes
- *   is gone (owner, 14 Nov: repetitive); Payment methods stays "SOON".
+ *   is gone (owner, 14 Nov: repetitive). Payment methods is real (owner, 14
+ *   Nov: a "Soon" badge is an App Store review flag): the student's saved
+ *   Stripe cards, /student/settings/payment-methods.
  * - Delete account: the old page's username-confirm flow, in a sheet.
  *
  * "More" (no frame, PROVISIONAL): the old sidebar's pages that the four tabs
@@ -40,13 +42,13 @@ import {
   GraduationCap,
   Lock,
   PencilSimple,
-  Plus,
+  CreditCard,
   SignOut,
   Star,
   Student,
   Toolbox,
 } from '@phosphor-icons/react';
-import AvatarUploadModal from '@/components/AvatarUploadModal';
+import AvatarUploadModal from './AvatarUploadSheetV2';
 import { Sheet } from '@/components/parent/v2/Sheet';
 import { parentInitials } from '@/components/parent/v2/initials';
 import { cn } from '@/lib/utils';
@@ -176,6 +178,7 @@ export default function StudentSettingsV2() {
   const { profile, loading } = useProfile();
   const { uploadAvatar, deleteAvatar, uploading } = useAvatarUpload(profile?.id ?? '');
   const [marketing, setMarketing] = useState<boolean | null>(null);
+  const [cardSummary, setCardSummary] = useState<string | null>(null);
   // Lesson reminders (migration 270). null while loading; remindersFixed
   // when the server cannot store the choice, so the switch shows on and locked.
   const [reminders, setReminders] = useState<boolean | null>(null);
@@ -199,6 +202,24 @@ export default function StudentSettingsV2() {
     if (loading) return;
     if (!profile || profile.role !== 'student') router.push(nonStudentRedirect(profile));
   }, [profile, loading, router]);
+
+  // "Visa ending 2894" beside Payment methods: the card in use, else the first.
+  useEffect(() => {
+    if (profile?.role !== 'student') return;
+    let cancelled = false;
+    fetch('/api/student/payment-methods', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { cards?: Array<{ brand: string; last4: string; inUse: boolean; expired: boolean }> } | null) => {
+        if (cancelled || !j?.cards?.length) return;
+        const c = j.cards.find((x) => x.inUse) ?? j.cards.find((x) => !x.expired) ?? j.cards[0];
+        const brand = c.brand ? c.brand[0].toUpperCase() + c.brand.slice(1) : 'Card';
+        setCardSummary(`${brand} ending ${c.last4}`);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.role]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -485,19 +506,12 @@ export default function StudentSettingsV2() {
           <section className="flex flex-col gap-[10px]">
             <SectionTitle>Billing</SectionTitle>
             <Group>
-              <div className={rowCls}>
-                <RowBody
-                  tone="dashed"
-                  chevron={false}
-                  icon={<Plus size={18} weight="bold" aria-hidden />}
-                  label="Payment methods"
-                  right={
-                    <span className="shrink-0 rounded-[4px] bw-hair border-border-strong px-[9px] py-1 font-body text-[12px] font-extrabold tracking-[0.72px] text-ink-muted">
-                      SOON
-                    </span>
-                  }
-                />
-              </div>
+              <LinkRow
+                href="/student/settings/payment-methods"
+                icon={<CreditCard size={18} weight="bold" aria-hidden />}
+                label="Payment methods"
+                value={cardSummary}
+              />
             </Group>
           </section>
 

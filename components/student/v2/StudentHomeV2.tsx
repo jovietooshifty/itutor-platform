@@ -46,7 +46,7 @@ import { Button, Countdown, Tag } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
-import EditSubjectsModal from '@/components/student/EditSubjectsModal';
+import EditSubjectsSheetV2 from './EditSubjectsSheetV2';
 import CampaignDashboardBanner from '@/components/classMatchWeek/CampaignDashboardBanner';
 import CampaignJoinCard from '@/components/classMatchWeek/CampaignJoinCard';
 import { subjectCode, subjectColor } from '@/components/parent/v2/subjectTile';
@@ -558,13 +558,12 @@ export default function StudentHomeV2() {
       </div>
 
       {profile ? (
-        // Old-UI modal, kept until Settings is rebuilt (flow 6).
-        <EditSubjectsModal
-          isOpen={editSubjects}
+        <EditSubjectsSheetV2
+          open={editSubjects}
           onClose={() => setEditSubjects(false)}
           currentSubjects={subjects}
           userId={profile.id}
-          onSuccess={() => window.location.reload()}
+          onSaved={() => window.location.reload()}
         />
       ) : null}
     </div>
