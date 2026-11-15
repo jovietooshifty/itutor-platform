@@ -276,7 +276,7 @@ export default function TutorWalletV2() {
           <li key={r.ledger_id} className="flex items-center gap-ds-3 bw-b-hair border-line-soft py-ds-3 last:border-b-0">
             <span className="min-w-0 flex-1">
               <span className="block truncate font-display text-[15px] font-extrabold text-ink">{r.student_name ?? 'Student'}</span>
-              <span className="block truncate text-[13px] text-ink-muted">
+              <span className="block text-[13px] leading-[18px] text-ink-muted [overflow-wrap:anywhere]">
                 {[r.subject_name ?? (r.source_type === 'session' ? '1:1 lesson' : 'Class'), day(rowDate(r)), fee != null ? `after ${ttd(fee)} fee` : null]
                   .filter(Boolean)
                   .join(' · ')}
