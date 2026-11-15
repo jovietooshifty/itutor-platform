@@ -172,11 +172,24 @@ function ProfileBody() {
     { step: 'Payouts', provide: 'Bank details', result: 'You get paid out', done: account === undefined ? null : Boolean(account), href: '/tutor/wallet?payout=1' },
   ];
 
-  const rows = (
-    <nav className="flex flex-col overflow-hidden rounded-ds-card bw-hair border-border bg-surface-card" aria-label="Profile">
-      <Row first href="/tutor/verification" icon={<SealCheck size={20} weight="bold" />} title="iTutor Verified" detail={step ? `Optional · ${step.toLowerCase()}` : 'Optional'} />
-      <Row href="/tutor/wallet?payout=1" icon={<Bank size={20} weight="bold" />} title="Payout account" detail={accountLine} />
+  // Desktop shows the badge and payout account as cards above the list, so
+  // the list there starts at Reviews.
+  const rows = (desktop: boolean) => (
+    <nav
+      className={cn(
+        'flex-col overflow-hidden rounded-ds-card bw-hair border-border bg-surface-card',
+        desktop ? 'hidden lg:flex' : 'flex lg:hidden'
+      )}
+      aria-label="Profile"
+    >
+      {desktop ? null : (
+        <>
+          <Row first href="/tutor/verification" icon={<SealCheck size={20} weight="bold" />} title="iTutor Verified" detail={step ? `Optional · ${step.toLowerCase()}` : 'Optional'} />
+          <Row href="/tutor/wallet?payout=1" icon={<Bank size={20} weight="bold" />} title="Payout account" detail={accountLine} />
+        </>
+      )}
       <Row
+        first={desktop}
         href="/tutor/reviews"
         icon={<Star size={20} weight="bold" />}
         title="Reviews"
@@ -274,7 +287,8 @@ function ProfileBody() {
               </Button>
             </div>
           </section>
-          {rows}
+          {rows(false)}
+          {rows(true)}
         </div>
       </div>
     </div>

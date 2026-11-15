@@ -329,7 +329,7 @@ export default function StudentNotificationsV2({ variant = 'page', onUnreadChang
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[16px] font-extrabold text-ink">Choose what you get</span>
-          <span className="block text-[14px] text-ink-muted">Reminders, payments and tips</span>
+          <span className="block text-[14px] text-ink-muted">{audience === 'tutor' ? 'Push, email and account' : 'Reminders, payments and tips'}</span>
         </span>
         <CaretRight size={20} weight="bold" className="shrink-0 text-ink" aria-hidden />
       </Link>
