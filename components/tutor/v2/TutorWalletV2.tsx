@@ -132,6 +132,11 @@ export default function TutorWalletV2() {
   const [sheet, setSheet] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
+  // Profile and Settings link here with ?payout=1 to open the account sheet.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('payout') === '1') setSheet(true);
+  }, []);
+
   useEffect(() => {
     if (!profileLoading && (!profile || profile.role !== 'tutor')) router.push('/login');
   }, [profile, profileLoading, router]);

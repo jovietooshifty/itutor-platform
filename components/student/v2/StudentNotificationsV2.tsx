@@ -71,9 +71,16 @@ type Props = {
   variant?: 'page' | 'panel';
   /** Lets the shell keep its bell dot in step as rows are read. */
   onUnreadChange?: (count: number) => void;
+  /** Tutors get this same screen inside TutorV2Shell (canvas m26). */
+  audience?: 'student' | 'tutor';
 };
 
-export default function StudentNotificationsV2({ variant = 'page', onUnreadChange }: Props = {}) {
+export default function StudentNotificationsV2({ variant = 'page', onUnreadChange, audience = 'student' }: Props = {}) {
+  const settingsHref = audience === 'tutor' ? '/tutor/settings' : '/student/settings';
+  const emptyCopy =
+    audience === 'tutor'
+      ? 'Bookings, join requests, payments and messages from families show up here.'
+      : 'Class reminders, payments and messages from your tutors show up here.';
   const router = useRouter();
   const { profile, loading } = useProfile();
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -82,8 +89,12 @@ export default function StudentNotificationsV2({ variant = 'page', onUnreadChang
 
   useEffect(() => {
     if (loading) return;
+    if (audience === 'tutor') {
+      if (!profile || profile.role !== 'tutor') router.push('/login');
+      return;
+    }
     if (!profile || profile.role !== 'student') router.push(nonStudentRedirect(profile));
-  }, [profile, loading, router]);
+  }, [profile, loading, router, audience]);
 
   const load = useCallback(async () => {
     if (!profile?.id) return;
@@ -224,7 +235,7 @@ export default function StudentNotificationsV2({ variant = 'page', onUnreadChang
                 {filter === 'unread' ? 'All caught up' : 'No notifications yet'}
               </p>
               <p className="m-0 max-w-[32ch] text-[14px] text-ink-muted">
-                Class reminders, payments and messages from your tutors show up here.
+                {emptyCopy}
               </p>
             </div>
           ) : (
@@ -239,7 +250,7 @@ export default function StudentNotificationsV2({ variant = 'page', onUnreadChang
           )}
         </div>
         <Link
-          href="/student/settings"
+          href={settingsHref}
           className="ds-press flex items-center gap-ds-2 bw-t-hair border-border px-ds-4 py-ds-3 text-[14px] font-extrabold text-ink"
         >
           <SlidersHorizontal size={18} weight="bold" aria-hidden />
@@ -282,7 +293,7 @@ export default function StudentNotificationsV2({ variant = 'page', onUnreadChang
             {filter === 'unread' ? 'All caught up' : 'No notifications yet'}
           </p>
           <p className="m-0 max-w-[36ch] text-[14px] text-ink-muted">
-            Class reminders, payments and messages from your tutors show up here.
+            {emptyCopy}
           </p>
         </div>
       ) : (
@@ -310,7 +321,7 @@ export default function StudentNotificationsV2({ variant = 'page', onUnreadChang
       )}
 
       <Link
-        href="/student/settings"
+        href={settingsHref}
         className="ds-press flex items-center gap-ds-3 rounded-ds-card bg-surface-card bw-hair border-border p-ds-card lg:max-w-[520px]"
       >
         <span className="flex size-11 shrink-0 items-center justify-center rounded-ds-sm bg-accent-yellow text-ink">
