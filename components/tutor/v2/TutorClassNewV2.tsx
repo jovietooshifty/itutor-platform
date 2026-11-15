@@ -84,7 +84,7 @@ function suggestedName(level: string, subject: string): string {
 }
 
 /** "CSEC Additional Mathematics" → "Additional Mathematics": the exam is shown on its own. */
-const bareSubject = (label: string) => label.replace(/^(CSEC|CAPE|SEA)s+/, '');
+const bareSubject = (label: string) => label.replace(/^(CSEC|CAPE|SEA)\s+/, '');
 
 const wordCount = (s: string) => (s.trim() ? s.trim().split(/\s+/).length : 0);
 
