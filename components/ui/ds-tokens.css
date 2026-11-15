@@ -71,3 +71,56 @@
 .ds-root--portal {
   background-color: transparent;
 }
+
+/*
+ * ── BORDER WIDTHS ───────────────────────────────────────────────────────
+ *
+ * Plain CSS, deliberately NOT Tailwind utilities. These were `border-hair`
+ * and `border-bold`, generated from a `borderWidth` extension in
+ * tailwind.config.ts, and every one of them was thrown away before it
+ * reached the browser.
+ *
+ * cn() is twMerge(clsx(...)), and tailwind-merge resolves conflicts from its
+ * own built-in map of Tailwind's class groups, never from this project's
+ * config. It has no way to know that `hair` and `bold` are WIDTHS, so it
+ * filed `border-hair` in the same group as `border-border` — one "border-*"
+ * bucket, last one wins — and dropped the width. `border-hair border-border`
+ * left cn() as `border-border`: the right colour at `border-width: 0`.
+ * Tailwind's preflight zeroes every border, so the result was no border at
+ * all — on every card, row, chip, divider and toggle in the system, since
+ * the components were first written. tsc, next build and ESLint cannot see a
+ * class that a runtime string merge removes, which is why four green gates
+ * and a screenshot pass all missed it.
+ *
+ * The fix is the name. `bw-` is not a prefix tailwind-merge recognises, so
+ * these are passed through untouched and can never be grouped with a colour
+ * again. That is also why they are hand-written rules rather than a renamed
+ * `borderWidth` key: anything Tailwind generates as `border-<key>` lands
+ * straight back in the same bucket.
+ *
+ * Specificity is what makes these beat preflight's
+ * `*, ::before, ::after { border-width: 0 }` — a class (0,1,0) outranks `*`
+ * (0,0,0) wherever the two end up in the bundle, so this does not depend on
+ * CSS order.
+ *
+ * DO NOT rename these back to `border-*`.
+ */
+.bw-hair {
+  border-width: 1px;
+  border-style: solid;
+}
+
+.bw-bold {
+  border-width: 2px;
+  border-style: solid;
+}
+
+.bw-t-hair {
+  border-top-width: 1px;
+  border-top-style: solid;
+}
+
+.bw-b-hair {
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+}

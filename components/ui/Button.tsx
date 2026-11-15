@@ -64,7 +64,7 @@ export function Button({
       onClick={onClick}
       className={cn(
         'inline-flex items-center justify-center gap-ds-2 px-ds-4 mb-[3px]',
-        'rounded-ds-btn border-bold border-transparent',
+        'rounded-ds-btn bw-bold border-transparent',
         'font-body font-extrabold leading-none',
         'cursor-pointer transition-[transform,box-shadow] duration-[90ms] ease-out',
         '[-webkit-tap-highlight-color:transparent]',

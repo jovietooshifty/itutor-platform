@@ -53,7 +53,7 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        'flex h-14 items-center justify-between border-b-hair pl-ds-4 pr-ds-card',
+        'flex h-14 items-center justify-between bw-b-hair pl-ds-4 pr-ds-card',
         dark ? 'bg-ink border-ink' : 'bg-surface-page border-border',
         className
       )}
@@ -78,7 +78,7 @@ export function AppHeader({
               <i
                 className={cn(
                   'absolute top-[6px] right-[7px] h-[10px] w-[10px]',
-                  'rounded-ds-xs bg-danger border-bold',
+                  'rounded-ds-xs bg-danger bw-bold',
                   dark ? 'border-ink' : 'border-surface-page'
                 )}
               />
