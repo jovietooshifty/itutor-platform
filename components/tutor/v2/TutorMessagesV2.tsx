@@ -555,12 +555,12 @@ export default function TutorMessagesV2({ initialConversationId }: { initialConv
   );
 
   // m14 / d05: All · Chats · Enquiries · Needs action. Scrolls sideways on a
-  // narrow phone rather than wrapping. Counts appear once the context is in.
+  // narrow phone; wraps in the narrow desktop list column. Counts appear once the context is in.
   const filterPills = (
     <div
       role="tablist"
       aria-label="Filter conversations"
-      className="-mx-ds-1 flex gap-ds-2 overflow-x-auto px-ds-1 pb-[2px] [scrollbar-width:none]"
+      className="-mx-ds-1 flex gap-ds-2 overflow-x-auto px-ds-1 pb-[2px] [scrollbar-width:none] lg:flex-wrap lg:overflow-visible"
     >
       {FILTERS.map((f) => {
         const on = f.id === filter;
