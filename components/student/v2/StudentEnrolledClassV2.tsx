@@ -64,6 +64,7 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { useClassLink } from '@/lib/hooks/useClassLink';
 import { supabase } from '@/lib/supabase/client';
 import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
+import { CATEGORIES, ClassRatingFlow, ClassRatingsSection, Stars, type ExistingClassReview } from '@/components/ratings/v2/ClassRating';
 
 const TZ = 'America/Port_of_Spain';
 const JOIN_EARLY_MS = 10 * 60_000;
@@ -173,6 +174,43 @@ export default function StudentEnrolledClassV2({ groupId }: { groupId: string })
   const [menuOpen, setMenuOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [toast, setToast] = useState<{ title: string; body: string } | null>(null);
+  // This student's rating of this class: 'open' = may rate now, 'rated' =
+  // already did (editable), 'hidden' = not yet (no session joined) or n/a.
+  const [myRating, setMyRating] = useState<{ state: 'loading' | 'open' | 'rated' | 'hidden'; existing: ExistingClassReview | null }>({
+    state: 'loading',
+    existing: null,
+  });
+  const [rateOpen, setRateOpen] = useState(false);
+
+  const loadMyRating = useCallback(async () => {
+    try {
+      const res = await fetch('/api/student/ratings', { cache: 'no-store' });
+      const d = res.ok ? await res.json() : null;
+      const data = d?.data ?? d;
+      const rated = (data?.rated?.classes ?? []).find((c: any) => c.groupId === groupId);
+      if (rated) {
+        setMyRating({
+          state: 'rated',
+          existing: { id: rated.id, patience: rated.patience, explanation: rated.explanation, classMaterial: rated.classMaterial, rating: rated.rating, comment: rated.comment },
+        });
+        return;
+      }
+      const todo = (data?.toRate?.classes ?? []).find((c: any) => c.groupId === groupId);
+      setMyRating({ state: todo && !todo.needsFirstSession ? 'open' : 'hidden', existing: null });
+    } catch {
+      setMyRating({ state: 'hidden', existing: null });
+    }
+  }, [groupId]);
+
+  useEffect(() => {
+    if (profile?.role === 'student') void loadMyRating();
+  }, [profile?.role, loadMyRating]);
+
+  const onRated = (message: string) => {
+    setRateOpen(false);
+    setToast({ title: message, body: "It shows on your tutor's profile and this class." });
+    void loadMyRating();
+  };
 
   const classLink = useClassLink(groupId, initialLink, !!group && memberState === 'active');
 
@@ -343,6 +381,19 @@ export default function StudentEnrolledClassV2({ groupId }: { groupId: string })
           <ArrowLeft size={20} weight="bold" aria-hidden />
           My Classes
         </Link>
+        <span className="flex items-center gap-ds-1">
+        {/* Phones: the rating lives behind this star (the card is lg only). */}
+        {!blocked && (myRating.state === 'open' || myRating.state === 'rated') ? (
+          <button
+            type="button"
+            onClick={() => setRateOpen(true)}
+            aria-label={myRating.state === 'open' ? `Rate ${group.tutorName.split(' ')[0]}` : 'Your rating'}
+            className="ds-press relative flex size-11 items-center justify-center rounded-ds-sm border-0 bg-transparent text-ink cursor-pointer lg:hidden"
+          >
+            <Star size={24} weight={myRating.state === 'rated' ? 'fill' : 'bold'} className={myRating.state === 'rated' ? 'text-accent-orange' : undefined} aria-hidden />
+            {myRating.state === 'open' ? <span className="absolute right-[8px] top-[8px] size-2.5 rounded-ds-full bg-accent-orange" aria-hidden /> : null}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
@@ -351,6 +402,7 @@ export default function StudentEnrolledClassV2({ groupId }: { groupId: string })
         >
           <DotsThree size={26} weight="bold" aria-hidden />
         </button>
+        </span>
       </div>
 
       <div className="flex flex-col gap-ds-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-ds-6">
@@ -366,6 +418,10 @@ export default function StudentEnrolledClassV2({ groupId }: { groupId: string })
             fallbackLink={classLink.link}
             onToast={setToast}
           />
+          {!blocked && (myRating.state === 'open' || myRating.state === 'rated') ? (
+            <RatingCard groupId={groupId} group={group} existing={myRating.existing} onDone={onRated} />
+          ) : null}
+          {!blocked ? <ClassRatingsSection source={{ kind: 'group', id: groupId }} className="hidden lg:flex" /> : null}
           {blocked ? (
             <BlockedCard
               state={memberState}
@@ -429,6 +485,23 @@ export default function StudentEnrolledClassV2({ groupId }: { groupId: string })
             </button>
           ) : null}
         </div>
+      </Sheet>
+
+      <Sheet
+        open={rateOpen}
+        onClose={() => setRateOpen(false)}
+        title={myRating.existing ? 'Edit your rating' : `Rate ${group.tutorName.split(' ')[0]}`}
+      >
+        <p className="m-0 text-[14px] text-ink-muted">{group.name}</p>
+        {rateOpen ? (
+          <ClassRatingFlow
+            groupId={groupId}
+            tutorFirstName={group.tutorName.split(' ')[0]}
+            existing={myRating.existing}
+            onDone={onRated}
+            onCancel={() => setRateOpen(false)}
+          />
+        ) : null}
       </Sheet>
 
       <LeaveSheet open={leaveOpen} onClose={() => setLeaveOpen(false)} groupId={groupId} group={group} />
@@ -1253,5 +1326,74 @@ function LeaveSheet({ open, onClose, groupId, group }: { open: boolean; onClose:
       )}
       {err ? <p role="alert" className="m-0 text-[14px] font-bold text-danger">{err}</p> : null}
     </Sheet>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Rate the tutor — wide screens (the phone gets the star button + sheet).
+
+function RatingCard({
+  groupId,
+  group,
+  existing,
+  onDone,
+}: {
+  groupId: string;
+  group: Group;
+  existing: ExistingClassReview | null;
+  onDone: (message: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const first = group.tutorName.split(' ')[0];
+
+  if (existing && !editing) {
+    return (
+      <section className="hidden flex-col gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card lg:flex">
+        <div className="flex items-center justify-between gap-ds-3">
+          <h2 className="m-0 font-display text-[20px] font-extrabold text-ink">Your rating of {first}</h2>
+          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            Edit
+          </Button>
+        </div>
+        <ul className="m-0 flex list-none flex-col p-0">
+          {CATEGORIES.map((c, i) => (
+            <li key={c.key} className={cn('flex items-center justify-between gap-ds-3 py-ds-2', i > 0 && 'bw-t-hair border-line-soft')}>
+              <span className="text-[15px] font-extrabold text-ink">{c.label}</span>
+              <Stars value={existing[c.key] ?? existing.rating} size={16} />
+            </li>
+          ))}
+        </ul>
+        {existing.comment ? <p className="m-0 whitespace-pre-line rounded-ds-sm bg-surface-sunken p-ds-3 text-[15px] text-ink">{existing.comment}</p> : null}
+      </section>
+    );
+  }
+
+  return (
+    <section className="hidden flex-col gap-ds-3 rounded-ds-card bw-bold border-ink bg-surface-card p-ds-card lg:flex">
+      <div className="flex items-start gap-ds-3">
+        {group.tutorAvatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={group.tutorAvatar} alt="" className="size-12 shrink-0 rounded-ds-sm object-cover" />
+        ) : (
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-ds-sm bg-ink font-display text-[16px] font-black text-brand">
+            {initials(group.tutorName)}
+          </span>
+        )}
+        <span className="min-w-0">
+          <h2 className="m-0 font-display text-[20px] font-extrabold text-ink">{existing ? 'Edit your rating' : `How is ${first} doing?`}</h2>
+          <p className="m-0 text-[14px] text-ink-muted">Three quick ratings, then a few words if you like. Other students see it.</p>
+        </span>
+      </div>
+      <ClassRatingFlow
+        groupId={groupId}
+        tutorFirstName={first}
+        existing={existing}
+        onDone={(m) => {
+          setEditing(false);
+          onDone(m);
+        }}
+        onCancel={existing ? () => setEditing(false) : undefined}
+      />
+    </section>
   );
 }

@@ -30,6 +30,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, SealCheck, Star } from '@phosphor-icons/react';
 import { ClassRow } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { ClassRatingsSection } from '@/components/ratings/v2/ClassRating';
 import { subjectCode, subjectColor } from '@/components/parent/v2/subjectTile';
 import { scheduleLine } from '@/components/parent/v2/ParentClassDetailV2';
 
@@ -246,6 +247,12 @@ export function StudentTutorProfileV2({
               </ul>
             )}
           </section>
+
+          {/* Class ratings: the three categories from students in this tutor's classes. */}
+          <ClassRatingsSection
+            source={{ kind: 'tutor', id: tutor.id }}
+            className="rounded-ds-card bw-hair border-border bg-surface-card p-ds-4 [&>div]:border-0 [&>div]:p-0"
+          />
         </div>
       </div>
     </div>

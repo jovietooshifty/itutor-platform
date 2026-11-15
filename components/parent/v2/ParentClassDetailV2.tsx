@@ -34,6 +34,7 @@ import { Check, ShieldCheck } from '@phosphor-icons/react';
 import { Button, Card, NavRow, SummaryRow, Tag } from '@/components/ui';
 import { DsIcon } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
+import { ClassRatingsSection } from '@/components/ratings/v2/ClassRating';
 import { ClassCover } from './ClassCover';
 import { preorderFor, type GroupData, type SessionRow } from '@/components/classes/ClassDetailView';
 import { SecureSpotTermsV2 } from '@/components/classes/SecureSpotTermsV2';
@@ -590,6 +591,12 @@ function BrowseView({
           <p className="max-w-[68ch] whitespace-pre-line font-body text-[15px] leading-[22px] text-ink">{group.description}</p>
         </section>
       ) : null}
+
+      <ClassRatingsSection
+        source={{ kind: 'group', id: group.id }}
+        className={cn('gap-ds-2', !pane && 'lg:col-start-1')}
+        headingClassName="m-0 font-display text-[18px] font-extrabold text-ink"
+      />
 
       {upcoming.length > 0 ? (
         <section className={cn('flex flex-col gap-ds-2', !pane && 'lg:col-start-1')}>

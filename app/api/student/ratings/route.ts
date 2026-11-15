@@ -11,18 +11,18 @@
 //  - Class reviews (`group_reviews`): one live review per (reviewer, group).
 //    Created by POST /api/groups/[groupId]/reviews, which requires an
 //    ACTIVE/GRACE enrollment or an approved/active membership and, when the
-//    enrollment date is known, 30 days of tenure. The same gates are mirrored
-//    here so the page only offers what that route will accept.
+//    that the student has joined at least one of its sessions (owner, 15 Nov;
+//    this replaced a 30-day tenure gate). The same gates are mirrored here so
+//    the page only offers what that route will accept.
 //
 // Read with the service client, always scoped to the caller's own id.
 
 import { authenticateUser } from '@/lib/api/groupAuth';
 import { fail, ok } from '@/lib/api/http';
 import { getServiceClient } from '@/lib/supabase/server';
+import { groupsJoinedBy } from '@/lib/server/classReviewEligibility';
 
 export const dynamic = 'force-dynamic';
-
-const TENURE_DAYS = 30;
 
 type Person = { id: string; name: string; avatar: string | null };
 
@@ -187,19 +187,19 @@ export async function GET() {
       };
     });
 
-    const classToRate = Array.from(eligibleGroups)
-      .filter((gid) => !reviewedGroups.has(gid) && groupById.has(gid))
+    const pending = Array.from(eligibleGroups).filter((gid) => !reviewedGroups.has(gid) && groupById.has(gid));
+    const joined = await groupsJoinedBy(service as any, user.id, pending);
+    const classToRate = pending
       .map((gid) => {
         const g = groupById.get(gid);
-        const since = enrolledAt.get(gid) ?? null;
-        const opensAt = since ? new Date(new Date(since).getTime() + TENURE_DAYS * 86_400_000).toISOString() : null;
         return {
           kind: 'group' as const,
           groupId: gid,
           className: (g?.name as string) || 'Class',
           tutor: person(g.tutor_id),
-          // null = can review now.
-          opensAt: opensAt && opensAt > nowIso ? opensAt : null,
+          // Kept for older clients; the gate is now the first session.
+          opensAt: null as string | null,
+          needsFirstSession: !joined.has(gid),
         };
       });
 

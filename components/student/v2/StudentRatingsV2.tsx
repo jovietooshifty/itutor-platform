@@ -8,7 +8,7 @@
  * Two halves:
  *  - "To rate": tutors the student has had an ended, non-cancelled 1:1
  *    session with and never rated, and classes they are enrolled in and have
- *    not reviewed. A class inside its 30-day tenure window shows when it opens.
+ *    not reviewed. A class is rateable once they have joined a session.
  *  - "Your ratings": what they have left, with Edit.
  *
  * DATA: GET /api/student/ratings (own rows only). Writes go through the
@@ -28,11 +28,12 @@ import { Sheet } from '@/components/parent/v2/Sheet';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { nonStudentRedirect } from '@/lib/routing/nonStudentRedirect';
+import { CATEGORIES, Stars, StarPicker, type CatKey } from '@/components/ratings/v2/ClassRating';
 
 type Person = { id: string; name: string; avatar: string | null };
 
 type SessionToRate = { kind: 'session'; tutor: Person; sessionId: string; lastAt: string; sessionCount: number };
-type ClassToRate = { kind: 'group'; groupId: string; className: string; tutor: Person; opensAt: string | null };
+type ClassToRate = { kind: 'group'; groupId: string; className: string; tutor: Person; opensAt: string | null; needsFirstSession?: boolean };
 type SessionRated = {
   kind: 'session';
   id: string;
@@ -87,13 +88,6 @@ const initials = (name: string) =>
     .slice(0, 2)
     .toUpperCase();
 
-const CATEGORIES = [
-  { key: 'patience', label: 'Patience', hint: 'Takes time when you are stuck' },
-  { key: 'explanation', label: 'Explanation', hint: 'Makes things make sense' },
-  { key: 'classMaterial', label: 'Class material', hint: 'Notes, slides and practice' },
-] as const;
-type CatKey = (typeof CATEGORIES)[number]['key'];
-
 function Avatar({ person }: { person: Person }) {
   return (
     <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-ds-sm bg-ink font-display text-[16px] font-black text-brand">
@@ -104,48 +98,6 @@ function Avatar({ person }: { person: Person }) {
         initials(person.name) || '?'
       )}
     </span>
-  );
-}
-
-function Stars({ value, size = 16, label }: { value: number; size?: number; label?: string }) {
-  return (
-    <span className="inline-flex items-center gap-[2px]" role="img" aria-label={label ?? `${value} out of 5 stars`}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <Star
-          key={n}
-          size={size}
-          weight={n <= Math.round(value) ? 'fill' : 'regular'}
-          className={n <= Math.round(value) ? 'text-accent-orange' : 'text-ink-faint'}
-          aria-hidden
-        />
-      ))}
-    </span>
-  );
-}
-
-/** Five 44px tap targets; a radio group so arrow-key users get the right semantics. */
-function StarPicker({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
-  return (
-    <div role="radiogroup" aria-label={label} className="flex items-center">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          role="radio"
-          aria-checked={value === n}
-          aria-label={`${n} star${n > 1 ? 's' : ''}`}
-          onClick={() => onChange(n)}
-          className="ds-press flex size-11 items-center justify-center rounded-ds-sm border-0 bg-transparent p-0 cursor-pointer"
-        >
-          <Star
-            size={30}
-            weight={n <= value ? 'fill' : 'regular'}
-            className={n <= value ? 'text-accent-orange' : 'text-ink-faint'}
-            aria-hidden
-          />
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -189,15 +141,15 @@ export default function StudentRatingsV2() {
   const toRate: Array<SessionToRate | ClassToRate> = data
     ? [
         ...data.toRate.sessions,
-        // Classes open for review first; ones still inside the 30 days after.
-        ...data.toRate.classes.filter((c) => !c.opensAt),
-        ...data.toRate.classes.filter((c) => c.opensAt),
+        // Classes open for review first; ones waiting on a first session after.
+        ...data.toRate.classes.filter((c) => !c.needsFirstSession),
+        ...data.toRate.classes.filter((c) => c.needsFirstSession),
       ]
     : [];
   const rated: Array<SessionRated | ClassRated> = data
     ? [...data.rated.sessions, ...data.rated.classes].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     : [];
-  const openCount = toRate.filter((t) => t.kind === 'session' || !t.opensAt).length;
+  const openCount = toRate.filter((t) => t.kind === 'session' || !t.needsFirstSession).length;
 
   // Land on whichever half has something to do.
   const current = tab ?? (data && openCount === 0 && rated.length > 0 ? 'rated' : 'rate');
@@ -306,7 +258,7 @@ function Empty({ title, body }: { title: string; body: string }) {
 }
 
 function ToRateCard({ item, onRate }: { item: SessionToRate | ClassToRate; onRate: () => void }) {
-  const locked = item.kind === 'group' && Boolean(item.opensAt);
+  const locked = item.kind === 'group' && Boolean(item.needsFirstSession);
   return (
     <article className={card}>
       <div className="flex min-w-0 items-start gap-ds-3">
@@ -337,7 +289,7 @@ function ToRateCard({ item, onRate }: { item: SessionToRate | ClassToRate; onRat
       </div>
       {locked ? (
         <p className="m-0 rounded-ds-sm bg-surface-sunken px-ds-3 py-ds-2 font-body text-[14px] font-bold text-ink">
-          You can review this class from {fmtDate((item as ClassToRate).opensAt!)}.
+          You can rate this class after your first session.
         </p>
       ) : (
         <Button variant="primary" size="md" block="always" onClick={onRate}>
