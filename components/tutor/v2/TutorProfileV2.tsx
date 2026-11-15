@@ -213,7 +213,7 @@ function ProfileBody() {
   return (
     <div className="flex flex-col gap-ds-4">
       <h1 className="ds-page-title m-0">Profile</h1>
-      <div className="grid gap-ds-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <div className="grid gap-ds-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
         <div className="flex flex-col gap-ds-4">
           {header}
           <Card
@@ -244,7 +244,7 @@ function ProfileBody() {
                       </td>
                       <td className="px-ds-4 py-ds-3 text-ink-muted">{s.provide}</td>
                       <td className="px-ds-4 py-ds-3 text-ink-muted">{s.result}</td>
-                      <td className="px-ds-4 py-ds-3 text-right">
+                      <td className="whitespace-nowrap px-ds-4 py-ds-3 text-right">
                         {s.done === null ? null : s.done ? (
                           <span className="inline-flex items-center gap-[4px] text-[13px] font-extrabold text-ink">
                             <Check size={14} weight="bold" aria-hidden /> Done
