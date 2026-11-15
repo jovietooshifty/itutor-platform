@@ -83,6 +83,9 @@ function suggestedName(level: string, subject: string): string {
   return [exam && !subject.startsWith(exam) ? exam : null, subject, form || null].filter(Boolean).join(' ');
 }
 
+/** "CSEC Additional Mathematics" → "Additional Mathematics": the exam is shown on its own. */
+const bareSubject = (label: string) => label.replace(/^(CSEC|CAPE|SEA)s+/, '');
+
 const wordCount = (s: string) => (s.trim() ? s.trim().split(/\s+/).length : 0);
 
 const inputCls =
@@ -602,7 +605,7 @@ function PreviewCard({
   price: number;
   seats: number;
 }) {
-  const label = subject || title || 'Class';
+  const label = bareSubject(subject) || title || 'Class';
   const exam = examFor(level);
   return (
     <Card eyebrow="What families will see" className="gap-ds-3">
@@ -610,7 +613,7 @@ function PreviewCard({
         <SubjectTile code={subjectCode(label)} color={subjectColor(label)} size={48} className="text-[15px] font-black" />
         <div className="min-w-0 flex flex-wrap gap-ds-1">
           {exam ? <Tag tone="outline">{exam}</Tag> : null}
-          {subject ? <Tag tone="outline">{subject}</Tag> : null}
+          {subject ? <Tag tone="outline">{bareSubject(subject)}</Tag> : null}
         </div>
       </div>
       <div className="font-display text-[18px] font-extrabold leading-6 text-ink">{title || 'Your class name'}</div>
@@ -696,7 +699,7 @@ function SubjectSheet({
           current === s.label && 'bg-surface-sunken font-extrabold'
         )}
       >
-        <span>{s.label}</span>
+        <span>{bareSubject(s.label)}</span>
         {s.curriculum ? <span className="text-[12px] font-bold text-ink-muted">{s.curriculum}</span> : null}
       </button>
     </li>
