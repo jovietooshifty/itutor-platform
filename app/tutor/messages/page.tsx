@@ -11,8 +11,15 @@ import type { ConversationWithParticipant } from '@/lib/types/notifications';
 import { getRelativeTime } from '@/lib/utils/calendar';
 import { getAvatarColor } from '@/lib/utils/avatarColors';
 import UserAvatar from '@/components/UserAvatar';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorMessagesV2 from '@/components/tutor/v2/TutorMessagesV2';
 
-export default function TutorMessagesPage() {
+/** New UI (canvas m14 / d05) behind NEXT_PUBLIC_NEW_UI_ENABLED; fixed at build time. */
+export default function TutorMessagesRoute() {
+  return isNewUiEnabled() ? <TutorMessagesV2 /> : <TutorMessagesPage />;
+}
+
+function TutorMessagesPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
   
