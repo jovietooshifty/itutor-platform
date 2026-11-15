@@ -19,6 +19,9 @@ import { supabase } from '@/lib/supabase/client';
 import { fmtTTD } from '@/lib/utils/formatCurrency';
 import { formatLevel, LEVEL_LABELS } from '@/lib/utils/formatLevel';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
+import TutorClassManageV2 from '@/components/tutor/v2/TutorClassManageV2';
 import { uploadStreamAttachment } from '@/lib/utils/streamAttachments';
 import PaymentHistoryPanel from '@/components/students/PaymentHistoryPanel';
 import { generateHistoryForMember, getPaymentStatus, getMembershipStatus, MEMBERSHIP_META, type MemberBilling } from '@/lib/utils/paymentCycles';
@@ -219,10 +222,53 @@ function classCapacity(
 }
 
 export default function TutorLessonDetailPage() {
+  if (isNewUiEnabled()) {
+    return (
+      <TutorV2Shell width="wide" title="Class">
+        <ClassPageV2 />
+      </TutorV2Shell>
+    );
+  }
   return (
     <TutorShell>
       <ClassHubContent />
     </TutorShell>
+  );
+}
+
+const HUB_TABS: Tab[] = ['stream', 'sessions', 'roster', 'payments', 'settings', 'analytics'];
+
+/**
+ * New UI: the Manage overview (canvas m10/d03) by default; the full class hub
+ * whenever the URL asks for something only the hub does — a `?tab=`, the
+ * post-create `?schedule=1` pop-up, or the Google/Zoom OAuth return — and for
+ * anyone the overview won't serve (an admin entering as tutor).
+ */
+function ClassPageV2() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const id = params?.id as string | undefined;
+  const { profile, loading } = useProfile();
+  // Live, not captured once: the overview's buttons and the hub's "Class
+  // overview" link navigate within this same mounted page. The hub tidies the
+  // address bar with history.replaceState, which useSearchParams does not see,
+  // so the hub stays up after it strips its own params.
+  const wantsHub = ['tab', 'schedule', 'error', 'success'].some((k) => searchParams?.has(k));
+  const [overviewFailed, setOverviewFailed] = useState(false);
+  const onUnavailable = useMemo(() => () => setOverviewFailed(true), []);
+
+  if (loading || !id) return null;
+  const hub = wantsHub || overviewFailed || profile?.role !== 'tutor';
+  if (!hub) return <TutorClassManageV2 classId={id} onUnavailable={onUnavailable} />;
+  return (
+    <div className="flex flex-col gap-ds-3">
+      {profile?.role === 'tutor' && !overviewFailed ? (
+        <Link href={`/tutor/classes/${id}`} className="w-fit text-[14px] font-extrabold text-ink-muted no-underline hover:text-ink">
+          ← Class overview
+        </Link>
+      ) : null}
+      <ClassHubContent />
+    </div>
   );
 }
 
@@ -243,6 +289,8 @@ function ClassHubContent() {
   const [arrival] = useState(() => ({
     schedule: searchParams?.get('schedule') === '1',
     sessionsTab: searchParams?.get('tab') === 'sessions',
+    // The new UI's Manage overview opens the hub at a given tab.
+    tab: HUB_TABS.find((t) => t === searchParams?.get('tab')) ?? null,
     oauthError: searchParams?.get('error') ?? null,
   }));
 
@@ -251,7 +299,7 @@ function ClassHubContent() {
   const [sessions, setSessions] = useState<GroupSession[]>([]);
   const [posts, setPosts] = useState<StreamPost[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>(() => (arrival.schedule || arrival.sessionsTab ? 'sessions' : 'stream'));
+  const [tab, setTab] = useState<Tab>(() => (arrival.schedule || arrival.sessionsTab ? 'sessions' : arrival.tab ?? 'stream'));
   const [settingsDirty, setSettingsDirty] = useState(false);
 
   // The scheduling pop-up lives here rather than in SessionsTab so it outlives
@@ -670,6 +718,7 @@ function ClassHubContent() {
     online: members.filter((m) => m.status !== 'removed' && m.seatType !== 'physical').length,
   };
 
+  const newUi = isNewUiEnabled();
   const tabs: { key: Tab; label: string }[] = [
     { key: 'stream', label: 'Stream' },
     { key: 'sessions', label: 'Sessions' },
@@ -679,7 +728,11 @@ function ClassHubContent() {
   ];
 
   return (
-    <div className="-mx-4 lg:-mx-8 -mt-6 lg:-mt-8">
+    // The bleed margins undo TutorShell's padding; the new shell has none to
+    // undo, and bleeding there pulls the hero over the "Class overview" link.
+    // Rounded on the hero itself, not via overflow-hidden here, which would
+    // stop the sticky admin banner from sticking.
+    <div className={newUi ? undefined : '-mx-4 lg:-mx-8 -mt-6 lg:-mt-8'}>
       {/* Admin "acting as tutor" banner — mandatory, never ambiguous. */}
       {adminMode && (
         <div className="sticky top-0 z-30 flex items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-center text-xs font-semibold text-amber-950">
@@ -688,10 +741,12 @@ function ClassHubContent() {
         </div>
       )}
       {/* Banner header */}
-      <div className={cn('relative h-44 lg:h-52', !group.coverImage && (group.thumbnailGradient ?? 'from-brand to-emerald-400'), !group.coverImage && 'bg-gradient-to-br')}
+      {/* 176px could not hold chips + title + the stacked price boxes on a
+          phone; the new UI gives it room. The old UI is left as it was. */}
+      <div className={cn('relative', newUi ? 'h-64 rounded-ds-card lg:h-52' : 'h-44 lg:h-52', !group.coverImage && (group.thumbnailGradient ?? 'from-brand to-emerald-400'), !group.coverImage && 'bg-gradient-to-br')}
         style={group.coverImage ? { backgroundImage: `url(${group.coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
         {group.coverImage && (
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
         )}
         <Link href={adminMode ? '/admin/classes' : '/tutor/classes'} className="absolute top-4 left-4 inline-flex items-center gap-1 text-xs font-semibold text-white/95 bg-black/30 hover:bg-black/40 px-3 py-1.5 rounded-full backdrop-blur">
           <ArrowLeft className="size-3.5" /> {adminMode ? 'Class Admin' : 'All Classes'}
@@ -821,7 +876,14 @@ function ClassHubContent() {
           linkModeAvailable={group.linkModeAvailable}
           linkOnly={scheduleModal.linkOnly}
           dismissOnBackdrop={!scheduleModal.afterCreate}
-          onClose={() => setScheduleModal(null)}
+          onClose={() => {
+            const afterCreate = scheduleModal.afterCreate;
+            setScheduleModal(null);
+            // New UI: a class just made goes on to its Manage overview, which
+            // shows "Your class is live" (m11) when it is published and now
+            // has a session, and the fix card when it doesn't.
+            if (newUi && afterCreate && !adminMode) router.replace(`/tutor/classes/${group.id}?created=1`);
+          }}
           onLinkSaved={handleLinkSaved}
           onSessionsCreated={handleSessionsCreated}
         />

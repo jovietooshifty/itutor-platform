@@ -49,6 +49,8 @@ interface WalletHistoryRow {
   student_avatar_url: string | null;
   subject_name: string | null;
   source_type: 'session' | 'subscription';
+  /** What the family was charged before any discount; null when unknown. */
+  list_price_ttd?: number | null;
 }
 
 function mapLedgerStatus(s: string): WalletHistoryRow['status'] {
@@ -187,13 +189,13 @@ export async function GET() {
     const subRows    = ledger.filter((r: any) => !r.session_id && r.subscription_payment_id);
 
     // Fetch subscription row metadata: group name + student name
-    let subInfoById = new Map<string, { student_id: string | null; student_name: string | null; student_avatar_url: string | null; subject_name: string | null }>();
+    let subInfoById = new Map<string, { student_id: string | null; student_name: string | null; student_avatar_url: string | null; subject_name: string | null; amount_ttd: number | null; original_amount_ttd: number | null; platform_fee_ttd: number | null }>();
     if (subRows.length > 0) {
       const subPaymentIds = subRows.map((r: any) => r.subscription_payment_id);
       const { data: subPayments } = await admin
         .from('subscription_payments')
         .select(`
-          id, student_id,
+          id, student_id, amount_ttd, original_amount_ttd, platform_fee_ttd,
           group:groups!group_id ( name ),
           student:profiles!student_id ( full_name, display_name, avatar_url )
         `)
@@ -204,6 +206,9 @@ export async function GET() {
           student_name: (sp as any).student?.display_name ?? (sp as any).student?.full_name ?? null,
           student_avatar_url: (sp as any).student?.avatar_url ?? null,
           subject_name: (sp as any).group?.name ?? null,
+          amount_ttd: sp.amount_ttd != null ? Number(sp.amount_ttd) : null,
+          original_amount_ttd: sp.original_amount_ttd != null ? Number(sp.original_amount_ttd) : null,
+          platform_fee_ttd: sp.platform_fee_ttd != null ? Number(sp.platform_fee_ttd) : null,
         });
       }
     }
@@ -257,8 +262,9 @@ export async function GET() {
           released_at: row.released_at ?? null,
           batch_id: row.batch_id ?? null,
           scheduled_start_at: null,
-          charge_amount_ttd: null,
-          platform_fee_ttd: null,
+          charge_amount_ttd: info?.amount_ttd ?? null,
+          platform_fee_ttd: info?.platform_fee_ttd ?? null,
+          list_price_ttd: info?.original_amount_ttd ?? null,
           student_id: info?.student_id ?? null,
           student_name: info?.student_name ?? null,
           student_avatar_url: info?.student_avatar_url ?? null,

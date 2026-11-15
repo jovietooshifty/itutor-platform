@@ -10,6 +10,8 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
 import PayoutSetupModal from '@/components/tutor/PayoutSetupModal';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorWalletV2 from '@/components/tutor/v2/TutorWalletV2';
 
 type Tab = 'overview' | 'transactions' | 'statements';
 
@@ -83,6 +85,8 @@ function fmtTTD(n: number) {
 }
 
 export default function TutorWalletPage() {
+  // New UI (canvas m20 / m20b / d08 / m31) behind NEXT_PUBLIC_NEW_UI_ENABLED; fixed at build time.
+  if (isNewUiEnabled()) return <TutorWalletV2 />;
   return (
     <TutorShell>
       <WalletContent />

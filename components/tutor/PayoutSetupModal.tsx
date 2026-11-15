@@ -14,7 +14,7 @@
 import { useEffect, useState } from 'react';
 import { X, Lock, ArrowDownToLine, Loader2 } from 'lucide-react';
 
-const TT_BANKS: Record<string, { swift: string; code: string; branches: string[] }> = {
+export const TT_BANKS: Record<string, { swift: string; code: string; branches: string[] }> = {
   'Republic Bank': {
     swift: 'RBNKTTPX', code: '004',
     branches: [
