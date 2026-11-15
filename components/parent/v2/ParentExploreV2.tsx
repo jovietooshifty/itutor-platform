@@ -440,7 +440,7 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
           className={cn(
             'grid gap-ds-3 lg:gap-ds-4',
             showingLessons
-              ? 'grid-cols-[repeat(auto-fill,minmax(min(420px,100%),1fr))]'
+              ? 'grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))]'
               : 'grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))]'
           )}
         >
@@ -461,12 +461,12 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
               onClear={narrowed ? onClearSearch : undefined}
             />
           ) : (
-            // One column on a phone; two on a desktop. Class cards carry the
-            // tutor's 4:1 banner, which is dense with text: at the old 300px
-            // minimum (four a row) it was ~75px tall and unreadable. 420px+
-            // columns give at most two in the 1280 frame, ~150px tall banners.
-            // PROVISIONAL: no wide frame.
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(420px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
+            // One column on a phone, two on a tablet, three in the 1280 frame
+            // (owner asked for three, 2026-11-15). Class cards carry the
+            // tutor's 4:1 banner, which is dense with text: at a 300px minimum
+            // (four a row) it was ~75px tall and unreadable. A 340px minimum
+            // caps the frame at three, with banners ~100px tall.
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
               {lessons.map((l, i) => {
                 const enrolled = enrolledIds.has(l.id);
                 return (

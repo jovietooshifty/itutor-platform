@@ -73,7 +73,7 @@ const RECENT_MS = 12 * 3_600_000;
 const SOON_MS = 24 * 3_600_000;
 
 const FILL: Record<SubjectColor, string> = {
-  green: 'bg-brand',
+  green: 'bg-brand-edge',
   yellow: 'bg-accent-yellow',
   orange: 'bg-accent-orange',
   sage: 'bg-on-ink-muted',
@@ -622,18 +622,25 @@ function Hero({
     }
   };
 
+  // The green hero sits on the DS's dark green (brand-edge), so its text and
+  // translucent fills flip to the on-ink set. Yellow/orange/sage stay as they were.
+  const deep = subjectColor(group.subject || group.name) === 'green';
+  const fg = deep ? 'text-on-ink' : 'text-ink';
+  const fgSoft = deep ? 'text-on-ink-muted' : 'text-ink/80';
+  const wash = deep ? 'bg-white/10' : 'bg-ink/10';
+
   const strip = (dark: boolean, children: React.ReactNode) => (
     <div
       className={cn(
         'flex min-h-[44px] flex-wrap items-center gap-x-ds-2 gap-y-ds-1 rounded-ds-sm px-ds-3 py-ds-2 text-[15px] font-extrabold',
-        dark ? 'bg-ink text-on-ink' : 'bg-ink/10 text-ink'
+        dark ? 'bg-ink text-on-ink' : cn(wash, fg)
       )}
     >
       {children}
     </div>
   );
   const locked = (label: string, icon = true) => (
-    <div className="flex h-12 w-full items-center justify-center gap-ds-2 rounded-ds-btn bw-bold border-ink/10 bg-surface-card/60 font-body text-[16px] font-extrabold text-ink-muted">
+    <div className={cn('flex h-12 w-full items-center justify-center gap-ds-2 rounded-ds-btn bw-bold font-body text-[16px] font-extrabold', deep ? 'border-white/15 bg-white/10 text-on-ink-muted' : 'border-ink/10 bg-surface-card/60 text-ink-muted')}>
       {icon ? <Lock size={18} weight="bold" aria-hidden /> : null}
       {label}
     </div>
@@ -651,7 +658,7 @@ function Hero({
       : null;
   const inPersonAction = (
     <div className="flex flex-col gap-ds-2">
-      <div className="flex min-h-[48px] items-center gap-ds-2 rounded-ds-sm bg-ink/10 px-ds-3 text-[15px] font-extrabold text-ink">
+      <div className={cn('flex min-h-[48px] items-center gap-ds-2 rounded-ds-sm px-ds-3 text-[15px] font-extrabold', wash, fg)}>
         <MapPin size={18} weight="bold" aria-hidden />
         {group.venue ? `In person at ${group.venue.name}` : 'In person'}
       </div>
@@ -675,11 +682,11 @@ function Hero({
     <section className={cn('flex flex-col gap-ds-4 rounded-ds-card p-ds-card', FILL[subjectColor(group.subject || group.name)])}>
       <div className="flex items-start gap-ds-3">
         <div className="min-w-0 flex-1">
-          <p className="m-0 text-[12px] font-extrabold uppercase tracking-[0.12em] text-ink">
+          <p className={cn('m-0 text-[12px] font-extrabold uppercase tracking-[0.12em]', fg)}>
             {(group.subject || 'Class').toUpperCase()} · Group
           </p>
-          <h1 className="m-0 mt-ds-1 font-display text-[clamp(26px,6vw,32px)] font-extrabold leading-[1.08] text-ink">{group.name}</h1>
-          <p className="m-0 mt-ds-1 text-[15px] font-bold text-ink/80">with {group.tutorName}</p>
+          <h1 className={cn('m-0 mt-ds-1 font-display text-[clamp(26px,6vw,32px)] font-extrabold leading-[1.08]', fg)}>{group.name}</h1>
+          <p className={cn('m-0 mt-ds-1 text-[15px] font-bold', fgSoft)}>with {group.tutorName}</p>
         </div>
         {group.tutorAvatar ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -762,7 +769,7 @@ function Hero({
                 ))}
               </span>
             ) : null}
-            <span className="text-[15px] font-extrabold text-ink">
+            <span className={cn('text-[15px] font-extrabold', fg)}>
               {roster.length ? `${roster.length} ${roster.length === 1 ? 'student' : 'students'} · ` : ''}
               {fmt(next.start, { weekday: 'short' })} {time(next.start)}
             </span>
@@ -770,7 +777,7 @@ function Hero({
           {inPerson ? inPersonAction : locked(`Join opens ${fmt(next.start, { weekday: 'short' })} ${time(next.start - JOIN_EARLY_MS)}`)}
         </>
       ) : (
-        <p className="m-0 rounded-ds-sm bg-ink/10 px-ds-3 py-ds-3 text-[15px] font-bold text-ink">
+        <p className={cn('m-0 rounded-ds-sm px-ds-3 py-ds-3 text-[15px] font-bold', wash, fg)}>
           No class scheduled yet. Your tutor will add the next one.
         </p>
       )}
