@@ -876,7 +876,14 @@ function ClassHubContent() {
           linkModeAvailable={group.linkModeAvailable}
           linkOnly={scheduleModal.linkOnly}
           dismissOnBackdrop={!scheduleModal.afterCreate}
-          onClose={() => setScheduleModal(null)}
+          onClose={() => {
+            const afterCreate = scheduleModal.afterCreate;
+            setScheduleModal(null);
+            // New UI: a class just made goes on to its Manage overview, which
+            // shows "Your class is live" (m11) when it is published and now
+            // has a session, and the fix card when it doesn't.
+            if (newUi && afterCreate && !adminMode) router.replace(`/tutor/classes/${group.id}?created=1`);
+          }}
           onLinkSaved={handleLinkSaved}
           onSessionsCreated={handleSessionsCreated}
         />

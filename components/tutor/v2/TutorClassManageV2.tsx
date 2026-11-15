@@ -28,12 +28,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, Card, NavRow, SubjectTile, Tag } from '@/components/ui';
 import { Sheet } from '@/components/parent/v2/Sheet';
 import { subjectCode, subjectColor } from '@/components/parent/v2/subjectTile';
 import { AST_TIME_ZONE } from '@/lib/utils/scheduleFormat';
 import { cn } from '@/lib/utils';
+import { useProfile } from '@/lib/hooks/useProfile';
+import { parentInitials } from '@/components/parent/v2/initials';
 import { STATE_TAG, money, shortDate, type ClassItem } from './classState';
 
 type RosterRow = {
@@ -114,6 +116,14 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
   const [data, setData] = useState<Overview | null>(null);
   const [isError, setError] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const { profile } = useProfile();
+  // m11: straight after the create flow (form → scheduling pop-up).
+  const [justCreated, setJustCreated] = useState(() => searchParams?.get('created') === '1');
+  const closeLive = () => {
+    setJustCreated(false);
+    router.replace(`/tutor/classes/${classId}`);
+  };
 
   const load = useCallback(async () => {
     setError(false);
@@ -376,6 +386,44 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
           <ShareCard message={share.message} url={share.url} />
         </aside>
       </div>
+
+      {/* m11 — only when it really is live: published and with a session. */}
+      <Sheet
+        open={justCreated && c.status === 'PUBLISHED' && Boolean(data.next)}
+        onClose={closeLive}
+        title="Your class is live"
+        footer={
+          <Button variant="outline" size="md" onClick={closeLive}>
+            Not now
+          </Button>
+        }
+      >
+        <div>
+          <Tag tone="brand">Published</Tag>
+        </div>
+        <div className="flex items-center gap-ds-3 rounded-ds-card bw-hair border-border p-ds-3">
+          <SubjectTile code={subjectCode(label)} color={subjectColor(label)} size={48} className="text-[15px] font-black" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-extrabold">{c.name}</div>
+            <div className="flex items-center gap-[6px] text-[13px] text-ink-muted">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[9px] font-extrabold text-ink">{parentInitials(profile)}</span>
+              {profile?.display_name || profile?.full_name}
+            </div>
+            <div className="text-[13px] text-ink-muted">
+              {[c.format ? FORMAT_LABEL[c.format] : null, c.schedule].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="font-display text-[15px] font-extrabold tabular-nums">{c.price > 0 ? money(c.price) : 'Free'}</div>
+            <div className="text-[11px] font-bold text-ink-muted">
+              {c.price > 0 ? 'per month · ' : ''}
+              {c.seats ?? '∞'} seats
+            </div>
+          </div>
+        </div>
+        <div className="text-[14px] font-extrabold">Message to share</div>
+        <ShareCard message={share.message} url={share.url} bare />
+      </Sheet>
 
       <Sheet open={shareOpen} onClose={() => setShareOpen(false)} title="Add students">
         <p className="m-0 text-[14px] leading-5 text-ink-muted">
