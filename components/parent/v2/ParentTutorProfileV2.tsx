@@ -40,6 +40,7 @@ import { Check, ShieldCheck, X } from '@phosphor-icons/react';
 import { supabase } from '@/lib/supabase/client';
 import { Button, ClassRow, NavRow, StepList, SummaryRow } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { ClassRatingsSection } from '@/components/ratings/v2/ClassRating';
 import { DetailScreen, DetailSkeleton, EmptyCard } from './DetailScreen';
 import { Sheet } from './Sheet';
 import { ParentBookOneToOneSheet } from './ParentBookOneToOneSheet';
@@ -418,6 +419,12 @@ export default function ParentTutorProfileV2() {
           ))
         )}
       </section>
+
+      <ClassRatingsSection
+        source={{ kind: 'tutor', id: tutorId }}
+        headingClassName="m-0 font-display text-[17px] font-extrabold leading-[22px] text-ink"
+        className="gap-ds-2"
+      />
 
       {canBook || tutor.related ? (
       <div className="sticky bottom-0 -mx-ds-4 flex flex-col gap-ds-2 bw-t-hair border-line-soft bg-surface-page px-ds-4 pb-ds-4 pt-ds-3 md:static md:mx-0 md:flex-row md:border-0 md:bg-transparent md:px-0 md:pb-0 md:pt-0">

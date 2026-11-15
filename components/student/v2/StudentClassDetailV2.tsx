@@ -38,6 +38,7 @@ import {
 } from '@phosphor-icons/react';
 import { Button, Tag } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { ClassRatingsSection } from '@/components/ratings/v2/ClassRating';
 import { ClassCover } from '@/components/parent/v2/ClassCover';
 import { preorderFor, type GroupData, type ParentGate, type SessionRow } from '@/components/classes/ClassDetailView';
 import { SecureSpotTermsV2 } from '@/components/classes/SecureSpotTermsV2';
@@ -383,6 +384,8 @@ export function StudentClassDetailV2({ group, parentGate, onJoin }: StudentClass
             ) : null}
           </section>
         ) : null}
+
+        <ClassRatingsSection source={{ kind: 'group', id: group.id }} />
       </div>
 
       {/* lg and up: the decision beside what the student is reading. */}

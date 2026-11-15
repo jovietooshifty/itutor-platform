@@ -4,6 +4,7 @@ import { authenticateUser } from '@/lib/api/groupAuth';
 import { fail, ok } from '@/lib/api/http';
 import { recalculateRating } from '@/lib/services/groupReviews';
 import { getServiceClient } from '@/lib/supabase/server';
+import { groupsJoinedBy } from '@/lib/server/classReviewEligibility';
 
 type Params = { params: Promise<{ groupId: string }> };
 
@@ -59,12 +60,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     ]);
     if (!enrollment && !membership) return fail('You must be enrolled to leave a review', 403);
 
-    // 30-day tenure gate — only enforceable when we know when they enrolled.
-    const enrolledAt = enrollment?.enrolled_at;
-    if (enrolledAt) {
-      const daysEnrolled = (Date.now() - new Date(enrolledAt).getTime()) / 86_400_000;
-      if (daysEnrolled < 30) return fail('You can review this class once you have been enrolled for 30 days.', 403);
-    }
+    // Owner, 15 Nov: no 30-day wait, but they must have joined a session first.
+    const joined = await groupsJoinedBy(service as any, user.id, [groupId]);
+    if (!joined.has(groupId)) return fail('You can rate this class after your first session.', 403);
 
     const { data: existing } = await service
       .from('group_reviews')
