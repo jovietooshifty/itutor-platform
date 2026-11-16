@@ -70,7 +70,7 @@ function Row({
       className={cn(
         'flex w-full items-center gap-ds-3 px-ds-card py-ds-3 text-left',
         'border-0 bg-transparent cursor-pointer',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
+        'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink',
         !first && 'bw-t-hair border-line-soft'
       )}
     >
@@ -108,7 +108,7 @@ function AccountCard({
       onClick={onClick}
       className={cn(
         'flex w-full items-center gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-left',
-        'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+        'cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
       )}
     >
       <span
@@ -231,7 +231,7 @@ export function ParentSettingsV2() {
         className={cn(
           'flex w-full items-center justify-center gap-ds-2 rounded-ds-btn bw-bold border-ink bg-surface-card py-ds-3',
           'font-body text-[15px] font-extrabold text-danger cursor-pointer',
-          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+          'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
         )}
       >
         <SignOut size={24} aria-hidden />

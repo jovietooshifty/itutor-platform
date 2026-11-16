@@ -247,7 +247,7 @@ function EnrolledView({ group, enrolments, canAddChild, onJoin, layout = 'page' 
   const tutorRow = group.tutor ? (
     <Link
       href={`/parent/tutors/${group.tutor.id}`}
-      className="ds-press flex items-center gap-ds-3 self-stretch rounded-ds-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+      className="ds-press flex items-center gap-ds-3 self-stretch rounded-ds-card focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
     >
       <span className="flex h-[44px] w-[44px] flex-none items-center justify-center overflow-hidden rounded-[12px] bg-ink font-display text-[14px] font-extrabold text-brand">
         {group.tutor.avatar_url ? (

@@ -159,7 +159,7 @@ export function ParentProfileV2() {
       onClick={() => router.push(`/parent/children/${c.id}`)}
       className={cn(
         'ds-press flex w-full items-center gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-left',
-        'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+        'cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
       )}
     >
       <span className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-ds-sm bg-brand font-display text-[15px] font-extrabold text-ink">

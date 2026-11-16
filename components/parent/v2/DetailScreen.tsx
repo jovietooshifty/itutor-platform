@@ -53,7 +53,7 @@ export function DetailScreen({ backLabel, fallbackHref, title, action, width = '
         <button
           type="button"
           onClick={back}
-          className="ds-link flex items-center gap-ds-2 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+          className="ds-link flex items-center gap-ds-2 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
         >
           <span className="rotate-180">
             <DsIcon name="chevron" size={20} />

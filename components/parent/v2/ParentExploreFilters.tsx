@@ -139,7 +139,7 @@ export function ParentExploreFilters({
                       className={cn(
                         'rounded-ds-full bw-hair px-ds-3 py-[7px] cursor-pointer',
                         'font-body text-[13px] font-extrabold whitespace-nowrap',
-                        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
+                        'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink',
                         option.selected
                           ? 'bg-ink border-ink text-on-ink'
                           : 'bg-surface-card border-border text-ink'

@@ -46,7 +46,7 @@ export function StudentCheckoutFrame({
         <button
           type="button"
           onClick={back}
-          className="ds-link inline-flex min-h-[44px] items-center gap-ds-1h self-start border-0 bg-transparent p-0 text-[15px] font-extrabold text-ink cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+          className="ds-link inline-flex min-h-[44px] items-center gap-ds-1h self-start border-0 bg-transparent p-0 text-[15px] font-extrabold text-ink cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
         >
           <CaretLeft size={20} weight="bold" aria-hidden />
           Back

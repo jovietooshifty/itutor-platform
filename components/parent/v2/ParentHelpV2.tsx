@@ -137,7 +137,7 @@ export default function ParentHelpV2() {
               onClick={() => router.push(t.href)}
               className={cn(
                 'flex w-full items-center gap-ds-3 border-x-0 border-b-0 bg-transparent py-ds-3 text-left cursor-pointer',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
+                'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink',
                 i > 0 ? 'bw-t-hair border-line-soft' : 'border-t-0'
               )}
             >

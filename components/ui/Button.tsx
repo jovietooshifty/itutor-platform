@@ -75,7 +75,7 @@ export function Button({
         'tabular-nums',
         '[-webkit-tap-highlight-color:transparent]',
         'active:translate-y-[2px]',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ink',
+        'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ink',
         'disabled:opacity-45 disabled:cursor-not-allowed disabled:active:translate-y-0',
         SIZES[size],
         VARIANTS[variant],
