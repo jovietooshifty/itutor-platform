@@ -68,7 +68,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
           'id, student_id, payer_id, status, enrolled_at, created_at, plan_price_ttd, grace_period_ends_at, seat_type, student:profiles!student_id(full_name, display_name), payer:profiles!payer_id(full_name, display_name)'
         )
         .eq('group_id', classId)
-        .neq('status', 'CANCELLED')
+        // An unfinished checkout is not a student yet. Showing it put a name on
+        // the tutor's roster ("Checkout started · Pending") for someone who may
+        // never pay, and the hold expires on its own. Owner call, 2026-11-16.
+        .not('status', 'in', '(CANCELLED,PENDING_PAYMENT)')
         .order('enrolled_at', { ascending: false, nullsFirst: false }),
       db
         .from('group_members')
