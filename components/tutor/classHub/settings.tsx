@@ -1,30 +1,22 @@
 'use client';
 
 // Class hub: settings. Moved out of app/tutor/classes/[id]/page.tsx (2026-11-16) so each
-// tab can be redrawn in the new UI on its own. Behaviour unchanged by the move.
+// tab can be redrawn in the new UI on its own. Redrawn in the design system the
+// same day; behaviour (draft, dirty tracking, save, delete) unchanged.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Users, UserPlus, Copy, Check, Star, MapPin,
-  Bell, X, Plus, ExternalLink, Trash2, Globe, Eye,
-  Banknote, ListChecks, Video, MoreVertical, Pin, Sparkles, Link as LinkIcon, Paperclip, UploadCloud, AlertTriangle, ShieldAlert,
-  Mail, MessageSquare, DollarSign, BarChart3, ArrowUp, ArrowDown, Lock,
-  Calendar as CalendarIcon, BookOpen, Ban, Clock, Info, ArrowUpRight, ChevronRight,
-  RefreshCw,
+  Users, Check, Star, MapPin, X, Trash2, Globe, Video, Sparkles, AlertTriangle,
+  MessageSquare, DollarSign, Lock, Info, ArrowUpRight, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { useUnsavedGuard } from '@/lib/hooks/useUnsavedGuard';
 import { UnsavedBar } from '@/components/UnsavedBar';
 import { supabase } from '@/lib/supabase/client';
-import { fmtTTD } from '@/lib/utils/formatCurrency';
-import { formatLevel, LEVEL_LABELS } from '@/lib/utils/formatLevel';
-import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
-import { uploadStreamAttachment } from '@/lib/utils/streamAttachments';
-import PaymentHistoryPanel from '@/components/students/PaymentHistoryPanel';
-import { generateHistoryForMember, getPaymentStatus, getMembershipStatus, MEMBERSHIP_META, type MemberBilling } from '@/lib/utils/paymentCycles';
+import { formatLevel } from '@/lib/utils/formatLevel';
 import {
   BANNER_ACCEPT,
   BANNER_MAX_BYTES,
@@ -36,21 +28,20 @@ import {
   loadBitmap,
   renderBanner,
 } from '@/lib/utils/bannerCanvas';
-import { type ScheduleEntry } from '@/lib/utils/scheduleFormat';
 import { preorderReasonMessage, type PreorderIneligibility } from '@/lib/payments/secureSpot';
 import ClassPausePanel from '@/components/tutor/ClassPausePanel';
-import ScheduleSessionsModal, { type CreatedOccurrence } from '@/components/tutor/classes/ScheduleSessionsModal';
-import { ClassLinkPanel, LinkRotationBanner, providerLabel, useVideoConnection } from '@/components/tutor/classes/ClassLinkChoice';
+import { ClassLinkPanel } from '@/components/tutor/classes/ClassLinkChoice';
 import type { MeetingLinkMode } from '@/lib/types/groups';
-import { formatOffersSeat, seatTypesFor, type ClassFormat } from '@/lib/utils/seatCapacity';
+import { formatOffersSeat } from '@/lib/utils/seatCapacity';
 import InPersonSection, { type InPersonDraft } from '@/components/tutor/classes/InPersonSection';
 import { usePhysicalClasses } from '@/lib/hooks/usePhysicalClasses';
-import PaymentsGrid from '@/components/tutor/classes/PaymentsGrid';
-import { DbSubject, LEVEL_OPTIONS, Tab, Subscriber, GroupMember, StreamPost, GroupSession, URL_LINE_RE, GroupDetail, classCapacity, SettingsHead, Toggle, Banner, EmptyState, SideCard, InfoRow, SettCard, SetField, InfoPop, MenuBtn, MomCard, StatCard, ChartCard, formatRelative } from './shared';
-import { StreamTab, ComposerKind, COMPOSER_THEME, COMPOSER_MAX_MB, ClassPostComposer, StreamCard } from './stream';
-import { NO_CLASS_LINK_MESSAGE, SessionRow, SessionsTab } from './sessions';
-import { SUB_STATUS_CFG, fmtShortDate, RosterTab, PendingRequestRow, PardonButton, SecuredSpotsSummary, SecuredPayoutInfo, RosterRow } from './roster';
-import { AnalyticsTab } from './analytics';
+import { Button, Tag } from '@/components/ui';
+import { Sheet } from '@/components/parent/v2/Sheet';
+import { ClassCover } from '@/components/parent/v2/ClassCover';
+import {
+  DbSubject, LEVEL_OPTIONS, GroupDetail, classCapacity, SettingsHead, Toggle, Banner, SetField,
+  DS_CARD, DS_INPUT, DS_LABEL, DS_PILL, DS_PILL_ON,
+} from './shared';
 
 export const SETTINGS_SECTIONS = [
   { id: 'basics',    label: 'Display',           icon: Info },
@@ -64,6 +55,14 @@ export const SETTINGS_SECTIONS = [
 ] as const;
 export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]['id'];
 
+/** A muted note in place of a form (1-on-1 classes, derived totals). */
+const NOTE = 'rounded-ds-card bg-surface-sunken px-ds-4 py-ds-3 text-[14px] leading-5 text-ink-muted';
+/** − / + square on the capacity stepper. */
+const STEP_BTN =
+  'ds-press grid size-11 shrink-0 place-items-center rounded-ds-btn bw-hair border-ink bg-surface-card font-display text-[20px] font-extrabold text-ink cursor-pointer hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface-card';
+/** Small spinner that takes the button's text colour. */
+const SPINNER = 'size-3.5 animate-spin rounded-full bw-bold border-transparent border-t-current';
+
 export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enrolledCount }: {
   group: GroupDetail;
   setGroup: React.Dispatch<React.SetStateAction<GroupDetail | null>>;
@@ -76,12 +75,6 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
   // has already started — but never below the seats already taken, since there
   // is no rule for who would be dropped.
   const capacityFloor = Math.max(2, enrolledCount);
-
-  const gradients = [
-    'from-orange-500 to-amber-400', 'from-fuchsia-500 to-purple-500', 'from-sky-500 to-cyan-400',
-    'from-emerald-500 to-teal-400', 'from-rose-500 to-pink-400', 'from-indigo-500 to-blue-500',
-    'from-yellow-500 to-orange-500', 'from-slate-600 to-slate-400',
-  ];
 
   // Local editable copy (decoupled from parent until saved)
   const [draft, setDraft] = useState(() => ({ ...group }));
@@ -412,52 +405,89 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
     }
   };
 
+
+  const visibleSections = SETTINGS_SECTIONS.filter((s) =>
+    (s.id !== 'inperson' || physicalClasses) &&
+    // An in-person-only class has nothing to join.
+    (s.id !== 'classlink' || group.classFormat !== 'physical')
+  );
+
   return (
-    <div className="max-w-5xl space-y-4">
+    <div className="flex max-w-5xl flex-col gap-ds-4">
       {saveOk && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm font-semibold text-emerald-700">
-          <Check className="size-4" /> Changes saved successfully.
+        <div role="status" className="flex items-center gap-ds-2 rounded-ds-card bw-hair border-brand bg-brand/10 px-ds-4 py-ds-3 text-[14px] font-extrabold text-ink">
+          <Check className="size-4 shrink-0 text-brand-edge" /> Changes saved successfully.
         </div>
       )}
       {saveError && (
-        <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-sm text-rose-700">{saveError}</div>
+        <Banner tone="rose" icon={AlertTriangle} title="Couldn't save your changes" body={saveError} />
       )}
 
-      <div className="grid lg:grid-cols-[220px_1fr] gap-6">
-        {/* Sidebar nav */}
-        <nav className="space-y-1">
-          {SETTINGS_SECTIONS.filter((s) =>
-            (s.id !== 'inperson' || physicalClasses) &&
-            // An in-person-only class has nothing to join.
-            (s.id !== 'classlink' || group.classFormat !== 'physical')
-          ).map((s) => {
-            const Icon = s.icon;
-            const active = section === s.id;
-            const danger = s.id === 'danger';
-            return (
-              <button key={s.id} onClick={() => tryChangeSection(s.id)}
-                className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition',
-                  active
-                    ? danger ? 'bg-rose-50 border border-rose-200 text-rose-700' : 'bg-background border border-border text-ink shadow-sm'
-                    : danger ? 'text-rose-600 hover:bg-rose-50/60' : 'text-muted-foreground hover:bg-background')}>
-                <Icon className="size-4 shrink-0" />
-                <span className="flex-1 text-left">{s.label}</span>
-                <ChevronRight className={cn('size-3.5 transition', active && !danger && 'text-brand-deep', active && danger && 'text-rose-600')} />
-              </button>
-            );
-          })}
+      <div className="grid gap-ds-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-ds-5">
+        {/* Section nav. Phones: a scrolling pill row. Wide: a column of rows. */}
+        <nav aria-label="Settings sections" className="min-w-0">
+          <div className="-mx-ds-1 flex gap-ds-2 overflow-x-auto px-ds-1 pb-ds-1 [scrollbar-width:none] lg:hidden">
+            {visibleSections.map((s) => {
+              const Icon = s.icon;
+              const active = section === s.id;
+              const danger = s.id === 'danger';
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => tryChangeSection(s.id)}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    DS_PILL,
+                    'shrink-0 whitespace-nowrap',
+                    danger && 'text-danger',
+                    active && (danger ? '!border-danger !bg-danger !text-on-ink' : DS_PILL_ON)
+                  )}
+                >
+                  <Icon className="size-3.5" />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="hidden flex-col gap-[2px] lg:flex">
+            {visibleSections.map((s) => {
+              const Icon = s.icon;
+              const active = section === s.id;
+              const danger = s.id === 'danger';
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => tryChangeSection(s.id)}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'ds-press flex w-full items-center gap-ds-3 rounded-ds-btn bw-bold px-ds-3 py-[10px] text-left font-body text-[14px] font-extrabold cursor-pointer transition-colors',
+                    danger && 'mt-ds-2',
+                    active
+                      ? danger ? 'border-danger bg-surface-card text-danger' : 'border-ink bg-ink text-on-ink'
+                      : danger ? 'border-transparent text-danger hover:bg-danger/10' : 'border-transparent text-ink hover:bg-surface-sunken'
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  <span className="min-w-0 flex-1">{s.label}</span>
+                  <ChevronRight className={cn('size-3.5 shrink-0', !active && 'opacity-40')} />
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Content panel */}
-        <div className="rounded-2xl bg-background border border-border p-6 space-y-6">
+        <div className={cn(DS_CARD, 'flex min-w-0 flex-col gap-ds-5')}>
           {section === 'basics' && (
             <>
               <SettingsHead title="Display" desc="Control how your class appears to students in the marketplace." />
               <SetField label="Class title">
-                <input value={draft.title} onChange={(e) => d('title', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                <input value={draft.title} onChange={(e) => d('title', e.target.value)} className={DS_INPUT} />
               </SetField>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-ds-3 sm:grid-cols-2">
                 <SetField label="Subject">
                   <div className="relative" ref={subjectRef}>
                     <input
@@ -465,21 +495,32 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
                       onChange={(e) => { setSubjectSearch(e.target.value); setSubjectOpen(true); d('subject', ''); }}
                       onFocus={() => setSubjectOpen(true)}
                       placeholder="Search subjects…"
-                      className="w-full px-3 py-2 pr-7 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                      className={cn(DS_INPUT, 'pr-10')}
                     />
                     {draft.subject && draft.subject !== '—' && (
-                      <button type="button" onClick={() => { d('subject', ''); setSubjectSearch(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink">
-                        <X className="size-3.5" />
+                      <button
+                        type="button"
+                        aria-label="Clear subject"
+                        onClick={() => { d('subject', ''); setSubjectSearch(''); }}
+                        className="absolute right-ds-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-ds-sm text-ink-muted hover:text-ink"
+                      >
+                        <X className="size-4" />
                       </button>
                     )}
                     {subjectOpen && filteredSubjects.length > 0 && (
-                      <div className="absolute z-20 mt-1 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      <div className="absolute z-20 mt-ds-1 max-h-56 w-full overflow-y-auto rounded-ds-btn bw-hair border-ink bg-surface-card p-ds-1 shadow-[0_8px_24px_rgba(0,0,0,0.14)]">
                         {filteredSubjects.map((s) => (
-                          <button key={s.id} type="button" onClick={() => selectSubject(s.label)}
-                            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors',
-                              draft.subject === s.label && 'bg-brand/10 text-brand-deep font-medium')}>
-                            <span className="font-medium">{s.label}</span>
-                            {s.curriculum && <span className="text-xs text-muted-foreground ml-1.5">· {s.curriculum}</span>}
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => selectSubject(s.label)}
+                            className={cn(
+                              'w-full rounded-ds-sm px-ds-3 py-ds-2 text-left text-[14px] text-ink hover:bg-surface-sunken',
+                              draft.subject === s.label && 'bg-brand/10'
+                            )}
+                          >
+                            <span className="font-extrabold">{s.label}</span>
+                            {s.curriculum && <span className="ml-[6px] text-[12px] text-ink-muted">· {s.curriculum}</span>}
                           </button>
                         ))}
                       </div>
@@ -490,7 +531,7 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
                   <select
                     value={draft.level && draft.level !== '—' ? draft.level : ''}
                     onChange={(e) => d('level', e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand appearance-none"
+                    className={cn(DS_INPUT, 'cursor-pointer')}
                   >
                     <option value="">Select level…</option>
                     {LEVEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -498,9 +539,12 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
                 </SetField>
               </div>
               <SetField label="Description" hint="Shown on your public listing and marketplace card.">
-                <textarea value={draft.description} onChange={(e) => d('description', e.target.value)}
+                <textarea
+                  value={draft.description}
+                  onChange={(e) => d('description', e.target.value)}
                   placeholder="Tell students what this class covers, who it's for, and what they'll achieve…"
-                  className="w-full min-h-24 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                  className={cn(DS_INPUT, 'min-h-28 resize-y')}
+                />
               </SetField>
               <ClassBannerUpload
                 groupId={draft.id}
@@ -508,9 +552,11 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
                 onUploaded={(url) => d('coverImage', url)}
               />
               {/* Marketplace preview */}
-              <div className="pt-2 border-t border-border space-y-3">
-                <div className="text-sm font-semibold text-ink">Marketplace preview</div>
-                <p className="text-xs text-muted-foreground">This is how your class appears to students browsing the Explore page.</p>
+              <div className="flex flex-col gap-ds-3 bw-t-hair border-line-soft pt-ds-4">
+                <div>
+                  <div className="font-display text-[17px] font-extrabold text-ink">Marketplace preview</div>
+                  <p className="m-0 mt-[2px] text-[13px] leading-[18px] text-ink-muted">This is how your class appears to students browsing the Explore page.</p>
+                </div>
                 <ClassPreviewCard draft={draft} enrolledCount={enrolledCount} />
               </div>
             </>
@@ -520,17 +566,15 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
             <>
               <SettingsHead title="Capacity" desc="Control how many students can be in this class." />
               {isOneOnOne ? (
-                <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                  This is a 1-on-1 class — capacity is fixed at 1.
-                </div>
+                <div className={NOTE}>This is a 1-on-1 class — capacity is fixed at 1.</div>
               ) : hybridCapsSetTotal ? (
                 // Two kinds of seat, at least one capped: the total is derived
                 // from them and nothing typed here would survive the trigger,
                 // so the seat limits are shown, not a third number offered.
-                <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                <div className={NOTE}>
                   This class has online and in-person seats, so its limit is set per seat type
                   {physicalClasses ? ' under Class type' : ''}:{' '}
-                  <strong className="font-semibold text-ink">
+                  <strong className="font-extrabold text-ink">
                     {draft.maxStudentsOnline ?? 'no limit'} online · {draft.maxStudentsPhysical ?? 'no limit'} in person
                   </strong>.
                 </div>
@@ -543,20 +587,29 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
                     ? `Min ${capacityFloor} (students already enrolled) · Max 500.`
                     : 'Min 2 · Max 500.'}
                 >
-                  <div className="inline-flex items-center gap-2">
-                    <button onClick={() => setCapacity(Math.max(capacityFloor, draft.capacity - 1))}
+                  <div className="inline-flex items-center gap-ds-2">
+                    <button
+                      type="button"
+                      aria-label="Decrease limit"
+                      onClick={() => setCapacity(Math.max(capacityFloor, draft.capacity - 1))}
                       disabled={draft.capacity <= capacityFloor}
-                      className="size-9 grid place-items-center rounded-lg border border-border hover:bg-muted text-lg font-semibold disabled:opacity-40 disabled:hover:bg-transparent">−</button>
+                      className={STEP_BTN}
+                    >−</button>
                     <input
                       type="number" value={draft.capacity} min={capacityFloor} max={500}
+                      aria-label="Student limit"
                       onChange={(e) => setCapacity(Math.max(capacityFloor, Math.min(500, Number(e.target.value))))}
-                      className="w-20 text-center px-3 py-2 rounded-lg border border-border bg-background text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand"
+                      className={cn(DS_INPUT, 'w-24 text-center font-extrabold tabular-nums')}
                     />
-                    <button onClick={() => setCapacity(Math.min(500, draft.capacity + 1))}
-                      className="size-9 grid place-items-center rounded-lg border border-border hover:bg-muted text-lg font-semibold">+</button>
+                    <button
+                      type="button"
+                      aria-label="Increase limit"
+                      onClick={() => setCapacity(Math.min(500, draft.capacity + 1))}
+                      className={STEP_BTN}
+                    >+</button>
                   </div>
                   {capacityFloor > 2 && (
-                    <p className="mt-2 text-xs text-muted-foreground">
+                    <p className="m-0 mt-ds-1 text-[13px] leading-[18px] text-ink-muted">
                       To go below {capacityFloor}, remove a student from the Students tab first.
                     </p>
                   )}
@@ -572,7 +625,7 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
                 desc="Run this class at a venue, online, or both."
               />
               {isOneOnOne ? (
-                <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                <div className={NOTE}>
                   1-on-1 sessions are arranged directly with the student, so this
                   is set per session rather than on the class.
                 </div>
@@ -621,17 +674,18 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
           {section === 'billing' && (
             <>
               <SettingsHead title="Billing" desc="How members are charged for this class." />
-              <div className="rounded-xl border border-brand/30 bg-brand-soft/30 px-4 py-3 text-sm font-medium text-brand-deep">
-                Monthly billing — students are charged a flat fee each month.
+              <div className="flex flex-wrap items-center gap-ds-2 rounded-ds-card bw-hair border-brand bg-brand/10 px-ds-4 py-ds-3 text-[14px] text-ink">
+                <Tag tone="brand">Monthly</Tag>
+                <span className="min-w-0">Students are charged a flat fee each month.</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-ds-3 sm:grid-cols-2">
                 <SetField label="Monthly price (TTD)">
                   <input type="number" value={draft.pricePerSession ?? 0} onChange={(e) => d('pricePerSession', Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                    className={cn(DS_INPUT, 'tabular-nums')} />
                 </SetField>
                 <SetField label="Per-member service fee (TTD)" infoTitle="Service fee" infoBlurb="A small flat fee added to each member's bill — useful to cover materials, platform costs, or admin overhead.">
                   <input type="number" value={draft.memberServiceFee} onChange={(e) => d('memberServiceFee', Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                    className={cn(DS_INPUT, 'tabular-nums')} />
                 </SetField>
               </div>
             </>
@@ -641,63 +695,70 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
             <>
               <SettingsHead title="Access & policies" desc="Who can join and what happens when payments fall behind." />
               <SetField label="Visibility" hint="Public classes appear in the marketplace. Private classes don't, and always require approval to join.">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-ds-2" role="radiogroup" aria-label="Visibility">
                   {(['public', 'private'] as const).map((v) => (
-                    <button key={v} onClick={() => {
-                      if (v === draft.visibility) return;
-                      if (v === 'private') {
-                        lastPublicJoinReq.current = draft.requireJoinRequests;
-                        setDraft((prev) => ({ ...prev, visibility: 'private', isPublic: false, requireJoinRequests: true }));
-                      } else {
-                        setDraft((prev) => ({ ...prev, visibility: 'public', isPublic: true, requireJoinRequests: lastPublicJoinReq.current }));
-                      }
-                    }}
-                      className={cn('px-3 py-2 rounded-lg border text-xs font-semibold capitalize inline-flex items-center justify-center gap-1.5 transition-colors',
-                        draft.visibility === v ? 'bg-brand-soft border-brand text-brand-deep' : 'bg-background text-muted-foreground border-border hover:text-ink')}>
-                      {v === 'public' ? <Globe className="size-3.5" /> : <Lock className="size-3.5" />}
+                    <button
+                      key={v}
+                      type="button"
+                      role="radio"
+                      aria-checked={draft.visibility === v}
+                      onClick={() => {
+                        if (v === draft.visibility) return;
+                        if (v === 'private') {
+                          lastPublicJoinReq.current = draft.requireJoinRequests;
+                          setDraft((prev) => ({ ...prev, visibility: 'private', isPublic: false, requireJoinRequests: true }));
+                        } else {
+                          setDraft((prev) => ({ ...prev, visibility: 'public', isPublic: true, requireJoinRequests: lastPublicJoinReq.current }));
+                        }
+                      }}
+                      className={cn(DS_PILL, 'justify-center rounded-ds-btn py-[10px] text-[14px] capitalize', draft.visibility === v && DS_PILL_ON)}
+                    >
+                      {v === 'public' ? <Globe className="size-4" /> : <Lock className="size-4" />}
                       {v}
                     </button>
                   ))}
                 </div>
               </SetField>
-              <Toggle
-                label="Enable join requests"
-                hint={draft.visibility === 'private' ? 'Private classes always require approval to join.' : 'Members must request approval before joining.'}
-                value={draft.requireJoinRequests}
-                onChange={(v) => d('requireJoinRequests', v)}
-                disabled={draft.visibility === 'private'}
-              />
-              {/* Preorders. The switch is only offered once the class has a
-                  schedule whose first lesson is still ahead — students must
-                  never see a payment button next to "schedule to be
-                  confirmed", and a class already running is joined, not
-                  reserved. The server re-checks this on save. */}
-              <Toggle
-                label="Let students secure a spot before it starts"
-                hint={
-                  preorderReady === null
-                    ? 'Checking the schedule…'
-                    : preorderReady.ok
-                      ? `On by default until the class starts${
-                          preorderReady.firstSession
-                            ? ` on ${new Date(preorderReady.firstSession).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
-                            : ''
-                        }. Students pay their first month up front to hold a place; switch off if you'd rather they joined normally. Turning it off doesn't affect spots already secured.`
-                      : preorderReasonMessage(
-                          (preorderReady.reason ?? 'no_schedule') as PreorderIneligibility
-                        )
-                }
-                value={draft.secureSpotEnabled}
-                // Never blocked while it's already on, so a tutor can always
-                // switch it back off — including after the class has started.
-                disabled={!draft.secureSpotEnabled && !(preorderReady?.ok ?? false)}
-                onChange={(v) => d('secureSpotEnabled', v)}
-              />
-              <Toggle label="Auto-suspend on overdue payment" hint="When a payment goes overdue past the grace window, the member is suspended until they pay." value={draft.autoSuspendMissedPayment} onChange={(v) => d('autoSuspendMissedPayment', v)} />
+              <div className="flex flex-col gap-ds-3">
+                <Toggle
+                  label="Enable join requests"
+                  hint={draft.visibility === 'private' ? 'Private classes always require approval to join.' : 'Members must request approval before joining.'}
+                  value={draft.requireJoinRequests}
+                  onChange={(v) => d('requireJoinRequests', v)}
+                  disabled={draft.visibility === 'private'}
+                />
+                {/* Preorders. The switch is only offered once the class has a
+                    schedule whose first lesson is still ahead — students must
+                    never see a payment button next to "schedule to be
+                    confirmed", and a class already running is joined, not
+                    reserved. The server re-checks this on save. */}
+                <Toggle
+                  label="Let students secure a spot before it starts"
+                  hint={
+                    preorderReady === null
+                      ? 'Checking the schedule…'
+                      : preorderReady.ok
+                        ? `On by default until the class starts${
+                            preorderReady.firstSession
+                              ? ` on ${new Date(preorderReady.firstSession).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
+                              : ''
+                          }. Students pay their first month up front to hold a place; switch off if you'd rather they joined normally. Turning it off doesn't affect spots already secured.`
+                        : preorderReasonMessage(
+                            (preorderReady.reason ?? 'no_schedule') as PreorderIneligibility
+                          )
+                  }
+                  value={draft.secureSpotEnabled}
+                  // Never blocked while it's already on, so a tutor can always
+                  // switch it back off — including after the class has started.
+                  disabled={!draft.secureSpotEnabled && !(preorderReady?.ok ?? false)}
+                  onChange={(v) => d('secureSpotEnabled', v)}
+                />
+                <Toggle label="Auto-suspend on overdue payment" hint="When a payment goes overdue past the grace window, the member is suspended until they pay." value={draft.autoSuspendMissedPayment} onChange={(v) => d('autoSuspendMissedPayment', v)} />
+              </div>
               {draft.autoSuspendMissedPayment && (
                 <SetField label="Grace window (days)" infoTitle="Grace window" infoBlurb="How many days after a missed payment before the member is auto-suspended. Set to 0 to suspend immediately.">
                   <input type="number" value={draft.gracePeriodDays} onChange={(e) => d('gracePeriodDays', Number(e.target.value))}
-                    className="w-32 px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                    className={cn(DS_INPUT, 'w-32 tabular-nums')} />
                 </SetField>
               )}
             </>
@@ -725,11 +786,11 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
               <SettingsHead title="Communication channels" desc="Optional external channels where your students can stay in touch." />
               <SetField label="WhatsApp group link" infoTitle="WhatsApp" infoBlurb="Students enrolled in this class will see a prompt to join your WhatsApp group.">
                 <input value={draft.whatsappLink ?? ''} onChange={(e) => d('whatsappLink', e.target.value)} placeholder="https://chat.whatsapp.com/…"
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                  className={DS_INPUT} />
               </SetField>
               <SetField label="Google Classroom link" infoTitle="Google Classroom" infoBlurb="Students will see a prompt to join your Google Classroom when they open the class stream.">
                 <input value={draft.googleClassroomLink ?? ''} onChange={(e) => d('googleClassroomLink', e.target.value)} placeholder="https://classroom.google.com/c/…"
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                  className={DS_INPUT} />
               </SetField>
             </>
           )}
@@ -737,70 +798,80 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
           {section === 'danger' && (
             <>
               <SettingsHead title="Danger zone" desc="Irreversible actions. Double-check before confirming." tone="danger" />
-              <div className="space-y-3">
+              <div className="flex flex-col gap-ds-3">
                 {/* Pausing is reversible, unlike everything else in this section,
                     and the panel says so. It lives here because of who it
                     affects: it stops billing and moves the renewal date for every
                     enrolled family at once. */}
                 <ClassPausePanel classId={group.id} />
 
-                <button onClick={() => { setDeleteOpen(true); setDeleteConfirmText(''); setDeleteReason(''); setDeleteError(''); }}
-                  className="w-full flex items-start gap-3 rounded-xl border border-rose-200 bg-background px-4 py-3 text-left hover:bg-rose-50 transition-colors">
-                  <Trash2 className="size-4 mt-0.5 text-rose-600" />
-                  <div>
-                    <div className="text-sm font-semibold text-rose-700">Delete class</div>
-                    <div className="text-xs text-muted-foreground">Permanently archive this class and all its data.</div>
+                <div className="flex flex-wrap items-center gap-ds-3 rounded-ds-card bw-hair border-danger bg-surface-card p-ds-card">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-danger/10 text-danger">
+                    <Trash2 className="size-5" />
+                  </span>
+                  <div className="min-w-0 flex-1 basis-[200px]">
+                    <div className="text-[15px] font-extrabold text-danger">Delete class</div>
+                    <div className="text-[13px] leading-[18px] text-ink-muted">Permanently archive this class and all its data.</div>
                   </div>
-                </button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => { setDeleteOpen(true); setDeleteConfirmText(''); setDeleteReason(''); setDeleteError(''); }}
+                  >
+                    Delete class
+                  </Button>
+                </div>
               </div>
             </>
           )}
         </div>
       </div>
 
-      {/* Delete confirmation modal */}
-      {deleteOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 backdrop-blur-sm p-4" onClick={() => setDeleteOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl bg-background border border-border shadow-pop p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="size-10 rounded-full bg-rose-100 grid place-items-center"><Trash2 className="size-5 text-rose-600" /></div>
-              <div>
-                <div className="font-bold text-ink">Delete &ldquo;{group.title}&rdquo;?</div>
-                <div className="text-xs text-muted-foreground mt-0.5">This action cannot be undone.</div>
-              </div>
-            </div>
-            <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-800">
-              All sessions, roster data, and stream posts will be archived. Past earnings and payment records are preserved.
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-ink">Type <span className="font-bold">{group.title}</span> to confirm</label>
-              <input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder={group.title}
-                className="mt-1.5 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-ink">Reason <span className="font-normal text-muted-foreground">(optional)</span></label>
-              <input value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} placeholder="e.g. Course completed, consolidating classes…"
-                className="mt-1.5 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
-            </div>
-            {deleteError && (
-              <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-700">{deleteError}</div>
+      {/* Delete confirmation */}
+      <Sheet
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title={<>Delete &ldquo;{group.title}&rdquo;?</>}
+        label={`Delete ${group.title}?`}
+        footer={
+          <div className="flex flex-wrap justify-end gap-ds-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            {deleteError.includes('Delete anyway') && (
+              <Button variant="danger" size="sm" onClick={() => handleDelete(true)} disabled={deleting}>
+                {deleting ? <><span className={SPINNER} />Deleting…</> : 'Delete anyway'}
+              </Button>
             )}
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setDeleteOpen(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted">Cancel</button>
-              {deleteError.includes('Delete anyway') && (
-                <button onClick={() => handleDelete(true)} disabled={deleting}
-                  className="px-4 py-2 rounded-lg bg-rose-700 text-white text-sm font-semibold hover:bg-rose-800 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5">
-                  {deleting ? <><span className="size-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />Deleting…</> : 'Delete anyway'}
-                </button>
-              )}
-              <button onClick={() => handleDelete(false)} disabled={deleteConfirmText.trim() !== group.title.trim() || deleting}
-                className="px-4 py-2 rounded-lg bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5">
-                {deleting ? <><span className="size-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />Deleting…</> : 'Delete class'}
-              </button>
-            </div>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => handleDelete(false)}
+              disabled={deleteConfirmText.trim() !== group.title.trim() || deleting}
+            >
+              {deleting ? <><span className={SPINNER} />Deleting…</> : 'Delete class'}
+            </Button>
           </div>
+        }
+      >
+        <div className="flex flex-col gap-ds-4">
+          <p className="m-0 text-[14px] font-extrabold text-danger">This action cannot be undone.</p>
+          <div className="rounded-ds-card bw-hair border-danger/40 bg-danger/10 px-ds-3 py-ds-2 text-[14px] leading-5 text-ink">
+            All sessions, roster data, and stream posts will be archived. Past earnings and payment records are preserved.
+          </div>
+          <label className="flex flex-col gap-ds-1">
+            <span className={DS_LABEL}>Type <span className="normal-case tracking-normal text-ink [overflow-wrap:anywhere]">{group.title}</span> to confirm</span>
+            <input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder={group.title}
+              className={cn(DS_INPUT, 'focus:outline-danger')} />
+          </label>
+          <label className="flex flex-col gap-ds-1">
+            <span className={DS_LABEL}>Reason <span className="normal-case tracking-normal font-normal">(optional)</span></span>
+            <input value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} placeholder="e.g. Course completed, consolidating classes…"
+              className={DS_INPUT} />
+          </label>
+          {deleteError && (
+            <div role="alert" className="rounded-ds-card bw-hair border-danger/40 bg-danger/10 px-ds-3 py-ds-2 text-[14px] leading-5 text-danger">{deleteError}</div>
+          )}
         </div>
-      )}
+      </Sheet>
 
       <UnsavedBar dirty={dirty} onSave={handleSave} onDiscard={handleDiscard} saveLabel="Save class settings" saving={saving} />
     </div>
@@ -864,20 +935,21 @@ export function ClassBannerUpload({ groupId, currentUrl, onUploaded }: { groupId
   }
 
   return (
-    <div className="space-y-2">
-      <div className="text-sm font-semibold text-ink">Banner image</div>
-      <p className="text-xs text-muted-foreground">
+    <div className="flex flex-col gap-ds-2">
+      <div className={DS_LABEL}>Banner image</div>
+      <p className="m-0 text-[13px] leading-[18px] text-ink-muted">
         Shown at the top of your class listing. Build one, or upload your own — {BANNER_W}×{BANNER_H} ({BANNER_W / BANNER_H}:1) works best.
       </p>
       {currentUrl && (
-        <div className="rounded-xl overflow-hidden h-24 border border-border">
-          <img src={currentUrl} alt="Banner" className="w-full h-full object-cover" />
+        <div className="h-24 overflow-hidden rounded-ds-card bw-hair border-border">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={currentUrl} alt="Banner" className="h-full w-full object-cover" />
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-ds-3">
         <Link
           href={`/tutor/classes/${groupId}/banner`}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm font-semibold hover:bg-muted transition"
+          className="mb-[3px] inline-flex h-10 items-center gap-ds-2 rounded-ds-btn bw-bold border-ink bg-surface-card px-ds-4 font-body text-[14px] font-extrabold text-ink shadow-edge-ink active:translate-y-[2px] active:shadow-edge-ink-active"
         >
           <ArrowUpRight className="size-4 rotate-45" />
           {currentUrl ? 'Change banner' : 'Build banner'}
@@ -890,21 +962,22 @@ export function ClassBannerUpload({ groupId, currentUrl, onUploaded }: { groupId
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
         />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={busy}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm font-semibold hover:bg-muted transition disabled:opacity-50"
-        >
+        <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>
           {busy ? 'Uploading…' : 'Upload image'}
-        </button>
+        </Button>
 
         {currentUrl && (
-          <button onClick={() => onUploaded('')} className="text-xs text-muted-foreground hover:text-rose-600 transition">Remove</button>
+          <button
+            type="button"
+            onClick={() => onUploaded('')}
+            className="text-[13px] font-extrabold text-ink-muted underline-offset-2 hover:text-danger hover:underline"
+          >
+            Remove
+          </button>
         )}
       </div>
-      {warn && <p className="text-xs text-amber-600">{warn}</p>}
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+      {warn && <p className="m-0 rounded-ds-sm bg-accent-yellow/20 px-ds-2 py-ds-1 text-[13px] text-ink">{warn}</p>}
+      {error && <p role="alert" className="m-0 text-[13px] font-extrabold text-danger">{error}</p>}
     </div>
   );
 }
@@ -916,59 +989,51 @@ export function ClassPreviewCard({ draft, enrolledCount }: { draft: any; enrolle
   const spotsLeft = capacity - enrolledCount;
   const isLow = spotsLeft > 0 && spotsLeft <= 3;
   const isFull = spotsLeft <= 0;
-  const GRADIENTS = ['from-brand to-emerald-400', 'from-sky-500 to-cyan-400', 'from-orange-500 to-amber-400', 'from-fuchsia-500 to-purple-500'];
-  const gradient = GRADIENTS[Math.abs((draft.title || '').charCodeAt(0) ?? 0) % GRADIENTS.length];
 
   return (
-    <div className="max-w-xs rounded-3xl bg-background border border-border overflow-hidden shadow-md">
-      {/* Banner */}
-      <div className={cn('relative h-24 flex items-end p-3', !draft.coverImage && `bg-gradient-to-br ${gradient}`)}
-        style={draft.coverImage ? { backgroundImage: `url(${draft.coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
-        <div className="size-12 rounded-2xl bg-white/90 backdrop-blur grid place-items-center text-2xl shadow-md">📚</div>
-      </div>
+    <div className="w-full max-w-xs overflow-hidden rounded-ds-card bw-hair border-border bg-surface-card">
+      {/* Banner: the tutor's upload, else the subject colour block used across the app. */}
+      <ClassCover image={draft.coverImage || null} subject={draft.subject || draft.title} className="h-24" />
       {/* Body */}
-      <div className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-ink leading-tight">{draft.title || 'Untitled class'}</h3>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold shrink-0">
-            <Star className="size-3 fill-amber-500 text-amber-500" /> 0.0
-          </span>
+      <div className="flex flex-col gap-ds-3 p-ds-card">
+        <div className="flex items-start justify-between gap-ds-2">
+          <h3 className="m-0 min-w-0 font-display text-[16px] font-extrabold leading-tight text-ink [overflow-wrap:anywhere]">{draft.title || 'Untitled class'}</h3>
+          <Tag tone="warning" className="shrink-0 gap-[3px]">
+            <Star className="size-3 fill-current" /> 0.0
+          </Tag>
         </div>
-        <div className="text-xs text-muted-foreground">
+        <div className="text-[13px] text-ink-muted">
           {draft.subject || 'Subject'}{draft.level ? ` · ${formatLevel(draft.level)}` : ''}
         </div>
-        {draft.description && <p className="text-xs text-muted-foreground line-clamp-2">{draft.description}</p>}
-        <div className="flex flex-wrap gap-1.5">
-          {draft.requireJoinRequests && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-border bg-muted text-muted-foreground">Approval required</span>
-          )}
+        {draft.description && <p className="m-0 line-clamp-2 text-[13px] leading-[18px] text-ink-muted">{draft.description}</p>}
+        <div className="flex flex-wrap gap-[6px]">
+          {draft.requireJoinRequests && <Tag tone="outline">Approval required</Tag>}
           {draft.feedbackMode !== 'off' && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand text-white inline-flex items-center gap-1">
+            <Tag tone="brand" className="gap-[3px]">
               <Sparkles className="size-2.5" /> {draft.feedbackMode === 'paid_addon' ? 'Parent feedback' : 'Free parent feedback'}
-            </span>
+            </Tag>
           )}
-          {isLow && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Only {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left</span>}
-          {isFull && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Class full</span>}
+          {isLow && <Tag tone="warning">Only {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left</Tag>}
+          {isFull && <Tag tone="dark">Class full</Tag>}
         </div>
         {draft.scheduleDisplay && (
-          <div className="text-xs text-muted-foreground whitespace-pre-line">{draft.scheduleDisplay}</div>
+          <div className="whitespace-pre-line text-[13px] text-ink-muted">{draft.scheduleDisplay}</div>
         )}
-        <div className="space-y-1">
-          <div className="text-xs text-muted-foreground">{enrolledCount}/{capacity} enrolled</div>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <div className={cn('h-full rounded-full transition-all', pct > 80 ? 'bg-coral' : 'bg-brand')} style={{ width: `${Math.min(100, pct)}%` }} />
+        <div className="flex flex-col gap-ds-1">
+          <div className="text-[13px] tabular-nums text-ink-muted">{enrolledCount}/{capacity} enrolled</div>
+          <div className="h-2 overflow-hidden rounded-ds-full bg-surface-sunken">
+            <div className={cn('h-full rounded-ds-full transition-all', pct > 80 ? 'bg-accent-orange' : 'bg-brand')} style={{ width: `${Math.min(100, pct)}%` }} />
           </div>
         </div>
-        <div className="flex items-center justify-between pt-1 border-t border-border">
+        <div className="flex items-center justify-between bw-t-hair border-line-soft pt-ds-2">
           <div>
             {draft.billingModel === 'per-month'
-              ? <><span className="font-bold text-ink">{draft.pricePerSession ? `TT$${draft.pricePerSession}` : 'Free'}</span><span className="text-xs text-muted-foreground">/mo</span></>
-              : <span className="font-bold text-brand-deep">Free</span>}
+              ? <><span className="font-display text-[16px] font-extrabold tabular-nums text-ink">{draft.pricePerSession ? `TT$${draft.pricePerSession}` : 'Free'}</span><span className="text-[13px] text-ink-muted">/mo</span></>
+              : <span className="font-display text-[16px] font-extrabold text-brand-edge">Free</span>}
           </div>
-          <span className="text-xs font-semibold text-brand-deep">View →</span>
+          <span className="text-[13px] font-extrabold text-brand-edge">View →</span>
         </div>
       </div>
     </div>
   );
 }
-

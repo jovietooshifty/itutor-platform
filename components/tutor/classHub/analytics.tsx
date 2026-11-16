@@ -1,56 +1,17 @@
 'use client';
 
 // Class hub: analytics. Moved out of app/tutor/classes/[id]/page.tsx (2026-11-16) so each
-// tab can be redrawn in the new UI on its own. Behaviour unchanged by the move.
+// tab can be redrawn in the new UI on its own. Redrawn in the design system the
+// same day; the figures are computed exactly as before.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import {
-  ArrowLeft, Users, UserPlus, Copy, Check, Star, MapPin,
-  Bell, X, Plus, ExternalLink, Trash2, Globe, Eye,
-  Banknote, ListChecks, Video, MoreVertical, Pin, Sparkles, Link as LinkIcon, Paperclip, UploadCloud, AlertTriangle, ShieldAlert,
-  Mail, MessageSquare, DollarSign, BarChart3, ArrowUp, ArrowDown, Lock,
-  Calendar as CalendarIcon, BookOpen, Ban, Clock, Info, ArrowUpRight, ChevronRight,
-  RefreshCw,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useProfile } from '@/lib/hooks/useProfile';
-import { useUnsavedGuard } from '@/lib/hooks/useUnsavedGuard';
-import { UnsavedBar } from '@/components/UnsavedBar';
-import { supabase } from '@/lib/supabase/client';
+// Real figures only. Enrollment is derived from each member's own joinedAt;
+// money comes from the group's actual totals. There is deliberately no
+// revenue-by-month chart: the client has a collected TOTAL but no per-month
+// payment history, and a tutor's earnings are the last thing to guess at.
+
+import { BarChart3 } from 'lucide-react';
 import { fmtTTD } from '@/lib/utils/formatCurrency';
-import { formatLevel, LEVEL_LABELS } from '@/lib/utils/formatLevel';
-import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
-import { uploadStreamAttachment } from '@/lib/utils/streamAttachments';
-import PaymentHistoryPanel from '@/components/students/PaymentHistoryPanel';
-import { generateHistoryForMember, getPaymentStatus, getMembershipStatus, MEMBERSHIP_META, type MemberBilling } from '@/lib/utils/paymentCycles';
-import {
-  BANNER_ACCEPT,
-  BANNER_MAX_BYTES,
-  BANNER_MIN_H,
-  BANNER_MIN_W,
-  BANNER_W,
-  BANNER_H,
-  bannerToBlob,
-  loadBitmap,
-  renderBanner,
-} from '@/lib/utils/bannerCanvas';
-import { type ScheduleEntry } from '@/lib/utils/scheduleFormat';
-import { preorderReasonMessage, type PreorderIneligibility } from '@/lib/payments/secureSpot';
-import ClassPausePanel from '@/components/tutor/ClassPausePanel';
-import ScheduleSessionsModal, { type CreatedOccurrence } from '@/components/tutor/classes/ScheduleSessionsModal';
-import { ClassLinkPanel, LinkRotationBanner, providerLabel, useVideoConnection } from '@/components/tutor/classes/ClassLinkChoice';
-import type { MeetingLinkMode } from '@/lib/types/groups';
-import { formatOffersSeat, seatTypesFor, type ClassFormat } from '@/lib/utils/seatCapacity';
-import InPersonSection, { type InPersonDraft } from '@/components/tutor/classes/InPersonSection';
-import { usePhysicalClasses } from '@/lib/hooks/usePhysicalClasses';
-import PaymentsGrid from '@/components/tutor/classes/PaymentsGrid';
-import { DbSubject, LEVEL_OPTIONS, Tab, Subscriber, GroupMember, StreamPost, GroupSession, URL_LINE_RE, GroupDetail, classCapacity, SettingsHead, Toggle, Banner, EmptyState, SideCard, InfoRow, SettCard, SetField, InfoPop, MenuBtn, MomCard, StatCard, ChartCard, formatRelative } from './shared';
-import { StreamTab, ComposerKind, COMPOSER_THEME, COMPOSER_MAX_MB, ClassPostComposer, StreamCard } from './stream';
-import { NO_CLASS_LINK_MESSAGE, SessionRow, SessionsTab } from './sessions';
-import { SUB_STATUS_CFG, fmtShortDate, RosterTab, PendingRequestRow, PardonButton, SecuredSpotsSummary, SecuredPayoutInfo, RosterRow } from './roster';
-import { SETTINGS_SECTIONS, SettingsSectionId, SettingsTab, ClassBannerUpload, ClassPreviewCard } from './settings';
+import { GroupDetail, GroupMember, EmptyState, MomCard, StatCard, ChartCard } from './shared';
 
 export function AnalyticsTab({ group, members }: { group: GroupDetail; members: GroupMember[] }) {
   const activeCount = members.filter((m) => ['active', 'approved'].includes(m.status)).length;
@@ -83,12 +44,13 @@ export function AnalyticsTab({ group, members }: { group: GroupDetail; members: 
   const prevMonth = joins[joins.length - 2];
   // A percentage change off a zero baseline is meaningless — show nothing.
   const momE = prevMonth > 0 ? Math.round(((thisMonth - prevMonth) / prevMonth) * 100) : null;
-  // max bar height in px (container is h-40 = 160px; ~28px reserved for label + gap)
-  const BAR_MAX_PX = 128;
+  // max bar height in px (ChartCard's plot is h-40 = 160px; ~32px reserved for
+  // the count and month labels and their gaps)
+  const BAR_MAX_PX = 112;
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="flex flex-col gap-ds-4">
+      <div className="grid grid-cols-2 gap-ds-3 lg:grid-cols-4">
         {momE === null ? (
           <StatCard label="Enrollment MoM" value="—" hint="No joins last month to compare against" />
         ) : (
@@ -99,21 +61,24 @@ export function AnalyticsTab({ group, members }: { group: GroupDetail; members: 
         <StatCard label="Outstanding (TTD)" value={fmtTTD(outstanding)} />
       </div>
       {joinedInWindow === 0 ? (
-        <div className="rounded-2xl bg-card border border-border p-8 text-center">
-          <div className="font-semibold text-ink">No enrolments yet</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Once students join this class, their sign-ups will show up here month by month.
-          </div>
-        </div>
+        <EmptyState
+          icon={BarChart3}
+          title="No enrolments yet"
+          body="Once students join this class, their sign-ups will show up here month by month."
+        />
       ) : (
         <ChartCard title="New members by month" caption={`${joinedInWindow} in the last 6 months`}>
           {joins.map((v, i) => (
-            <div key={buckets[i].key} className="flex-1 self-stretch flex flex-col items-center justify-end gap-1">
-              <div
-                className="w-full rounded-t-md bg-gradient-to-t from-brand to-emerald-300"
-                style={{ height: `${Math.round((v / maxJoins) * BAR_MAX_PX)}px`, flexShrink: 0 }}
-              />
-              <div className="text-[10px] text-muted-foreground shrink-0">{buckets[i].label}</div>
+            <div key={buckets[i].key} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-ds-1 self-stretch">
+              <div className="text-[12px] font-extrabold tabular-nums text-ink">{v > 0 ? v : ''}</div>
+              {/* Empty track to the full height, filled from the bottom. */}
+              <div className="flex w-full max-w-[56px] shrink-0 items-end overflow-hidden rounded-t-ds-xs bg-surface-sunken" style={{ height: `${BAR_MAX_PX}px` }}>
+                <div
+                  className="w-full rounded-t-ds-xs bg-brand"
+                  style={{ height: `${Math.round((v / maxJoins) * BAR_MAX_PX)}px` }}
+                />
+              </div>
+              <div className="shrink-0 text-[12px] font-bold text-ink-muted">{buckets[i].label}</div>
             </div>
           ))}
         </ChartCard>
@@ -121,5 +86,3 @@ export function AnalyticsTab({ group, members }: { group: GroupDetail; members: 
     </div>
   );
 }
-
-/* ----------- Atom components ----------- */

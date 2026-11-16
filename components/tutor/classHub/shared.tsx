@@ -446,7 +446,9 @@ export async function shareOrCopy(data: { title?: string; text?: string; url: st
     }
   }
   try {
-    await nav?.clipboard?.writeText(data.text ? `${data.text}` : data.url);
+    // The link must always be in what is copied, message or not.
+    const copy = data.text ? (data.text.includes(data.url) ? data.text : `${data.text} ${data.url}`) : data.url;
+    await nav?.clipboard?.writeText(copy);
     return 'copied';
   } catch {
     return 'failed';
