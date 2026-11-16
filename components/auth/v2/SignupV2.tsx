@@ -28,7 +28,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useInstitutionsSearch } from '@/lib/hooks/useInstitutionsSearch';
 import { SIGNUP_COUNTRIES } from '@/lib/auth/signupCountries';
 import { cn } from '@/lib/utils';
 import { TUTOR_LEVELS, YEAR_LEVELS, useSignupFlow, type SignupFlow } from '../useSignupFlow';
@@ -53,6 +52,7 @@ import {
   type AuthRole,
 } from './AuthKit';
 import RolePickerV2 from './RolePickerV2';
+import SchoolPickerV2 from './SchoolPickerV2';
 import { useParentAccountsFlag } from './useParentAccountsFlag';
 
 const ROLE_WORD: Record<AuthRole, string> = { student: 'student', parent: 'parent', tutor: 'teacher' };
@@ -393,7 +393,7 @@ function ConfirmedStep({ role }: { role: AuthRole }) {
 
 /* ─── profile: student (G1b) ─── */
 
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+export function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
@@ -434,7 +434,7 @@ function StudentProfileStep({ f }: { f: SignupFlow }) {
             </div>
           </fieldset>
 
-          <SchoolField f={f} />
+          <SchoolPickerV2 value={f.studentInstitution} onChange={f.setStudentInstitution} />
 
           <AuthButton tone="ink" type="submit" busy={f.loading} disabled={!f.year}>
             Finish
@@ -442,58 +442,6 @@ function StudentProfileStep({ f }: { f: SignupFlow }) {
         </form>
       </AuthMain>
     </AuthFrame>
-  );
-}
-
-function SchoolField({ f }: { f: SignupFlow }) {
-  const [q, setQ] = useState('');
-  const { results, loading } = useInstitutionsSearch(q, { institution_level: 'secondary' });
-  const picked = f.studentInstitution;
-
-  if (picked) {
-    return (
-      <AuthField label="School (optional)">
-        <div className="flex min-h-[50px] items-center gap-3 rounded-[8px] bw-hair border-border-strong bg-surface-card pl-[14px] pr-1">
-          <span className="min-w-0 flex-1 text-[16px] text-ink">{picked.name}</span>
-          <button
-            type="button"
-            onClick={() => f.setStudentInstitution(null)}
-            className="min-h-[44px] px-3 text-[14px] font-extrabold text-ink underline"
-          >
-            Change
-          </button>
-        </div>
-      </AuthField>
-    );
-  }
-  return (
-    <AuthField label="School (optional)" htmlFor="su-school" hint={q && !loading && results.length === 0 ? 'No school matches that yet. You can skip this.' : undefined}>
-      <AuthInput
-        id="su-school"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Start typing your school"
-        autoComplete="off"
-      />
-      {q.trim() && results.length > 0 && (
-        <ul className="overflow-hidden rounded-[8px] bw-hair border-border-strong bg-surface-card">
-          {results.slice(0, 6).map((r) => (
-            <li key={r.id} className="bw-t-hair border-line-soft first:border-t-0">
-              <button
-                type="button"
-                onClick={() => {
-                  f.setStudentInstitution(r);
-                  setQ('');
-                }}
-                className="flex min-h-[44px] w-full items-center px-[14px] text-left text-[15px] text-ink hover:bg-surface-sunken"
-              >
-                {r.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </AuthField>
   );
 }
 
