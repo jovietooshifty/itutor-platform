@@ -48,7 +48,7 @@ import {
   PaperPlaneRight,
   X,
 } from '@phosphor-icons/react';
-import { Button, Tag } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import {
@@ -607,7 +607,6 @@ export default function TutorMessagesV2({ initialConversationId }: { initialConv
         {filtered.map((c) => {
           const unread = c.unread_count > 0;
           const active = wide && c.id === openId;
-          const tag = personOf(c)?.tag ?? null;
           return (
             <li key={c.id}>
               <button
@@ -648,11 +647,8 @@ export default function TutorMessagesV2({ initialConversationId }: { initialConv
                       </span>
                     ) : null}
                   </span>
-                  {tag ? (
-                    <span className="mt-[4px] flex">
-                      <Tag tone={tag.tone}>{tag.label}</Tag>
-                    </span>
-                  ) : null}
+                  {/* No status chip on the row (owner, 2026-11-16). The status
+                      still drives the Needs action filter. */}
                 </span>
               </button>
             </li>
@@ -905,16 +901,6 @@ export default function TutorMessagesV2({ initialConversationId }: { initialConv
               ))
             ) : (
               <span className="text-ink-muted">{context ? 'None yet' : '—'}</span>
-            )}
-          </dd>
-        </div>
-        <div className="flex flex-col items-start gap-[4px]">
-          <dt className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">Status</dt>
-          <dd>
-            {openPerson?.tag ? (
-              <Tag tone={openPerson.tag.tone}>{openPerson.tag.label}</Tag>
-            ) : (
-              <span className="text-ink-muted">{context ? 'Nothing pending' : '—'}</span>
             )}
           </dd>
         </div>
