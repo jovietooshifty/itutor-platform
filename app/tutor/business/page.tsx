@@ -13,7 +13,9 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { useTutorCompletion } from '@/lib/hooks/useTutorCompletion';
 import { supabase } from '@/lib/supabase/client';
 import { fmtTTD } from '@/lib/utils/formatCurrency';
-import TutorShell from '@/components/tutor/TutorShell';
+import TutorShell, { TutorShellEmbedded } from '@/components/tutor/TutorShell';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import SupportFormModal from '@/components/SupportFormModal';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import ClassesSection from '@/components/tutor/public/ClassesSection';
@@ -48,7 +50,49 @@ const TAB_KEYS: ReadonlyArray<Tab> = [
   'feedback',
 ];
 
+/**
+ * NEW UI. My Business has no new-UI screen and is not in the new nav; it was
+ * reachable only by URL (and /tutor/growth), behind a "complete your profile"
+ * lock that needs 1:1 availability and a 1:1 rate. Most tabs now have a
+ * new-UI home, so those links forward there. Promotions and Venues have none
+ * yet: they render alone, in the new shell, without the lock or the tab strip
+ * (old styling inside: PROVISIONAL).
+ */
+const V2_FORWARD: Partial<Record<Tab | 'feedback', string>> = {
+  overview: '/tutor/profile',
+  availability: '/tutor/availability',
+  verification: '/tutor/verification',
+  analytics: '/tutor/analytics',
+  feedback: '/tutor/profile',
+};
+
+function BusinessV2() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const raw = searchParams.get('tab') ?? 'overview';
+  const only: Tab | null = raw === 'promotions' || raw === 'venues' ? raw : null;
+  useEffect(() => {
+    if (raw === 'class-match-week') router.replace('/tutor/classes?tab=class-match-week');
+    else if (!only) router.replace(V2_FORWARD[raw as Tab] ?? '/tutor/profile');
+  }, [raw, only, router]);
+  if (!only) return <TutorV2Shell title="My Business">{null}</TutorV2Shell>;
+  return (
+    <TutorV2Shell title={only === 'venues' ? 'Venues' : 'Promotions'} width="wide">
+      <TutorShellEmbedded.Provider value>
+        <MyBusinessContent only={only} />
+      </TutorShellEmbedded.Provider>
+    </TutorV2Shell>
+  );
+}
+
 export default function TutorBusinessPage() {
+  if (isNewUiEnabled()) {
+    return (
+      <Suspense fallback={null}>
+        <BusinessV2 />
+      </Suspense>
+    );
+  }
   return (
     <TutorShell>
       {/* useSearchParams needs a Suspense boundary in the App Router. */}
@@ -59,7 +103,8 @@ export default function TutorBusinessPage() {
   );
 }
 
-function MyBusinessContent() {
+/** `only`: the new UI shows one tab by itself (see BusinessV2). */
+function MyBusinessContent({ only }: { only?: Tab } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile, loading, refresh: refreshProfile } = useProfile();
@@ -70,7 +115,7 @@ function MyBusinessContent() {
   const requestedTab = searchParams.get('tab');
   const initialTab: Tab = TAB_KEYS.includes(requestedTab as Tab) ? (requestedTab as Tab) : 'overview';
   const physicalClasses = usePhysicalClasses();
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTab] = useState<Tab>(only ?? initialTab);
 
   // Class Match Week used to be a tab here and is now the second tab of My
   // Classes, next to the classes the campaign depends on. This forwards the
@@ -143,7 +188,7 @@ function MyBusinessContent() {
     return <div className="min-h-[400px] flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand" /></div>;
   }
 
-  if (!completion.listed) {
+  if (!only && !completion.listed) {
     return (
       <div className="max-w-3xl mx-auto">
         <div className="rounded-2xl border border-border bg-card p-12 text-center">
@@ -190,6 +235,7 @@ function MyBusinessContent() {
 
   return (
     <div className="max-w-7xl space-y-6">
+      {!only && (<>
       <header>
         <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-bold text-brand-deep">
           <Briefcase className="size-3.5" /> My Business
@@ -224,6 +270,7 @@ function MyBusinessContent() {
           );
         })}
       </div>
+      </>)}
 
       {tab === 'overview'   && <OverviewTab activeClasses={activeClasses} totalRevenue={totalRevenue} totalStudents={totalStudents} profile={profile} onProfileUpdated={refreshProfile} />}
       {tab === 'availability' && <AvailabilityTab tutorId={profile?.id} />}
