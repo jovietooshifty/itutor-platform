@@ -214,7 +214,7 @@ export default function ParentChildV2() {
             <button
               type="button"
               onClick={() => setSheet('attendance')}
-              className="flex flex-col items-start gap-[2px] rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+              className="flex flex-col items-start gap-[2px] rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-left cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
             >
               <span className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">Attendance</span>
               <span className="font-display text-[20px] font-extrabold leading-[24px] text-ink">
@@ -225,7 +225,7 @@ export default function ParentChildV2() {
             <button
               type="button"
               onClick={() => router.push('/parent/calendar')}
-              className="flex min-w-0 flex-col items-start gap-[2px] rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+              className="flex min-w-0 flex-col items-start gap-[2px] rounded-ds-card bw-hair border-border bg-surface-card p-ds-card text-left cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
             >
               <span className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">Next</span>
               <span className="font-display text-[20px] font-extrabold leading-[24px] text-ink">

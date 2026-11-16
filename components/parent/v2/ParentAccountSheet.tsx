@@ -90,7 +90,7 @@ export function ParentAccountSheet({ open, onClose, name, onLogout }: ParentAcco
             className={cn(
               'flex w-full items-center gap-ds-3 bw-t-hair border-line-soft py-ds-3 text-left',
               'border-x-0 border-b-0 bg-transparent cursor-pointer',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+              'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
             )}
           >
             <span className="shrink-0 text-ink">
@@ -112,7 +112,7 @@ export function ParentAccountSheet({ open, onClose, name, onLogout }: ParentAcco
               className={cn(
                 'flex w-full items-center gap-ds-3 bw-t-hair border-line-soft py-ds-3 text-left',
                 'border-x-0 border-b-0 bg-transparent cursor-pointer',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+                'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
               )}
             >
               <span className="shrink-0 text-danger">
@@ -128,7 +128,7 @@ export function ParentAccountSheet({ open, onClose, name, onLogout }: ParentAcco
             className={cn(
               'mt-ds-1 w-full rounded-ds-btn bw-bold border-ink bg-surface-card py-ds-3',
               'font-body text-[15px] font-extrabold text-ink cursor-pointer',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+              'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
             )}
           >
             Close

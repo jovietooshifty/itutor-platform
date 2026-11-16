@@ -66,7 +66,7 @@ export function BottomNav({
             className={cn(
               'relative flex w-[70px] flex-col items-center gap-ds-1',
               'border-0 bg-transparent p-0 font-body cursor-pointer',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand focus-visible:rounded-ds-sm',
+              'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand focus-visible:rounded-ds-sm',
               current ? 'text-ink' : 'text-on-ink-subtle'
             )}
           >

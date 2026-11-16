@@ -146,7 +146,7 @@ export default function ParentPaymentMethodsV2() {
                         setError(null);
                         setRemoving(c);
                       }}
-                      className="shrink-0 rounded-ds-sm border-0 bg-danger px-ds-2 py-[3px] font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-on-ink cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+                      className="shrink-0 rounded-ds-sm border-0 bg-danger px-ds-2 py-[3px] font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-on-ink cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
                     >
                       Remove
                     </button>

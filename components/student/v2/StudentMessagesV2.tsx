@@ -141,7 +141,7 @@ function BackLink({ label, onClick }: { label: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="ds-link flex items-center gap-ds-1 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+      className="ds-link flex items-center gap-ds-1 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
     >
       <CaretLeft size={20} weight="bold" aria-hidden />
       {label}
@@ -520,7 +520,7 @@ export default function StudentMessagesV2({ initialConversationId }: { initialCo
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search messages"
-        className="h-11 w-full rounded-ds-card bw-hair border-border bg-surface-card pl-[40px] pr-ds-3 font-body text-[15px] text-ink placeholder:text-ink-muted focus:outline focus:outline-2 focus:outline-ink"
+        className="h-11 w-full rounded-ds-card bw-hair border-border bg-surface-card pl-[40px] pr-ds-3 font-body text-[15px] text-ink placeholder:text-ink-muted focus:[outline-style:solid] focus:outline-2 focus:outline-ink"
       />
     </label>
   );
@@ -543,7 +543,7 @@ export default function StudentMessagesV2({ initialConversationId }: { initialCo
                 aria-current={active ? 'true' : undefined}
                 className={cn(
                   'ds-press flex w-full items-center gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-3 text-left cursor-pointer',
-                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                  'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
                   active && 'border-ink shadow-edge-ink'
                 )}
               >
@@ -742,7 +742,7 @@ export default function StudentMessagesV2({ initialConversationId }: { initialCo
             }
           }}
           placeholder={`Message ${firstName(otherName)}…`}
-          className="max-h-32 min-h-[42px] min-w-0 flex-1 resize-none rounded-ds-card bw-hair border-border bg-surface-card px-ds-3 py-[10px] font-body text-[15px] leading-[20px] text-ink placeholder:text-ink-muted focus:outline focus:outline-2 focus:outline-ink disabled:opacity-60"
+          className="max-h-32 min-h-[42px] min-w-0 flex-1 resize-none rounded-ds-card bw-hair border-border bg-surface-card px-ds-3 py-[10px] font-body text-[15px] leading-[20px] text-ink placeholder:text-ink-muted focus:[outline-style:solid] focus:outline-2 focus:outline-ink disabled:opacity-60"
         />
         {draft.trim() || file ? (
           <Button type="submit" size="md" variant="primary" disabled={sending} className="shrink-0 px-ds-3">

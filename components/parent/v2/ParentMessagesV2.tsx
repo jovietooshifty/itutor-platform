@@ -67,7 +67,7 @@ function BackLink({ label, onClick }: { label: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="ds-link flex items-center gap-ds-2 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+      className="ds-link flex items-center gap-ds-2 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
     >
       <span className="rotate-180">
         <DsIcon name="chevron" size={20} />
@@ -281,7 +281,7 @@ export default function ParentMessagesV2() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={`Message ${openTutor.name.split(' ')[0]}…`}
-          className="min-w-0 flex-1 rounded-ds-card bw-hair border-border bg-surface-card px-ds-3 py-ds-2 font-body text-[15px] text-ink placeholder:text-ink-muted focus:outline focus:outline-2 focus:outline-ink"
+          className="min-w-0 flex-1 rounded-ds-card bw-hair border-border bg-surface-card px-ds-3 py-ds-2 font-body text-[15px] text-ink placeholder:text-ink-muted focus:[outline-style:solid] focus:outline-2 focus:outline-ink"
         />
         <Button type="submit" size="md" variant="primary" disabled={sending || !draft.trim() || !conversationId}>
           {sending ? 'Sending…' : 'Send'}

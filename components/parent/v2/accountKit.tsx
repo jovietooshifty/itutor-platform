@@ -40,7 +40,7 @@ export function FloatField({
     <label
       className={cn(
         'flex flex-col gap-[2px] rounded-ds-card bw-hair border-ink bg-surface-card px-ds-card py-ds-2',
-        'focus-within:outline focus-within:outline-2 focus-within:outline-ink'
+        'focus-within:[outline-style:solid] focus-within:outline-2 focus-within:outline-ink'
       )}
     >
       <span className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">
@@ -80,7 +80,7 @@ export function Switch({
       onClick={onToggle}
       className={cn(
         'relative h-[28px] w-[48px] shrink-0 rounded-ds-full border-0 cursor-pointer transition-colors disabled:opacity-60',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+        'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
         on ? 'bg-brand' : 'bg-line-soft'
       )}
     >

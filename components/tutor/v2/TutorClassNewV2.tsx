@@ -89,7 +89,7 @@ const bareSubject = (label: string) => label.replace(/^(CSEC|CAPE|SEA)\s+/, '');
 const wordCount = (s: string) => (s.trim() ? s.trim().split(/\s+/).length : 0);
 
 const inputCls =
-  'w-full rounded-ds-btn bw-hair border-border bg-surface-card px-ds-3 py-[10px] font-body text-[16px] text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink';
+  'w-full rounded-ds-btn bw-hair border-border bg-surface-card px-ds-3 py-[10px] font-body text-[16px] text-ink placeholder:text-ink-muted focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink';
 
 export default function TutorClassNewV2() {
   const router = useRouter();

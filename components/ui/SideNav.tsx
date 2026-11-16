@@ -66,7 +66,7 @@ export function SideNav({ items = DEFAULT_NAV, active, onSelect, logo, mark, foo
                 'lg:flex-row lg:gap-ds-3 lg:px-ds-2',
                 'border-0 bg-transparent font-body cursor-pointer',
                 'transition-colors duration-150 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-ink-raised',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+                'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
                 current ? 'text-ink' : 'text-on-ink-subtle'
               )}
             >

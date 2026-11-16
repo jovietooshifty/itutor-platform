@@ -198,7 +198,7 @@ function SearchRow({
           className={cn(
             'h-[44px] w-full rounded-ds-card bw-hair border-border bg-surface-card',
             'pl-[38px] pr-ds-3 font-body text-[14px] text-ink placeholder:text-ink-muted',
-            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+            'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
           )}
         />
       </div>
@@ -208,7 +208,7 @@ function SearchRow({
         className={cn(
           'flex h-[44px] shrink-0 items-center gap-ds-2 rounded-ds-card bw-hair bg-surface-card',
           'px-ds-3 font-body text-[14px] font-extrabold text-ink cursor-pointer',
-          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
+          'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink',
           filtersApplied ? 'border-ink' : 'border-border'
         )}
       >
@@ -236,7 +236,7 @@ function ChipRow({ chips, activeChip, onChipChange }: Pick<ParentExploreV2Props,
               onClick={() => onChipChange(c)}
               className={cn(
                 'ds-press rounded-ds-full bw-hair px-ds-3 py-[7px] font-body text-[13px] font-extrabold cursor-pointer',
-                'whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
+                'whitespace-nowrap focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink',
                 active ? 'bg-ink border-ink text-on-ink' : 'bg-surface-card border-border text-ink'
               )}
             >
@@ -275,7 +275,7 @@ function LessonCard({
       href={href}
       className={cn(
         'ds-press ds-rise block overflow-hidden rounded-ds-card bw-hair border-border bg-surface-card',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+        'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
       )}
       style={{ ['--i' as string]: index }}
     >
@@ -327,7 +327,7 @@ function TutorCard({ tutor, href, index = 0 }: { tutor: ExploreTutor; href: stri
       href={href}
       className={cn(
         'ds-press ds-rise flex gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+        'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
       )}
       style={{ ['--i' as string]: index }}
     >
@@ -389,7 +389,7 @@ function EmptyState({
           className={cn(
             'mt-ds-3 rounded-ds-btn bw-bold border-ink bg-surface-card px-ds-4 py-ds-2',
             'font-body text-[14px] font-extrabold text-ink cursor-pointer',
-            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+            'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
           )}
         >
           Clear search

@@ -48,7 +48,7 @@ export function ClassRow({
       ? 'p-0 border-0 bg-transparent'
       : 'p-ds-card rounded-ds-card bw-hair border-border bg-surface-card',
     onClick &&
-      'ds-press cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+      'ds-press cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
     className
   );
 

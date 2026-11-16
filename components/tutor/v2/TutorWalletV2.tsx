@@ -455,7 +455,7 @@ function Stat({ label, value, hint, children }: { label: string; value: string; 
 }
 
 const inputCls =
-  'w-full rounded-ds-btn bw-hair border-border bg-surface-card px-ds-3 py-[10px] font-body text-[16px] text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink disabled:opacity-60';
+  'w-full rounded-ds-btn bw-hair border-border bg-surface-card px-ds-3 py-[10px] font-body text-[16px] text-ink placeholder:text-ink-muted focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink disabled:opacity-60';
 
 /**
  * m31 — the same fields and POST as PayoutSetupModal (bank, branch, holder,

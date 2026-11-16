@@ -253,7 +253,7 @@ export default function ParentPaymentDetailV2({ enrolmentId }: { enrolmentId: st
             setChoice('pause');
             setSheet('choose');
           }}
-          className="self-center border-0 bg-transparent p-ds-2 font-display text-[16px] font-extrabold text-danger cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+          className="self-center border-0 bg-transparent p-ds-2 font-display text-[16px] font-extrabold text-danger cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
         >
           Pause or cancel
         </button>

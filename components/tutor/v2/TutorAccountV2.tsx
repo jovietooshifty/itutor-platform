@@ -363,7 +363,7 @@ export function TutorAccountDetailsV2() {
             </p>
           ) : null}
           <SchoolSearchField value={form.school} onChange={set('school')} />
-          <label className="flex flex-col gap-[2px] rounded-ds-card bw-hair border-ink bg-surface-card px-ds-card py-ds-2 focus-within:outline focus-within:outline-2 focus-within:outline-ink">
+          <label className="flex flex-col gap-[2px] rounded-ds-card bw-hair border-ink bg-surface-card px-ds-card py-ds-2 focus-within:[outline-style:solid] focus-within:outline-2 focus-within:outline-ink">
             <span className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">Country</span>
             <CountrySelect
               value={form.country}
