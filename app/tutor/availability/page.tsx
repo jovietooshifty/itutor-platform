@@ -13,6 +13,8 @@ import {
 import { supabase } from '@/lib/supabase/client';
 import { TutorAvailabilityRule } from '@/lib/types/booking';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorOneOnOneV2 from '@/components/tutor/v2/TutorOneOnOneV2';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const HOURS = Array.from({ length: 23 }, (_, i) => i + 1); // 1am–11pm
@@ -61,6 +63,7 @@ function slotsToRules(slots: Slot[]): { day_of_week: number; start_time: string;
 }
 
 export default function TutorAvailabilityPage() {
+  if (isNewUiEnabled()) return <TutorOneOnOneV2 />;
   return (
     <TutorShell>
       <AvailabilityContent />

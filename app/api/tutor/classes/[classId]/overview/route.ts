@@ -48,7 +48,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         .single(),
       db
         .from('group_session_occurrences')
-        .select('scheduled_start_at, scheduled_end_at, session:group_sessions!inner(group_id)')
+        .select('id, scheduled_start_at, scheduled_end_at, session:group_sessions!inner(group_id)')
         .eq('session.group_id', classId)
         .is('cancelled_at', null)
         .gte('scheduled_end_at', now.toISOString())
@@ -56,7 +56,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         .limit(1),
       db
         .from('group_session_occurrences')
-        .select('scheduled_end_at, session:group_sessions!inner(group_id)')
+        .select('id, scheduled_end_at, session:group_sessions!inner(group_id)')
         .eq('session.group_id', classId)
         .is('cancelled_at', null)
         .lt('scheduled_end_at', now.toISOString())
@@ -103,8 +103,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
         enrolmentClosedUntil: closedUntil,
         requireJoinRequests: Boolean(g?.require_join_requests),
       },
-      next: nextOcc?.[0] ? { start: nextOcc[0].scheduled_start_at, end: nextOcc[0].scheduled_end_at } : null,
+      next: nextOcc?.[0] ? { id: nextOcc[0].id, start: nextOcc[0].scheduled_start_at, end: nextOcc[0].scheduled_end_at } : null,
       lastEnded: lastOcc?.[0]?.scheduled_end_at ?? null,
+      lastId: lastOcc?.[0]?.id ?? null,
       roster,
       requests,
     });

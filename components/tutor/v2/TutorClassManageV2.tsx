@@ -55,8 +55,9 @@ type Overview = {
     enrolmentClosedUntil: string | null;
     requireJoinRequests: boolean;
   };
-  next: { start: string; end: string } | null;
+  next: { id: string; start: string; end: string } | null;
   lastEnded: string | null;
+  lastId: string | null;
   roster: RosterRow[];
   requests: Array<{ id: string; name: string; at: string | null }>;
 };
@@ -181,6 +182,10 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
   const free = !(c.price > 0);
   const nextText = data.next ? `${shortDate(data.next.start)} · ${timeRange(data.next.start, data.next.end)}` : null;
   const seatText = c.seats ? `${c.students} of ${c.seats}` : `${c.students}`;
+  // The register (m24): the session under way or starting within 30 minutes,
+  // otherwise the one that last ended.
+  const registerId =
+    data.next && new Date(data.next.start).getTime() - Date.now() <= 30 * 60_000 ? data.next.id : data.lastId;
   const enrolment = data.class.enrolmentClosedUntil
     ? `Closed until ${shortDate(data.class.enrolmentClosedUntil)}`
     : c.state === 'draft'
@@ -292,6 +297,11 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
               <Button variant="outline" size="md" onClick={() => hub('settings')}>
                 {data.class.enrolmentClosedUntil || c.state === 'paused' ? 'Manage break' : 'Pause'}
               </Button>
+              {registerId && data.roster.length > 0 ? (
+                <Button variant="outline" size="md" onClick={() => router.push(`/tutor/classes/${classId}/sessions/${registerId}/attendance`)}>
+                  Take attendance
+                </Button>
+              ) : null}
             </div>
           </Card>
 

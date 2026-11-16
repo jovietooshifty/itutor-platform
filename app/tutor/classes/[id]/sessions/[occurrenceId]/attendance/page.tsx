@@ -29,6 +29,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2, WifiOff } from 'lucide-react';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorRosterV2 from '@/components/tutor/v2/TutorRosterV2';
 
 type Mark = 'attended' | 'late' | 'absent';
 type Mode = 'online' | 'in_person';
@@ -52,6 +54,11 @@ const MARK_LABEL: Record<Mark, string> = {
 };
 
 export default function AttendancePage() {
+  if (isNewUiEnabled()) return <TutorRosterV2 />;
+  return <LegacyAttendancePage />;
+}
+
+function LegacyAttendancePage() {
   const params = useParams<{ id: string; occurrenceId: string }>();
   const router = useRouter();
   const groupId = params?.id as string;

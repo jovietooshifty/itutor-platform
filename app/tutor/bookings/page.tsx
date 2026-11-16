@@ -7,6 +7,8 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { getTutorBookings } from '@/lib/services/bookingService';
 import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorRequestsV2 from '@/components/tutor/v2/TutorRequestsV2';
 import { getDisplayName } from '@/lib/utils/displayName';
 import { Booking, BookingStatus, BookingWithDetails } from '@/lib/types/booking';
 import { formatDateTime, getRelativeTime } from '@/lib/utils/calendar';
@@ -15,6 +17,11 @@ import { getBookingStatusColor, getBookingStatusLabel } from '@/lib/types/bookin
 type TabType = 'all' | 'pending' | 'confirmed' | 'cancelled' | 'past';
 
 export default function TutorBookingsPage() {
+  if (isNewUiEnabled()) return <TutorRequestsV2 />;
+  return <LegacyBookingsPage />;
+}
+
+function LegacyBookingsPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
   

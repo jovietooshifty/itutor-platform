@@ -167,6 +167,37 @@ export async function GET(_req: NextRequest) {
       });
     }
 
+    // One-on-one lesson requests waiting for this tutor's answer. Scoped by
+    // tutor_id; the answer itself happens on /tutor/bookings/[id].
+    const { data: pendingBookings } = await db
+      .from('bookings')
+      .select('id, student_id, requested_start_at')
+      .eq('tutor_id', user.id)
+      .eq('status', 'PENDING')
+      .order('requested_start_at', { ascending: true })
+      .limit(10);
+    if (pendingBookings?.length) {
+      const { data: who } = await db
+        .from('profiles')
+        .select('id, full_name, display_name')
+        .in('id', Array.from(new Set(pendingBookings.map((b: any) => b.student_id))));
+      const byId = new Map((who ?? []).map((p: any) => [p.id, p]));
+      for (const b of pendingBookings as any[]) {
+        const at = b.requested_start_at ? new Date(b.requested_start_at) : null;
+        actions.push({
+          id: `book-${b.id}`,
+          tone: 'info',
+          tag: 'Request',
+          title: `${firstName(byId.get(b.student_id))} asked for a lesson`,
+          detail: at
+            ? at.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Port_of_Spain' })
+            : 'One-on-one',
+          href: `/tutor/bookings/${b.id}`,
+          cta: 'Review',
+        });
+      }
+    }
+
     // ── Unread messages (the Messages badge and the inbox teaser) ────────
     const { data: convs } = await db
       .from('conversations')
