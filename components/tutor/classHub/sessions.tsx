@@ -51,9 +51,18 @@ import { StreamTab, ComposerKind, COMPOSER_THEME, COMPOSER_MAX_MB, ClassPostComp
 import { SUB_STATUS_CFG, fmtShortDate, RosterTab, PendingRequestRow, PardonButton, SecuredSpotsSummary, SecuredPayoutInfo, RosterRow } from './roster';
 import { SETTINGS_SECTIONS, SettingsSectionId, SettingsTab, ClassBannerUpload, ClassPreviewCard } from './settings';
 import { AnalyticsTab } from './analytics';
+import { Button, Segmented, Tag } from '@/components/ui';
+import { Sheet } from '@/components/parent/v2/Sheet';
 
 export const NO_CLASS_LINK_MESSAGE =
   "This class uses your own class link, but none is saved yet. Add it on the class's Sessions tab.";
+
+// The Attendance link sits beside DS Buttons, so it borrows the outline
+// Button's look (a Link cannot be a <Button>).
+const OUTLINE_LINK =
+  'mb-[3px] inline-flex h-10 items-center justify-center gap-ds-2 rounded-ds-btn bw-bold border-ink bg-surface-card px-ds-4 text-[14px] font-extrabold leading-none text-ink shadow-edge-ink no-underline transition-transform active:translate-y-[2px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ink';
+
+const CHECKBOX = 'size-[18px] shrink-0 cursor-pointer accent-ink';
 
 export function SessionRow({ s, groupId, meetingLink, linkMode, classFormat, selected, onSelect, onCancel, reconnected, venues, classVenueId, onEditLink, onLinkMinted }: {
   s: GroupSession;
@@ -95,6 +104,18 @@ export function SessionRow({ s, groupId, meetingLink, linkMode, classFormat, sel
   const movedTo = venueId && venueId !== classVenueId
     ? venues?.find((v) => v.id === venueId)?.name ?? 'another venue'
     : null;
+
+  // Status chip. Display only: derived from the date, nothing reads it back.
+  const nowMs = Date.now();
+  const isLive = valid && hasStarted && nowMs < d.getTime() + durationMin * 60_000;
+  const isToday = valid && d.toDateString() === new Date(nowMs).toDateString();
+  const isCancelled = s.attendanceStatus === 'cancelled';
+  const statusTag: { tone: 'brand' | 'warning' | 'outline' | 'danger' | 'dark'; label: string } =
+    isCancelled ? { tone: 'danger', label: 'Cancelled' }
+    : isLive ? { tone: 'brand', label: 'Live now' }
+    : s.status === 'upcoming' && isToday ? { tone: 'warning', label: 'Today' }
+    : s.status === 'upcoming' ? { tone: 'outline', label: 'Upcoming' }
+    : { tone: 'dark', label: 'Past' };
 
   const relocate = async (next: string | null) => {
     setRelocating(true);
@@ -175,45 +196,63 @@ export function SessionRow({ s, groupId, meetingLink, linkMode, classFormat, sel
 
   return (
     <>
-      <div className={cn('rounded-2xl bg-card border p-4 flex flex-col md:flex-row md:items-center gap-4', selected ? 'border-brand bg-brand/5' : 'border-border')}>
-        <input type="checkbox" checked={selected} onChange={onSelect} className="rounded shrink-0 mt-0.5 self-start md:self-center" />
-        <div className="flex items-center gap-3 md:w-60">
-          <div className="text-center bg-brand/10 text-brand-deep rounded-lg px-3 py-1.5 leading-tight shrink-0">
-            <div className="text-base font-bold">{valid ? d.getDate() : '—'}</div>
-            <div className="text-[9px] uppercase font-bold tracking-wider">{valid ? d.toLocaleString(undefined, { month: 'short' }) : '—'}</div>
-          </div>
-          <div className="min-w-0">
-            <div className="font-semibold text-ink text-sm truncate">
+      <div
+        className={cn(
+          'flex flex-col gap-ds-3 rounded-ds-card bw-hair p-ds-card md:flex-row md:items-center',
+          selected ? 'border-ink bg-brand/10' : 'border-border bg-surface-card'
+        )}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-ds-3">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onSelect}
+            aria-label={valid ? `Select session on ${d.toLocaleDateString()}` : 'Select session'}
+            className={CHECKBOX}
+          />
+          {/* Date block, as on the student's enrolled-class page. */}
+          <span
+            className={cn(
+              'flex size-[52px] shrink-0 flex-col items-center justify-center gap-[2px] rounded-ds-sm',
+              s.status === 'upcoming' ? 'bg-ink text-brand' : 'bg-surface-sunken text-ink'
+            )}
+          >
+            <span className="font-display text-[20px] font-black leading-5 tabular-nums">{valid ? d.getDate() : '—'}</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.8px]">{valid ? d.toLocaleString(undefined, { month: 'short' }) : '—'}</span>
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-extrabold text-ink">
               {valid ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', ...(d.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) }) : 'Scheduled'}
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-[13px] text-ink-muted tabular-nums">
               {valid ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}{valid ? ' · ' : ''}{durLabel}
+            </div>
+            <div className="mt-ds-1 flex flex-wrap items-center gap-ds-1">
+              <Tag tone={statusTag.tone}>{statusTag.label}</Tag>
+              {movedTo && (
+                <Tag tone="warning" className="max-w-full gap-[4px] whitespace-normal [overflow-wrap:anywhere]">
+                  <MapPin className="size-3 shrink-0" /> Moved to {movedTo}
+                </Tag>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="flex flex-1 items-center gap-2 flex-wrap">
-          {movedTo && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full border bg-amber-50 text-amber-800 border-amber-200">
-              <MapPin className="size-3" /> Moved to {movedTo}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-ds-2 md:shrink-0 md:justify-end">
           {canRelocate && (
             <div className="relative">
-              <button
-                onClick={() => setRelocateOpen((o) => !o)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-ink text-xs font-semibold hover:bg-muted transition">
-                <MapPin className="size-3.5" /> {movedTo ? 'Moved' : 'Move'}
-              </button>
+              <Button variant="outline" size="sm" onClick={() => setRelocateOpen((o) => !o)}>
+                <MapPin className="size-4" /> {movedTo ? 'Moved' : 'Move'}
+              </Button>
               {relocateOpen && (
-                <div className="absolute right-0 z-30 mt-1 w-56 rounded-xl border border-border bg-background p-1.5 shadow-lg">
-                  <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Meet somewhere else</div>
+                <div className="absolute left-0 z-30 mt-ds-1 w-56 rounded-ds-card bw-hair border-ink bg-surface-card p-ds-1 md:left-auto md:right-0">
+                  <div className="px-ds-2 py-ds-1 text-[11px] font-extrabold uppercase tracking-[0.06em] text-ink-muted">Meet somewhere else</div>
                   {venues!.map((v) => (
-                    <button key={v.id} disabled={relocating} onClick={() => relocate(v.id)}
-                      className={cn('block w-full text-left rounded-lg px-2.5 py-2 text-sm font-medium hover:bg-muted', v.id === venueId ? 'text-brand-deep' : 'text-ink')}>
+                    <button key={v.id} type="button" disabled={relocating} onClick={() => relocate(v.id)}
+                      className={cn(
+                        'block w-full rounded-ds-xs px-ds-2 py-ds-2 text-left text-[14px] hover:bg-surface-sunken disabled:opacity-50',
+                        v.id === venueId ? 'font-extrabold text-brand-edge' : 'text-ink'
+                      )}>
                       {v.name}{v.id === classVenueId ? ' (usual)' : ''}
                     </button>
                   ))}
@@ -222,8 +261,8 @@ export function SessionRow({ s, groupId, meetingLink, linkMode, classFormat, sel
                       is not the same instruction, and leaves the override
                       row set to a value that only happens to match. */}
                   {venueId && (
-                    <button disabled={relocating} onClick={() => relocate(null)}
-                      className="mt-1 block w-full text-left rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground border-t border-border hover:bg-muted">
+                    <button type="button" disabled={relocating} onClick={() => relocate(null)}
+                      className="mt-ds-1 block w-full bw-t-hair border-line-soft rounded-ds-xs px-ds-2 py-ds-2 text-left text-[14px] text-ink-muted hover:bg-surface-sunken disabled:opacity-50">
                       Back to the usual place
                     </button>
                   )}
@@ -232,61 +271,55 @@ export function SessionRow({ s, groupId, meetingLink, linkMode, classFormat, sel
             </div>
           )}
           {hasStarted && (
-            <Link
-              href={`/tutor/classes/${groupId}/sessions/${s.id}/attendance`}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-ink text-xs font-semibold hover:bg-muted transition">
-              <ListChecks className="size-3.5" /> Attendance
+            <Link href={`/tutor/classes/${groupId}/sessions/${s.id}/attendance`} className={OUTLINE_LINK}>
+              <ListChecks className="size-4" /> Attendance
             </Link>
           )}
           {/* Nothing to join in a room. */}
           {classFormat !== 'physical' && (
-            <button
-              onClick={handleJoin}
-              disabled={joiningLink}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand/90 disabled:opacity-60">
-              <Video className="size-3.5" /> {joiningLink ? 'Getting link…' : reconnected && linkMode === 'generated' ? 'Generate' : 'Join'}
-            </button>
+            <Button variant="dark" size="sm" onClick={handleJoin} disabled={joiningLink}>
+              <Video className="size-4" /> {joiningLink ? 'Getting link…' : reconnected && linkMode === 'generated' ? 'Generate' : 'Join'}
+            </Button>
           )}
-          <button
-            onClick={() => setConfirmCancel(true)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 text-xs font-semibold hover:bg-rose-50 transition">
-            <X className="size-3.5" /> Cancel
-          </button>
+          <Button variant="outline" size="sm" className="text-danger" onClick={() => setConfirmCancel(true)}>
+            <X className="size-4" /> Cancel
+          </Button>
         </div>
       </div>
 
-      {joinError && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setJoinError('')}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl bg-background border border-border shadow-xl p-6 space-y-3">
-            <div className="font-bold text-ink text-lg">Could not get meeting link</div>
-            <p className="text-sm text-muted-foreground">{joinError}</p>
-            <div className="flex justify-end gap-2">
-              {joinNeedsLink && onEditLink && (
-                <button onClick={() => { setJoinError(''); onEditLink(); }} className="px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted">Add class link</button>
-              )}
-              <button onClick={() => setJoinError('')} className="px-4 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand/90">OK</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Sheet
+        open={Boolean(joinError)}
+        onClose={() => setJoinError('')}
+        title="Could not get meeting link"
+        footer={
+          <>
+            {joinNeedsLink && onEditLink && (
+              <Button variant="outline" onClick={() => { setJoinError(''); onEditLink(); }}>Add class link</Button>
+            )}
+            <Button variant="dark" onClick={() => setJoinError('')}>OK</Button>
+          </>
+        }
+      >
+        <p className="m-0 text-[15px] leading-6 text-ink-muted [overflow-wrap:anywhere]">{joinError}</p>
+      </Sheet>
 
-      {confirmCancel && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setConfirmCancel(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl bg-background border border-border shadow-xl p-6 space-y-4">
-            <div className="font-bold text-ink text-lg">Cancel this session?</div>
-            <p className="text-sm text-muted-foreground">
-              {valid ? d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : 'This session'} will be removed. Students will no longer see it on their schedule.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmCancel(false)} disabled={cancelling} className="px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted">Keep</button>
-              <button onClick={handleCancel} disabled={cancelling}
-                className="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 disabled:opacity-50">
-                {cancelling ? 'Cancelling…' : 'Cancel session'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Sheet
+        open={confirmCancel}
+        onClose={() => setConfirmCancel(false)}
+        title="Cancel this session?"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmCancel(false)} disabled={cancelling}>Keep</Button>
+            <Button variant="danger" onClick={handleCancel} disabled={cancelling}>
+              {cancelling ? 'Cancelling…' : 'Cancel session'}
+            </Button>
+          </>
+        }
+      >
+        <p className="m-0 text-[15px] leading-6 text-ink-muted">
+          {valid ? d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : 'This session'} will be removed. Students will no longer see it on their schedule.
+        </p>
+      </Sheet>
     </>
   );
 }
@@ -356,7 +389,7 @@ export function SessionsTab({ sessions, groupId, setSessions, reconnected, group
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-w-0 flex-col gap-ds-4">
       {/* Month-end "rotate your own link". Not for an in-person-only class,
           which has no link, nor where migration 263 is missing and no link has
           a date — it would read as due every day. */}
@@ -370,36 +403,35 @@ export function SessionsTab({ sessions, groupId, setSessions, reconnected, group
         />
       )}
 
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-ink">Sessions</h2>
-          <p className="text-xs text-muted-foreground">{upcoming.length} upcoming · {history.length} in history · manage attendance and join links.</p>
+      <div className="flex flex-wrap items-end justify-between gap-ds-3">
+        <div className="min-w-0">
+          <h2 className="m-0 font-display text-[20px] font-extrabold leading-tight text-ink">Sessions</h2>
+          <p className="m-0 mt-[2px] text-[14px] text-ink-muted">
+            <span className="font-extrabold text-ink tabular-nums">{upcoming.length}</span> upcoming · <span className="font-extrabold text-ink tabular-nums">{history.length}</span> in history · manage attendance and join links.
+          </p>
         </div>
-        <button onClick={() => onOpenSchedule(false)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand/90">
-          <Plus className="size-3.5" /> Add Session
-        </button>
+        <Button variant="primary" size="sm" onClick={() => onOpenSchedule(false)}>
+          <Plus className="size-4" /> Add session
+        </Button>
       </div>
 
       {/* The marketplace lists a class by its upcoming schedule (see the gate
           in GET /api/groups), and students join sessions, so a class with
           nothing ahead is invisible and unjoinable — say so where it's fixed. */}
       {upcoming.length === 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className="size-9 rounded-xl bg-amber-100 grid place-items-center shrink-0">
-              <CalendarIcon className="size-4 text-amber-700" />
-            </div>
-            <div className="text-sm text-amber-900">
-              <div className="font-semibold">
+        <div role="status" className="flex flex-col gap-ds-3 rounded-ds-card bw-hair border-accent-yellow bg-accent-yellow/20 p-ds-card sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-start gap-ds-3">
+            <CalendarIcon className="mt-[2px] size-5 shrink-0 text-ink" />
+            <div className="min-w-0">
+              <div className="text-[15px] font-extrabold text-ink">
                 {history.length === 0 ? 'No schedule yet' : 'No upcoming sessions'} — students can&apos;t find or join this class until it has one.
               </div>
-              <div className="text-xs text-amber-800 mt-0.5">Set the days and times it meets, and how students join.</div>
+              <div className="text-[14px] leading-5 text-ink-muted">Set the days and times it meets, and how students join.</div>
             </div>
           </div>
-          <button onClick={() => onOpenSchedule(false)}
-            className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand/90">
-            <CalendarIcon className="size-3.5" /> Set schedule
-          </button>
+          <Button variant="dark" size="sm" className="shrink-0" onClick={() => onOpenSchedule(false)}>
+            <CalendarIcon className="size-4" /> Set schedule
+          </Button>
         </div>
       )}
 
@@ -417,45 +449,46 @@ export function SessionsTab({ sessions, groupId, setSessions, reconnected, group
         />
       )}
 
-      <div className="inline-flex rounded-lg border border-border p-0.5 text-xs font-semibold">
-        {(['upcoming', 'history'] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => { setView(v); setSelectedIds(new Set()); }}
-            className={`px-3 py-1.5 rounded-md ${view === v ? 'bg-brand text-white' : 'text-muted-foreground hover:bg-muted'}`}>
-            {v === 'upcoming' ? `Upcoming (${upcoming.length})` : `History (${history.length})`}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="Sessions view"
+        className="w-full sm:max-w-[360px]"
+        value={view}
+        onChange={(v) => { setView(v); setSelectedIds(new Set()); }}
+        options={[
+          { id: 'upcoming', label: `Upcoming (${upcoming.length})` },
+          { id: 'history', label: `History (${history.length})` },
+        ]}
+      />
 
       {/* Bulk action bar */}
       {shown.length > 0 && (
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+        <div className="flex min-h-[43px] flex-wrap items-center gap-ds-3">
+          <label className="flex cursor-pointer select-none items-center gap-ds-2 text-[14px] font-extrabold text-ink">
             <input
               type="checkbox"
               checked={selectedIds.size === shown.length && shown.length > 0}
               onChange={toggleAll}
-              className="rounded"
+              className={CHECKBOX}
             />
             {selectedIds.size === 0 ? 'Select all' : `${selectedIds.size} selected`}
           </label>
           {selectedIds.size > 0 && (
-            <button
-              onClick={bulkDelete}
-              disabled={bulkDeleting}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 disabled:opacity-50">
-              <Trash2 className="size-3.5" /> {bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.size} session${selectedIds.size !== 1 ? 's' : ''}`}
-            </button>
+            <Button variant="danger" size="sm" onClick={bulkDelete} disabled={bulkDeleting}>
+              <Trash2 className="size-4" /> {bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.size} session${selectedIds.size !== 1 ? 's' : ''}`}
+            </Button>
           )}
         </div>
       )}
 
       {/* With no sessions at all the banner above already says what to do. */}
       {sessions.length > 0 && shown.length === 0 && (
-        <p className="text-sm text-muted-foreground py-6 text-center">{view === 'upcoming' ? 'No upcoming sessions.' : 'No past sessions yet.'}</p>
+        <EmptyState
+          icon={view === 'upcoming' ? CalendarIcon : Clock}
+          title={view === 'upcoming' ? 'No upcoming sessions.' : 'No past sessions yet.'}
+          body={view === 'upcoming' ? 'Add a session or set a schedule and it will show here.' : 'Sessions you have taught will show here, with their attendance.'}
+        />
       )}
-      <div className="space-y-2">
+      <div className="flex flex-col gap-ds-2">
         {shown.map((s) => (
           <SessionRow
             key={s.id}
@@ -478,6 +511,7 @@ export function SessionsTab({ sessions, groupId, setSessions, reconnected, group
     </div>
   );
 }
+
 
 /* ----------- Students (roster + subscription billing) ----------- */
 
