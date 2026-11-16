@@ -12,6 +12,8 @@ export interface ClassItem {
   id: string;
   name: string;
   subject: string | null;
+  level?: string | null;
+  coverImage?: string | null;
   status: string | null;
   state: ClassState;
   visibility: 'public' | 'private';

@@ -25,15 +25,16 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button, Card, Segmented, SubjectTile, Tag } from '@/components/ui';
-import { subjectCode, subjectColor } from '@/components/parent/v2/subjectTile';
+import { Button, Card, Segmented, Tag } from '@/components/ui';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { useTutorCompletion } from '@/lib/hooks/useTutorCompletion';
 import { useTeacherCampaignEntry } from '@/lib/hooks/useTeacherCampaignEntry';
 import PauseAllClasses from '@/components/tutor/PauseAllClasses';
 import TeacherCampaignPanel from '@/components/classMatchWeek/teacher/TeacherCampaignPanel';
 import { cn } from '@/lib/utils';
-import { STATE_TAG, classSubline, money, shortDate, type ClassItem } from './classState';
+import { STATE_TAG, money, shortDate, type ClassItem } from './classState';
+import { ClassCover } from '@/components/parent/v2/ClassCover';
+import { formatLevel } from '@/lib/utils/formatLevel';
 
 type Half = 'classes' | 'sessions' | 'class-match-week';
 type Filter = 'all' | 'live' | 'draft' | 'paused';
@@ -171,61 +172,43 @@ export default function TutorClassesV2() {
         </Card>
       ) : (
         <>
-          {/* Phone (m08): cards, state tag under each. */}
-          <div className="flex flex-col gap-ds-3 lg:hidden">
-            {classes.map((c) => (
-              <PhoneClass key={c.id} c={c} />
-            ))}
-            <Button variant="primary" size="lg" block className="mt-ds-2" onClick={() => router.push('/tutor/classes/new')}>
-              Create a class
-            </Button>
+          {/* The old My Classes card format (banner, chips, title, stat strip,
+              action), redrawn in the design system and carrying the new
+              list's facts: next session, seats, price and state. Owner,
+              2026-11-16. Same grid at every width; one column on a phone. */}
+          <div role="tablist" aria-label="Filter classes" className="flex flex-wrap gap-ds-2">
+            {FILTERS.map((f) => {
+              const on = f.id === filter;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setFilter(f.id)}
+                  className={cn(
+                    'ds-press inline-flex items-center gap-[6px] rounded-full bw-hair px-ds-3 py-[6px] font-body text-[13px] font-extrabold cursor-pointer',
+                    on ? 'border-ink bg-ink text-on-ink' : 'border-border bg-surface-card text-ink'
+                  )}
+                >
+                  {f.label}
+                  <span className={cn('tabular-nums', on ? 'text-brand' : 'text-ink-muted')}>{counts[f.id]}</span>
+                </button>
+              );
+            })}
           </div>
-
-          {/* Desktop (d02): filter pills + table. */}
-          <Card className="hidden lg:flex">
-            <div role="tablist" aria-label="Filter classes" className="flex flex-wrap gap-ds-2">
-              {FILTERS.map((f) => {
-                const on = f.id === filter;
-                return (
-                  <button
-                    key={f.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={on}
-                    onClick={() => setFilter(f.id)}
-                    className={cn(
-                      'ds-press inline-flex items-center gap-[6px] rounded-full bw-hair px-ds-3 py-[6px] font-body text-[13px] font-extrabold cursor-pointer',
-                      on ? 'border-ink bg-ink text-on-ink' : 'border-border bg-surface-card text-ink'
-                    )}
-                  >
-                    {f.label}
-                    <span className={cn('tabular-nums', on ? 'text-brand' : 'text-ink-muted')}>{counts[f.id]}</span>
-                  </button>
-                );
-              })}
+          {shown.length === 0 ? (
+            <p className="m-0 py-ds-4 text-[14px] text-ink-muted">No {filter} classes.</p>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
+              {shown.map((c) => (
+                <ClassTile key={c.id} c={c} />
+              ))}
             </div>
-            {shown.length === 0 ? (
-              <p className="m-0 py-ds-4 text-[14px] text-ink-muted">No {filter} classes.</p>
-            ) : (
-              <table className="w-full border-collapse text-left text-[14px]">
-                <thead>
-                  <tr className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
-                    <th className="bw-b-hair border-line-soft py-ds-2 pr-ds-3 font-extrabold">Class</th>
-                    <th className="bw-b-hair border-line-soft py-ds-2 pr-ds-3 font-extrabold">Next session</th>
-                    <th className="bw-b-hair border-line-soft py-ds-2 pr-ds-3 font-extrabold">Seats</th>
-                    <th className="bw-b-hair border-line-soft py-ds-2 pr-ds-3 font-extrabold">Price</th>
-                    <th className="bw-b-hair border-line-soft py-ds-2 pr-ds-3 font-extrabold">Status</th>
-                    <th className="bw-b-hair border-line-soft py-ds-2" aria-label="Actions" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {shown.map((c) => (
-                    <DeskRow key={c.id} c={c} />
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Card>
+          )}
+          <Button variant="primary" size="lg" block className="lg:hidden" onClick={() => router.push('/tutor/classes/new')}>
+            Create a class
+          </Button>
         </>
       )}
 
@@ -238,73 +221,64 @@ export default function TutorClassesV2() {
   );
 }
 
-function PhoneClass({ c }: { c: ClassItem }) {
-  const label = c.subject || c.name;
-  const tag = STATE_TAG[c.state];
-  return (
-    <div className="flex flex-col gap-ds-2">
-      <Link href={`/tutor/classes/${c.id}`} className="ds-press block text-ink no-underline">
-        <Card className="flex-row items-center gap-ds-3">
-          <SubjectTile code={subjectCode(label)} color={subjectColor(label)} size={48} className="text-[15px] font-black" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-extrabold leading-5">{c.name}</span>
-            <span className="block text-[13px] leading-[18px] text-ink-muted">{classSubline(c)}</span>
-          </span>
-          {c.price > 0 ? (
-            <span className="shrink-0 text-right font-display text-[15px] font-extrabold tabular-nums">
-              {money(c.price)}
-              {c.priceUnit ? <small className="block text-[11px] font-bold text-ink-muted">/{c.priceUnit}</small> : null}
-            </span>
-          ) : (
-            <span className="shrink-0 text-[13px] font-bold text-ink-muted">Free</span>
-          )}
-        </Card>
-      </Link>
-      <span className="pl-ds-1">
-        <Tag tone={tag.tone}>{tag.label}</Tag>
-      </span>
-    </div>
-  );
-}
-
-function DeskRow({ c }: { c: ClassItem }) {
+function ClassTile({ c }: { c: ClassItem }) {
   const router = useRouter();
   const tag = STATE_TAG[c.state];
-  const cell = 'bw-b-hair border-line-soft py-ds-3 pr-ds-3 align-middle';
-  let next: ReactNode;
-  if (c.state === 'draft') next = <span className="text-ink-muted">—</span>;
-  else if (c.state === 'paused') next = c.pause?.end ? `Paused until ${shortDate(c.pause.end)}` : 'Paused';
-  else if (c.nextStart) next = shortDate(c.nextStart);
-  else next = <span className="font-bold text-danger">None scheduled</span>;
+  const draft = c.state === 'draft';
 
-  const meta =
-    c.state === 'draft'
-      ? 'Not published'
-      : [c.schedule, c.visibility === 'private' ? 'Private' : null].filter(Boolean).join(' · ') || null;
+  let next: ReactNode;
+  if (draft) next = '—';
+  else if (c.state === 'paused') next = c.pause?.end ? `Until ${shortDate(c.pause.end)}` : 'Paused';
+  else if (c.nextStart) next = shortDate(c.nextStart);
+  else next = <span className="text-danger">None</span>;
+
+  const seats = draft ? '—' : c.seats ? `${c.students}/${c.seats}` : String(c.students);
+  const price = c.price > 0 ? `${money(c.price)}${c.priceUnit === 'month' ? '/mo' : c.priceUnit === 'session' ? '/session' : ''}` : 'Free';
+  const isOneOnOne = c.seats === 1;
 
   return (
-    <tr>
-      <td className={cell}>
-        <Link href={`/tutor/classes/${c.id}`} className="font-extrabold text-ink no-underline hover:underline">
-          {c.name}
-        </Link>
-        {meta ? <div className="text-[13px] text-ink-muted">{meta}</div> : null}
-      </td>
-      <td className={cn(cell, 'whitespace-nowrap')}>{next}</td>
-      <td className={cn(cell, 'whitespace-nowrap tabular-nums')}>
-        {c.state === 'draft' ? <span className="text-ink-muted">—</span> : c.seats ? `${c.students} of ${c.seats}` : c.students}
-      </td>
-      <td className={cn(cell, 'whitespace-nowrap font-bold tabular-nums')}>
-        {c.price > 0 ? `${money(c.price)}${c.priceUnit === 'month' ? '/mo' : c.priceUnit === 'session' ? '/session' : ''}` : 'Free'}
-      </td>
-      <td className={cn(cell, 'whitespace-nowrap')}>
-        <Tag tone={tag.tone}>{tag.short}</Tag>
-      </td>
-      <td className="bw-b-hair border-line-soft py-ds-3 text-right align-middle">
-        <Button variant="outline" size="sm" onClick={() => router.push(`/tutor/classes/${c.id}`)}>
-          {c.state === 'draft' ? 'Edit class' : 'Manage'}
+    <article className="flex flex-col overflow-hidden rounded-ds-card bw-hair border-border bg-surface-card">
+      {/* Banner: the tutor's upload, or the subject-colour cover. */}
+      <Link href={`/tutor/classes/${c.id}`} className="relative block no-underline" aria-label={c.name}>
+        <ClassCover image={c.coverImage} subject={c.subject || c.name} className="h-32" />
+        <span className="absolute right-ds-2 top-ds-2">
+          <Tag tone={tag.tone}>{tag.short}</Tag>
+        </span>
+      </Link>
+
+      <div className="flex flex-1 flex-col gap-ds-3 p-ds-card">
+        <div className="flex flex-wrap items-center gap-ds-1">
+          {c.subject ? <Tag tone="outline">{c.subject}</Tag> : null}
+          {c.level ? <Tag tone="outline">{formatLevel(c.level)}</Tag> : null}
+          <Tag tone="outline">{isOneOnOne ? '1:1' : 'Group'}</Tag>
+          {c.visibility === 'private' && !draft ? <Tag tone="outline">Private</Tag> : null}
+        </div>
+
+        <div className="min-w-0">
+          <h3 className="m-0 truncate font-display text-[17px] font-extrabold leading-tight text-ink">{c.name}</h3>
+          <p className="m-0 mt-[2px] line-clamp-2 text-[13px] leading-[18px] text-ink-muted">
+            {draft ? 'Not published yet' : c.schedule ?? 'No schedule set'}
+          </p>
+        </div>
+
+        {/* Stat strip, as on the old card. */}
+        <dl className="m-0 grid grid-cols-3 divide-x divide-border overflow-hidden rounded-ds-sm bw-hair border-border text-center">
+          {[
+            ['Next', next],
+            ['Seats', seats],
+            ['Price', price],
+          ].map(([label, value]) => (
+            <div key={label as string} className="min-w-0 px-ds-1 py-ds-2">
+              <dt className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">{label}</dt>
+              <dd className="m-0 truncate text-[14px] font-extrabold tabular-nums text-ink">{value}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <Button variant="dark" size="md" block className="mt-auto" onClick={() => router.push(`/tutor/classes/${c.id}`)}>
+          {draft ? 'Edit class' : 'Manage class'}
         </Button>
-      </td>
-    </tr>
+      </div>
+    </article>
   );
 }

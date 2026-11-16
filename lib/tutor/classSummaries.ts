@@ -31,6 +31,10 @@ export interface ClassSummary {
   id: string;
   name: string;
   subject: string | null;
+  /** groups.form_level, raw (format with formatLevel). */
+  level: string | null;
+  /** The tutor's uploaded banner, or null for the subject-colour cover. */
+  coverImage: string | null;
   /** Raw `groups.status`. */
   status: string | null;
   state: ClassState;
@@ -74,7 +78,7 @@ export async function loadTutorClasses(
 
   const { data: groupRows } = await db
     .from('groups')
-    .select('id, name, subject, status, visibility, price_monthly, price_per_session, max_students, created_at')
+    .select('id, name, subject, form_level, cover_image, status, visibility, price_monthly, price_per_session, max_students, created_at')
     .eq('tutor_id', tutorId)
     .is('archived_at', null)
     .order('created_at', { ascending: false });
@@ -141,6 +145,8 @@ export async function loadTutorClasses(
       id: g.id,
       name: g.name || 'Untitled class',
       subject: g.subject ?? null,
+      level: g.form_level ?? null,
+      coverImage: g.cover_image ?? null,
       status: g.status ?? null,
       state,
       visibility: g.visibility === 'private' ? 'private' : 'public',
