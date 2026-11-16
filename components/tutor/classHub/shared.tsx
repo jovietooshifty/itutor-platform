@@ -224,27 +224,35 @@ export function classCapacity(
 
 export function SettingsHead({ title, desc, tone }: { title: string; desc?: string; tone?: 'danger' }) {
   return (
-    <div className="pb-4 border-b border-border">
-      <div className={cn('text-base font-bold', tone === 'danger' ? 'text-rose-700' : 'text-ink')}>{title}</div>
-      {desc && <div className="text-xs text-muted-foreground mt-0.5">{desc}</div>}
+    <div className="flex flex-col gap-[2px] bw-b-hair border-line-soft pb-ds-3">
+      <h3 className={cn('m-0 font-display text-[20px] font-extrabold leading-tight', tone === 'danger' ? 'text-danger' : 'text-ink')}>{title}</h3>
+      {desc && <p className="m-0 text-[14px] text-ink-muted">{desc}</p>}
     </div>
   );
 }
 
 export function Toggle({ label, hint, value, onChange, disabled }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <div className={cn('flex items-start justify-between gap-4 rounded-xl border border-border p-4', disabled && 'opacity-70')}>
-      <div className="flex-1">
-        <div className="text-sm font-semibold text-ink">{label}</div>
-        {hint && <div className="text-xs text-muted-foreground mt-0.5">{hint}</div>}
+    <div className={cn('flex items-start justify-between gap-ds-4 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card', disabled && 'opacity-60')}>
+      <div className="min-w-0 flex-1">
+        <div className="text-[15px] font-extrabold text-ink">{label}</div>
+        {hint && <div className="mt-[2px] text-[13px] leading-[18px] text-ink-muted">{hint}</div>}
       </div>
       <button
         type="button"
+        role="switch"
+        aria-checked={value}
+        aria-label={label}
         disabled={disabled}
         title={disabled ? hint : undefined}
         onClick={() => !disabled && onChange(!value)}
-        className={cn('w-11 h-6 rounded-full p-0.5 transition shrink-0', value ? 'bg-brand' : 'bg-muted', disabled && 'cursor-not-allowed')}>
-        <span className={cn('block size-5 rounded-full bg-white shadow transition', value && 'translate-x-5')} />
+        className={cn(
+          'relative h-7 w-12 shrink-0 rounded-ds-full bw-bold border-ink p-[2px] transition-colors',
+          value ? 'bg-brand' : 'bg-surface-sunken',
+          disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+        )}
+      >
+        <span className={cn('block size-5 rounded-full bw-hair border-ink bg-surface-card transition-transform', value && 'translate-x-5')} />
       </button>
     </div>
   );
@@ -256,47 +264,55 @@ export function Toggle({ label, hint, value, onChange, disabled }: { label: stri
 // revenue-by-month chart: the client has a collected TOTAL but no per-month
 // payment history, and a tutor's earnings are the last thing to guess at.
 export function Banner({ tone, icon: Icon, title, body }: { tone: 'rose' | 'amber'; icon: any; title: string; body: string }) {
-  const cls = { rose: 'border-rose-200 bg-rose-50 text-rose-900', amber: 'border-amber-200 bg-amber-50 text-amber-900' }[tone];
   return (
-    <div className={cn('rounded-xl border px-4 py-3 flex items-start gap-3', cls)}>
-      <Icon className="size-4 mt-0.5" />
-      <div><div className="font-semibold text-sm">{title}</div><div className="text-xs opacity-90">{body}</div></div>
+    <div
+      role={tone === 'rose' ? 'alert' : 'status'}
+      className={cn(
+        'flex items-start gap-ds-3 rounded-ds-card bw-hair p-ds-card',
+        tone === 'rose' ? 'border-danger/40 bg-danger/10' : 'border-accent-yellow bg-accent-yellow/20'
+      )}
+    >
+      <Icon className={cn('mt-[2px] size-5 shrink-0', tone === 'rose' ? 'text-danger' : 'text-ink')} />
+      <div className="min-w-0">
+        <div className="text-[15px] font-extrabold text-ink">{title}</div>
+        <div className="text-[14px] leading-5 text-ink-muted">{body}</div>
+      </div>
     </div>
   );
 }
 
 export function EmptyState({ icon: Icon, title, body }: { icon: any; title: string; body: string }) {
   return (
-    <div className="rounded-2xl border-2 border-dashed border-border bg-card/50 p-10 text-center">
-      <div className="mx-auto size-12 rounded-full bg-muted grid place-items-center text-muted-foreground"><Icon className="size-5" /></div>
-      <div className="mt-3 font-semibold text-ink">{title}</div>
-      <div className="text-sm text-muted-foreground">{body}</div>
+    <div className="flex flex-col items-center gap-ds-2 rounded-ds-card bw-hair bw-dashed border-border bg-surface-card px-ds-4 py-ds-8 text-center">
+      <span className="grid size-12 place-items-center rounded-full bg-surface-sunken text-ink"><Icon className="size-5" /></span>
+      <div className="font-display text-[17px] font-extrabold text-ink">{title}</div>
+      <div className="max-w-[420px] text-[14px] leading-5 text-ink-muted">{body}</div>
     </div>
   );
 }
 
 export function SideCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-card border border-border p-5">
-      <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{title}</div>
-      <div className="mt-3">{children}</div>
+    <div className="rounded-ds-card bw-hair border-border bg-surface-card p-ds-card">
+      <div className="text-[12px] font-extrabold uppercase tracking-[0.06em] text-ink-muted">{title}</div>
+      <div className="mt-ds-2">{children}</div>
     </div>
   );
 }
 
 export function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between text-sm py-1.5 border-b border-border last:border-b-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-ink font-semibold">{value}</span>
+    <div className="flex justify-between gap-ds-3 bw-b-hair border-line-soft py-ds-2 text-[14px] last:border-b-0">
+      <span className="text-ink-muted">{label}</span>
+      <span className="text-right font-extrabold text-ink [overflow-wrap:anywhere]">{value}</span>
     </div>
   );
 }
 
 export function SettCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-card border border-border p-5 space-y-4">
-      <h3 className="font-bold text-ink">{title}</h3>
+    <div className="flex flex-col gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card">
+      <h3 className="m-0 font-display text-[17px] font-extrabold text-ink">{title}</h3>
       {children}
     </div>
   );
@@ -304,12 +320,12 @@ export function SettCard({ title, children }: { title: string; children: React.R
 
 export function SetField({ label, hint, infoTitle, infoBlurb, children }: { label: string; hint?: string; infoTitle?: string; infoBlurb?: string; children: React.ReactNode }) {
   return (
-    <div>
-      <div className="text-sm font-semibold text-ink inline-flex items-center gap-1.5 mb-1">
+    <div className="flex flex-col gap-ds-1">
+      <div className="inline-flex items-center gap-[6px] text-[12px] font-extrabold uppercase tracking-[0.05em] text-ink-muted">
         {label}
         {infoTitle && infoBlurb && <InfoPop title={infoTitle} blurb={infoBlurb} />}
       </div>
-      {hint && <div className="text-xs text-muted-foreground mb-2">{hint}</div>}
+      {hint && <div className="text-[13px] leading-[18px] text-ink-muted">{hint}</div>}
       {children}
     </div>
   );
@@ -318,20 +334,20 @@ export function SetField({ label, hint, infoTitle, infoBlurb, children }: { labe
 export function InfoPop({ title, blurb }: { title: string; blurb: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <span className="relative inline-flex">
+    <span className="relative inline-flex normal-case tracking-normal">
       <button
         type="button"
         onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
-        className="size-4 grid place-items-center rounded-full text-muted-foreground hover:text-brand-deep"
+        className="grid size-5 place-items-center rounded-full text-ink-muted hover:text-ink"
         aria-label={`About ${title}`}
       >
-        <Info className="size-3.5" />
+        <Info className="size-4" />
       </button>
       {open && (
-        <span className="absolute z-20 left-1/2 -translate-x-1/2 top-6 w-56 rounded-lg border border-border bg-background shadow-pop p-3 text-left">
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-ink">{title}</span>
-          <span className="block text-xs text-muted-foreground mt-1 font-normal normal-case">{blurb}</span>
+        <span className="absolute left-1/2 top-7 z-20 w-60 -translate-x-1/2 rounded-ds-card bw-bold border-ink bg-surface-card p-ds-3 text-left shadow-[0_8px_24px_rgba(0,0,0,0.14)]">
+          <span className="block text-[13px] font-extrabold text-ink">{title}</span>
+          <span className="mt-[2px] block text-[13px] font-normal leading-[18px] text-ink-muted">{blurb}</span>
         </span>
       )}
     </span>
@@ -340,7 +356,13 @@ export function InfoPop({ title, blurb }: { title: string; blurb: string }) {
 
 export function MenuBtn({ icon: Icon, label, onClick, destructive }: { icon: any; label: string; onClick: () => void; destructive?: boolean }) {
   return (
-    <button onClick={onClick} className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-muted', destructive && 'text-rose-600 hover:bg-rose-50')}>
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-ds-2 rounded-ds-sm px-ds-3 py-ds-2 text-left font-body text-[14px] font-extrabold',
+        destructive ? 'text-danger hover:bg-danger/10' : 'text-ink hover:bg-surface-sunken'
+      )}
+    >
       <Icon className="size-4" /> {label}
     </button>
   );
@@ -348,11 +370,11 @@ export function MenuBtn({ icon: Icon, label, onClick, destructive }: { icon: any
 
 export function MomCard({ label, value, positive }: { label: string; value: string; positive: boolean }) {
   return (
-    <div className="rounded-2xl bg-card border border-border p-4">
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold">{label}</div>
-      <div className={cn('mt-2 text-2xl font-bold flex items-center gap-1', positive ? 'text-emerald-700' : 'text-rose-700')}>
+    <div className="rounded-ds-card bw-hair border-border bg-surface-card p-ds-card">
+      <div className="text-[12px] font-extrabold uppercase tracking-[0.06em] text-ink-muted">{label}</div>
+      <div className={cn('mt-ds-1 flex items-center gap-ds-1 font-display text-[26px] font-extrabold tabular-nums', positive ? 'text-brand-edge' : 'text-danger')}>
         {value}
-        {positive ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
+        {positive ? <ArrowUp className="size-5" /> : <ArrowDown className="size-5" />}
       </div>
     </div>
   );
@@ -362,22 +384,22 @@ export function MomCard({ label, value, positive }: { label: string; value: stri
 // and MomCard's arrow made "3 members" read as "up".
 export function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl bg-card border border-border p-4">
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold">{label}</div>
-      <div className="mt-2 text-2xl font-bold text-ink">{value}</div>
-      {hint && <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>}
+    <div className="rounded-ds-card bw-hair border-border bg-surface-card p-ds-card">
+      <div className="text-[12px] font-extrabold uppercase tracking-[0.06em] text-ink-muted">{label}</div>
+      <div className="mt-ds-1 font-display text-[26px] font-extrabold tabular-nums text-ink">{value}</div>
+      {hint && <div className="mt-[2px] text-[13px] text-ink-muted">{hint}</div>}
     </div>
   );
 }
 
 export function ChartCard({ title, caption, children }: { title: string; caption: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-card border border-border p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-ink">{title}</h3>
-        <span className="text-[11px] text-muted-foreground">{caption}</span>
+    <div className="rounded-ds-card bw-hair border-border bg-surface-card p-ds-card">
+      <div className="flex items-baseline justify-between gap-ds-3">
+        <h3 className="m-0 font-display text-[17px] font-extrabold text-ink">{title}</h3>
+        <span className="text-[12px] font-bold text-ink-muted">{caption}</span>
       </div>
-      <div className="mt-6 h-40 flex items-end gap-3">{children}</div>
+      <div className="mt-ds-5 flex h-40 items-end gap-ds-3">{children}</div>
     </div>
   );
 }
@@ -391,3 +413,42 @@ export function formatRelative(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
+
+/* ----------- Design-system strings for the hub tabs (new UI, 2026-11-16) ----------- */
+
+/** A card: hairline border, card radius, card padding. */
+export const DS_CARD = 'rounded-ds-card bw-hair border-border bg-surface-card p-ds-card';
+/** Text input / textarea / select. */
+export const DS_INPUT =
+  'w-full rounded-ds-btn bw-hair border-ink bg-surface-card px-ds-3 py-[10px] font-body text-[15px] text-ink placeholder:text-ink-muted focus:outline focus:outline-2 focus:outline-ink disabled:opacity-60';
+/** Uppercase section label. */
+export const DS_LABEL = 'text-[12px] font-extrabold uppercase tracking-[0.06em] text-ink-muted';
+/** Pill filter / segmented chip; add DS_PILL_ON when selected. */
+export const DS_PILL =
+  'ds-press inline-flex items-center gap-[6px] rounded-full bw-hair px-ds-3 py-[6px] font-body text-[13px] font-extrabold cursor-pointer border-border bg-surface-card text-ink';
+export const DS_PILL_ON = '!border-ink !bg-ink !text-on-ink';
+
+/**
+ * Share a link through the device's share sheet (WhatsApp, Messages, …) where
+ * the browser has one, else copy it. Owner/itutor-63, 2026-11-16: Invite by
+ * link must open the share menu. Resolves to what happened; a dismissed
+ * share sheet ('cancelled') is not an error.
+ */
+export async function shareOrCopy(data: { title?: string; text?: string; url: string }): Promise<'shared' | 'copied' | 'cancelled' | 'failed'> {
+  const nav: any = typeof navigator !== 'undefined' ? navigator : null;
+  if (nav?.share) {
+    try {
+      await nav.share(data);
+      return 'shared';
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return 'cancelled';
+      // Fall through to the clipboard (some desktop browsers refuse share()).
+    }
+  }
+  try {
+    await nav?.clipboard?.writeText(data.text ? `${data.text}` : data.url);
+    return 'copied';
+  } catch {
+    return 'failed';
+  }
+}
