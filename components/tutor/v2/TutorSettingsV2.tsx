@@ -40,6 +40,7 @@ import {
   unsubscribeFromPushNotifications,
 } from '@/lib/services/browserPushService';
 import TutorV2Shell from './TutorV2Shell';
+import { TutorAccountDetailsV2, TutorSecurityV2 } from './TutorAccountV2';
 import { TutorShellEmbedded } from '@/components/tutor/TutorShell';
 
 export default function TutorSettingsV2({ legacy }: { legacy: ReactNode }) {
@@ -52,6 +53,9 @@ export default function TutorSettingsV2({ legacy }: { legacy: ReactNode }) {
 
 function SettingsSwitch({ legacy }: { legacy: ReactNode }) {
   const section = useSearchParams()?.get('section');
+  // Redrawn in the new UI (2026-11-16). Other sections keep the old look.
+  if (section === 'profile') return <TutorAccountDetailsV2 />;
+  if (section === 'security') return <TutorSecurityV2 />;
   if (section) {
     return (
       <TutorV2Shell title="Settings" width="wide">

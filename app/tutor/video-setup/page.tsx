@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import { TutorVideoSetupV2 } from '@/components/tutor/v2/TutorAccountV2';
 
 type VideoProvider = 'google_meet' | 'zoom';
 
@@ -22,6 +24,11 @@ type Connection = {
 };
 
 export default function VideoSetupPage() {
+  if (isNewUiEnabled()) return <TutorVideoSetupV2 />;
+  return <LegacyVideoSetupPage />;
+}
+
+function LegacyVideoSetupPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
   const [connection, setConnection] = useState<Connection | null>(null);
