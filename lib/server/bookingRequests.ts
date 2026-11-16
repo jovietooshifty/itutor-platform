@@ -295,7 +295,33 @@ export async function expireDueRequests(
     console.error('[bookingRequests] expiry sweep failed:', error.message);
     return { expired: 0 };
   }
-  return { expired: data?.length ?? 0 };
+
+  // A lesson request the TUTOR never answered (status PENDING) used to stay
+  // open for ever, even after the requested time had passed: one from 9 Nov
+  // still sat in the tutor's Requests on 16 Nov. It closes once its time has
+  // passed, but ONLY when no money was taken. 'paid' (and 'pending', a
+  // checkout in progress) would need a refund this sweep does not do, so those
+  // are left and counted in the log for someone to look at.
+  const { data: stale, error: staleError } = await admin
+    .from('bookings')
+    .update({ status: 'EXPIRED', decided_at: now.toISOString() })
+    .eq('status', 'PENDING')
+    .lte('requested_start_at', now.toISOString())
+    .or('payment_status.is.null,payment_status.in.(unpaid,failed)')
+    .select('id');
+  if (staleError) console.error('[bookingRequests] stale-request sweep failed:', staleError.message);
+
+  const { count: paidStale } = await admin
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'PENDING')
+    .lte('requested_start_at', now.toISOString())
+    .in('payment_status', ['paid', 'pending']);
+  if (paidStale) {
+    console.warn(`[bookingRequests] ${paidStale} unanswered request(s) past their time with money attached; left open for a refund decision`);
+  }
+
+  return { expired: (data?.length ?? 0) + (stale?.length ?? 0) };
 }
 
 // ---------------------------------------------------------------------------

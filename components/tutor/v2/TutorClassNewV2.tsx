@@ -244,8 +244,8 @@ export default function TutorClassNewV2() {
     <div className="flex flex-col gap-ds-2 text-[13px] leading-[18px] text-ink-muted">
       <p className="m-0">
         {completion.avatar && completion.bio
-          ? 'Publishing needs a photo and bio on your profile. Both are done.'
-          : 'Publishing needs a photo and bio on your profile. Add them from Profile before families can find this class.'}
+          ? 'Families see your photo and bio next to this class.'
+          : 'Families see your photo and bio next to this class. Add them from Profile so they know who is teaching. (Not required to publish.)'}
       </p>
       <p className="m-0">
         Next you set the days and times. A class with no future session is flagged, so no one pays for a class that isn&rsquo;t running.
