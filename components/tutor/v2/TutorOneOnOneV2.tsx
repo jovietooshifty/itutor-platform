@@ -304,7 +304,7 @@ export default function TutorOneOnOneV2() {
                 )}
                 <div className="flex flex-col gap-ds-1 bw-t-hair border-line-soft px-ds-card py-ds-3">
                   <span className="text-[13px] text-ink-muted">Families choose the lesson length; the price follows your hourly rate.</span>
-                  <Link href="/tutor/get-listed" className="ds-link self-start text-[14px] font-extrabold text-brand-edge">
+                  <Link href="/tutor/subjects" className="ds-link self-start text-[14px] font-extrabold text-brand-edge">
                     Change subjects and rates
                   </Link>
                 </div>

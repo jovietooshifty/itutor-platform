@@ -192,7 +192,7 @@ export default function TutorProfileEditV2() {
                 <span className="text-[15px] text-ink">
                   {subjects === null ? '…' : subjects.length ? subjects.join(', ') : 'No subjects yet'}
                 </span>
-                <Link href="/tutor/get-listed" className="ds-link self-start text-[14px] font-extrabold text-brand-edge">
+                <Link href="/tutor/subjects" className="ds-link self-start text-[14px] font-extrabold text-brand-edge">
                   Change subjects and rates
                 </Link>
               </div>
