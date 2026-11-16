@@ -104,7 +104,7 @@ function initials(name: string): string {
   return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase() || '?';
 }
 
-function shareBase(): string {
+export function shareBase(): string {
   const env = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/+$/, '');
   if (env) return env;
   return typeof window !== 'undefined' ? window.location.origin : '';
@@ -500,7 +500,7 @@ function Avatar({ label }: { label: string }) {
   );
 }
 
-function ShareCard({ message, url, bare }: { message: string; url: string; bare?: boolean }) {
+export function ShareCard({ message, url, bare }: { message: string; url: string; bare?: boolean }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {

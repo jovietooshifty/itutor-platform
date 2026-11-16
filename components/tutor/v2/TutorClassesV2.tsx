@@ -34,6 +34,9 @@ import TeacherCampaignPanel from '@/components/classMatchWeek/teacher/TeacherCam
 import { cn } from '@/lib/utils';
 import { STATE_TAG, money, shortDate, type ClassItem } from './classState';
 import { ClassCover } from '@/components/parent/v2/ClassCover';
+import { Sheet } from '@/components/parent/v2/Sheet';
+import { ShareNetwork } from '@phosphor-icons/react';
+import { ShareCard, shareBase } from './TutorClassManageV2';
 import { formatLevel } from '@/lib/utils/formatLevel';
 
 type Half = 'classes' | 'sessions' | 'class-match-week';
@@ -235,6 +238,9 @@ function ClassTile({ c }: { c: ClassItem }) {
   const seats = draft ? '—' : c.seats ? `${c.students}/${c.seats}` : String(c.students);
   const price = c.price > 0 ? `${money(c.price)}${c.priceUnit === 'month' ? '/mo' : c.priceUnit === 'session' ? '/session' : ''}` : 'Free';
   const isOneOnOne = c.seats === 1;
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareUrl = `${shareBase()}/student/explore/${c.id}`;
+  const shareMessage = `Hi! I'm teaching ${c.name} on iTutor.${c.schedule ? ` We meet ${c.schedule.replace(' · ', ' at ')}.` : ''} You can see the details and join here: ${shareUrl}`;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-ds-card bw-hair border-border bg-surface-card">
@@ -275,10 +281,24 @@ function ClassTile({ c }: { c: ClassItem }) {
           ))}
         </dl>
 
-        <Button variant="dark" size="md" block className="mt-auto" onClick={() => router.push(`/tutor/classes/${c.id}`)}>
-          {draft ? 'Edit class' : 'Manage class'}
-        </Button>
+        <div className="mt-auto flex gap-ds-2">
+          <Button variant="dark" size="md" block className="flex-1" onClick={() => router.push(`/tutor/classes/${c.id}`)}>
+            {draft ? 'Edit class' : 'Manage class'}
+          </Button>
+          {/* A draft has no public page to share yet. */}
+          {!draft ? (
+            <Button variant="outline" size="md" aria-label={`Share ${c.name}`} onClick={() => setShareOpen(true)}>
+              <ShareNetwork size={18} weight="bold" aria-hidden /> Share
+            </Button>
+          ) : null}
+        </div>
       </div>
+      <Sheet open={shareOpen} onClose={() => setShareOpen(false)} title={`Share ${c.name}`}>
+        <p className="m-0 text-[14px] leading-5 text-ink-muted">
+          Send families the class link. Nobody is enrolled or charged until they join and pay themselves.
+        </p>
+        <ShareCard message={shareMessage} url={shareUrl} bare />
+      </Sheet>
     </article>
   );
 }

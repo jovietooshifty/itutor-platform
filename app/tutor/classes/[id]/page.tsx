@@ -2457,7 +2457,6 @@ const SETTINGS_SECTIONS = [
   { id: 'access',    label: 'Access & policies', icon: Lock },
   { id: 'classlink', label: 'Class link',        icon: Video },
   { id: 'channels',  label: 'Communication',     icon: MessageSquare },
-  { id: 'feedback',  label: 'Parent feedback',   icon: Mail },
   { id: 'danger',    label: 'Danger zone',        icon: AlertTriangle },
 ] as const;
 type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]['id'];
@@ -3129,26 +3128,6 @@ function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enrolledCount
                 <input value={draft.googleClassroomLink ?? ''} onChange={(e) => d('googleClassroomLink', e.target.value)} placeholder="https://classroom.google.com/c/…"
                   className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
               </SetField>
-            </>
-          )}
-
-          {section === 'feedback' && (
-            <>
-              <SettingsHead title="Parent feedback" desc="Monthly reports you send to each student's parent." />
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex items-start gap-4">
-                <div className="size-10 rounded-xl bg-amber-100 grid place-items-center shrink-0">
-                  <Clock className="size-5 text-amber-700" />
-                </div>
-                <div>
-                  <div className="font-bold text-amber-900 flex items-center gap-2">
-                    Parent feedback
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">Coming soon</span>
-                  </div>
-                  <p className="text-sm text-amber-800 mt-1">
-                    Parent accounts are launching soon. Once live, you'll be able to send monthly feedback reports directly to your students' parents — included free or as a paid add-on.
-                  </p>
-                </div>
-              </div>
             </>
           )}
 
