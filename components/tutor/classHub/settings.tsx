@@ -71,6 +71,13 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
   enrolledCount: number;
 }) {
   const physicalClasses = usePhysicalClasses();
+  // In-person and hybrid are for verified tutors only (owner, 2026-11-16; the
+  // API answers 403 IN_PERSON_NEEDS_VERIFIED). An online class of an
+  // unverified tutor gets a pointer to verification instead of the picker; a
+  // class that is already in person keeps its editor. Admins acting as the
+  // tutor are not gated here.
+  const { profile: viewer } = useProfile();
+  const canGoInPerson = viewer?.role !== 'tutor' || viewer?.tutor_verification_status === 'VERIFIED';
   // Capacity can be raised or lowered at any time, including on a class that
   // has already started — but never below the seats already taken, since there
   // is no rule for who would be dropped.
@@ -628,6 +635,11 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
                 <div className={NOTE}>
                   1-on-1 sessions are arranged directly with the student, so this
                   is set per session rather than on the class.
+                </div>
+              ) : !canGoInPerson && group.classFormat === 'online' ? (
+                <div className={NOTE}>
+                  In-person and hybrid classes are for verified tutors.{' '}
+                  <a href="/tutor/verification" className="font-extrabold text-ink underline">Get verified</a> to run this class at a venue.
                 </div>
               ) : (
                 <InPersonSection
