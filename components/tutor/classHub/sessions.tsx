@@ -60,7 +60,7 @@ export const NO_CLASS_LINK_MESSAGE =
 // The Attendance link sits beside DS Buttons, so it borrows the outline
 // Button's look (a Link cannot be a <Button>).
 const OUTLINE_LINK =
-  'mb-[3px] inline-flex h-10 items-center justify-center gap-ds-2 rounded-ds-btn bw-bold border-ink bg-surface-card px-ds-4 text-[14px] font-extrabold leading-none text-ink shadow-edge-ink no-underline transition-transform active:translate-y-[2px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ink';
+  'mb-[3px] inline-flex h-10 items-center justify-center gap-ds-2 rounded-ds-btn bw-bold border-ink bg-surface-card px-ds-4 text-[14px] font-extrabold leading-none text-ink shadow-edge-ink no-underline transition-transform active:translate-y-[2px] focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ink';
 
 const CHECKBOX = 'size-[18px] shrink-0 cursor-pointer accent-ink';
 

@@ -420,7 +420,7 @@ export function formatRelative(dateStr: string): string {
 export const DS_CARD = 'rounded-ds-card bw-hair border-border bg-surface-card p-ds-card';
 /** Text input / textarea / select. */
 export const DS_INPUT =
-  'w-full rounded-ds-btn bw-hair border-ink bg-surface-card px-ds-3 py-[10px] font-body text-[15px] text-ink placeholder:text-ink-muted focus:outline focus:outline-2 focus:outline-ink disabled:opacity-60';
+  'w-full rounded-ds-btn bw-hair border-ink bg-surface-card px-ds-3 py-[10px] font-body text-[15px] text-ink placeholder:text-ink-muted focus:[outline-style:solid] focus:outline-2 focus:outline-ink disabled:opacity-60';
 /** Uppercase section label. */
 export const DS_LABEL = 'text-[12px] font-extrabold uppercase tracking-[0.06em] text-ink-muted';
 /** Pill filter / segmented chip; add DS_PILL_ON when selected. */

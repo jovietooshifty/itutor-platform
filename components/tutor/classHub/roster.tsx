@@ -731,12 +731,12 @@ export function RosterRow({ m, groupId, onUpdate, onRemoved, externalChannels, s
               onClick={(e) => { e.stopPropagation(); setHistoryOpen(true); }}
               aria-label={`View payment history for ${m.name}`}
               title="Payment history"
-              className="grid size-8 place-items-center rounded-full text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+              className="grid size-8 place-items-center rounded-full text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
             >
               <Info className="size-[18px]" />
             </button>
             <button ref={btnRef} type="button" onClick={openMenu} aria-label={`Actions for ${m.name}`}
-              className="grid size-8 place-items-center rounded-ds-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">
+              className="grid size-8 place-items-center rounded-ds-sm text-ink-muted hover:bg-surface-sunken hover:text-ink focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink">
               <MoreVertical className="size-4" />
             </button>
           </div>
