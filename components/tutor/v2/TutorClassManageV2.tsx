@@ -434,11 +434,7 @@ export default function TutorClassManageV2({ classId, onUnavailable, renderTabs 
         open={justCreated && c.status === 'PUBLISHED' && Boolean(data.next)}
         onClose={closeLive}
         title="Your class is live"
-        footer={
-          <Button variant="outline" size="md" onClick={closeLive}>
-            Not now
-          </Button>
-        }
+        // No "Not now": the sheet's X closes it (owner, 2026-11-16).
       >
         <div>
           <Tag tone="brand">Published</Tag>

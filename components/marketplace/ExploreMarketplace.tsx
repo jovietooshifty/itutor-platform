@@ -35,7 +35,7 @@ import {
   type LocationFilterState,
 } from '@/lib/classes/locationFilter';
 import LocationFilter from '@/components/marketplace/LocationFilter';
-import ClassCard from '@/components/marketplace/ClassCard';
+import ClassCard, { classCardColor } from '@/components/marketplace/ClassCard';
 import { usePhysicalClasses } from '@/lib/hooks/usePhysicalClasses';
 import { fmtTTD } from '@/lib/utils/formatCurrency';
 import {
@@ -617,28 +617,8 @@ export default function ExploreMarketplace({ variant = 'student' }: { variant?: 
     }
   }
 
-  const SUBJECT_STYLE: Record<string, { color: string }> = {
-    math: { color: 'from-coral to-peach' },
-    physics: { color: 'from-sky to-lavender' },
-    chemistry: { color: 'from-brand-deep to-forest' },
-    biology: { color: 'from-brand to-brand-deep' },
-    english: { color: 'from-lavender to-brand-soft' },
-    history: { color: 'from-peach to-coral' },
-    economics: { color: 'from-peach to-coral' },
-    information: { color: 'from-sky to-lavender' },
-    spanish: { color: 'from-coral to-peach' },
-    french: { color: 'from-sky to-lavender' },
-    sea: { color: 'from-brand to-brand-deep' },
-    accounting: { color: 'from-peach to-coral' },
-  };
-
-  function getSubjectStyle(subject: string) {
-    const lower = (subject || '').toLowerCase();
-    for (const [key, val] of Object.entries(SUBJECT_STYLE)) {
-      if (lower.includes(key)) return val;
-    }
-    return { color: 'from-brand to-brand-deep' };
-  }
+  // Shared with the tutor create-class preview, so both draw the same card.
+  const getSubjectStyle = (subject: string) => ({ color: classCardColor(subject) });
 
   async function fetchGroupLessons() {
     setLoadingGroupLessons(true);

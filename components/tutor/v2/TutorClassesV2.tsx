@@ -10,7 +10,7 @@
  * Manage.
  *
  * Kept from the old My Classes page because they are real and in use:
- * - the "finish your profile" lock (`useTutorCompletion().listed`);
+ * - a photo/bio nudge (no longer a lock: classes are listed without a profile check);
  * - the Class Match Week half, as a third segment while a campaign is live
  *   (and `?tab=class-match-week`, which emails and the countdown link to);
  * - PauseAllClasses — the break control and the persistent "on a break"
@@ -126,25 +126,28 @@ export default function TutorClassesV2() {
     );
   }
 
-  if (!completion.listed) {
-    return (
-      <div className="flex flex-col gap-ds-4">
-        <h1 className="ds-page-title m-0 font-display font-extrabold text-ink">Classes</h1>
-        <Card
-          title="Finish your profile to start teaching"
-          body="Families only see teachers with a complete profile, so classes open up once yours is done. It takes a few minutes."
-        >
-          <Button variant="primary" size="md" onClick={() => router.push('/tutor/get-listed')}>
-            Complete profile
-          </Button>
-        </Card>
-      </div>
-    );
-  }
+  // The old lock (`completion.listed`) hid this whole page until the tutor had a
+  // photo, a bio, 1:1 availability AND a 1:1 hourly rate. Two of those are about
+  // 1:1 lessons, and /api/groups shows classes with no profile check at all, so
+  // the lock was wrong for classes: it stayed up even after a class went live.
+  // Now: never block; nudge only for what families actually see next to a
+  // class, the photo and the bio, and send them to the new-UI profile editor.
+  const profileNudge =
+    !completion.avatar || !completion.bio ? (
+      <Card
+        title={!completion.avatar && !completion.bio ? 'Add a photo and a short bio' : !completion.avatar ? 'Add a profile photo' : 'Add a short bio'}
+        body="Families see these next to your classes. Teachers with a photo and bio get more sign-ups."
+      >
+        <Button variant="outline" size="md" onClick={() => router.push('/tutor/profile/edit')}>
+          Edit profile
+        </Button>
+      </Card>
+    ) : null;
 
   return (
     <div className="flex flex-col gap-ds-4">
       {header}
+      {profileNudge}
       <ClassesSegment
         value={half}
         campaign={Boolean(campaign.campaign)}

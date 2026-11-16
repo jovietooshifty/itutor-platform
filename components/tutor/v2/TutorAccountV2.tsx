@@ -24,6 +24,7 @@ import { Button, Card, Tag } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
+import { useInstitutionsSearch } from '@/lib/hooks/useInstitutionsSearch';
 import CountrySelect from '@/components/CountrySelect';
 import { FloatField, FormError, FormNote, Switch } from '@/components/parent/v2/accountKit';
 import TutorV2Shell from './TutorV2Shell';
@@ -75,6 +76,69 @@ const initialsOf = (s: string) =>
     .slice(0, 2)
     .toUpperCase() || 'T';
 
+/**
+ * School or institution, with search. The old screen was a bare text box, so
+ * typing a school found nothing. This searches the institutions list
+ * (/api/institutions/search) as you type; picking a result fills in its exact
+ * name. A school that isn't listed can still be kept as typed. Only the name is
+ * saved (profiles.school), as before.
+ */
+function SchoolSearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [focused, setFocused] = useState(false);
+  const { results, loading } = useInstitutionsSearch(focused ? value : '');
+  const exact = results.some((r) => r.name.toLowerCase() === value.trim().toLowerCase());
+  const open = focused && value.trim().length >= 2 && !exact;
+  return (
+    <div className="relative">
+      <label className="flex flex-col gap-[2px] rounded-ds-card bw-hair border-ink bg-surface-card px-ds-card py-ds-2 focus-within:[outline-style:solid] focus-within:outline-2 focus-within:outline-ink">
+        <span className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">School or institution</span>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          // Let a tap on a result land before the list closes.
+          onBlur={() => setTimeout(() => setFocused(false), 150)}
+          placeholder="Optional. Start typing to search"
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="school-results"
+          className="w-full border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink placeholder:font-body placeholder:font-normal placeholder:text-ink-muted focus:outline-none"
+        />
+      </label>
+      {open ? (
+        <ul
+          id="school-results"
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-ds-card bw-hair border-ink bg-surface-card shadow-[0_4px_0_rgb(var(--ds-ink))]"
+        >
+          {loading ? (
+            <li className="px-ds-card py-ds-3 text-[14px] text-ink-muted">Searching…</li>
+          ) : results.length === 0 ? (
+            <li className="px-ds-card py-ds-3 text-[14px] text-ink-muted">No school matches. We&apos;ll keep what you typed.</li>
+          ) : (
+            results.slice(0, 8).map((r) => (
+              <li key={r.id} role="option" aria-selected={false} className="bw-t-hair border-line-soft first:border-t-0">
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onChange(r.name);
+                    setFocused(false);
+                  }}
+                  className="flex min-h-[44px] w-full items-center px-ds-card text-left text-[15px] text-ink hover:bg-surface-sunken"
+                >
+                  {r.name}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 /* ─── Account details ─────────────────────────────────────────────── */
 
 export function TutorAccountDetailsV2() {
@@ -90,6 +154,28 @@ export function TutorAccountDetailsV2() {
   const [emailPassword, setEmailPassword] = useState('');
   const [askPassword, setAskPassword] = useState(false);
   const isTestAccount = profile?.email === 'jovangoodluck@myitutor.com';
+  // Once an ID check has started (or locked the name), the database refuses any
+  // change to full_name/display_name (trigger profiles_name_lock_guard). Read
+  // the same condition so the field is shown as fixed instead of failing on save.
+  const [nameLocked, setNameLocked] = useState(false);
+  useEffect(() => {
+    if (!profile?.id) return;
+    let live = true;
+    supabase
+      .from('tutor_verification_v2')
+      .select('name_locked_at, identity_status')
+      .eq('tutor_id', profile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!live || !data) return;
+        setNameLocked(
+          Boolean(data.name_locked_at) || ['pending', 'processing', 'verified'].includes(String(data.identity_status))
+        );
+      });
+    return () => {
+      live = false;
+    };
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!profile) return;
@@ -113,17 +199,32 @@ export function TutorAccountDetailsV2() {
     (Object.keys(form) as (keyof typeof form)[]).some((k) => form[k] !== saved[k]) ||
     (isTestAccount && sameDay !== Boolean(profile?.allow_same_day_bookings));
 
+  /**
+   * Writes ONLY the fields that changed. It used to send every field, and the
+   * display name box is pre-filled from full_name when display_name is empty,
+   * so each save "changed" display_name from null to the full name. For a tutor
+   * with an ID check that trips the name-lock trigger, and the whole save
+   * failed with "your name is set by your ID check", whatever was edited.
+   */
   const writeProfile = async (email: string) => {
-    const updates: Record<string, unknown> = {
-      username: form.username.trim(),
-      display_name: form.displayName.trim() || null,
-      email,
-      school: form.school.trim() || null,
-      country: form.country,
-    };
-    if (isTestAccount) updates.allow_same_day_bookings = sameDay;
+    const updates: Record<string, unknown> = {};
+    if (form.username.trim() !== saved.username) updates.username = form.username.trim();
+    if (!nameLocked && form.displayName.trim() !== saved.displayName.trim()) {
+      updates.display_name = form.displayName.trim() || null;
+    }
+    if (email !== saved.email) updates.email = email;
+    if (form.school.trim() !== saved.school.trim()) updates.school = form.school.trim() || null;
+    if (form.country !== saved.country) updates.country = form.country;
+    if (isTestAccount && sameDay !== Boolean(profile?.allow_same_day_bookings)) updates.allow_same_day_bookings = sameDay;
+    if (Object.keys(updates).length === 0) return;
     const { error: e } = await supabase.from('profiles').update(updates).eq('id', profile!.id);
-    if (e) throw new Error(e.code === '23505' ? 'That username is taken. Try another.' : e.message);
+    if (e) {
+      if (e.code === '23505') throw new Error('That username is taken. Try another.');
+      if (e.code === '42501' && /ID check/i.test(e.message)) {
+        throw new Error('Your name comes from your ID check, so it can’t be changed here. Contact support if it’s wrong.');
+      }
+      throw new Error(e.message);
+    }
   };
 
   const submit = async (e: FormEvent) => {
@@ -249,8 +350,19 @@ export function TutorAccountDetailsV2() {
           ) : null}
 
           <SectionLabel>About you</SectionLabel>
-          <FloatField label="Display name" value={form.displayName} onChange={set('displayName')} placeholder="How families see your name" />
-          <FloatField label="School or institution" value={form.school} onChange={set('school')} placeholder="Optional" />
+          <FloatField
+            label="Display name"
+            value={form.displayName}
+            onChange={nameLocked ? undefined : set('displayName')}
+            readOnly={nameLocked}
+            placeholder="How families see your name"
+          />
+          {nameLocked ? (
+            <p className="-mt-ds-2 m-0 text-[13px] text-ink-muted">
+              Set by your ID check. Contact support if it needs correcting.
+            </p>
+          ) : null}
+          <SchoolSearchField value={form.school} onChange={set('school')} />
           <label className="flex flex-col gap-[2px] rounded-ds-card bw-hair border-ink bg-surface-card px-ds-card py-ds-2 focus-within:outline focus-within:outline-2 focus-within:outline-ink">
             <span className="font-body text-[11px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">Country</span>
             <CountrySelect

@@ -37,6 +37,7 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Clock, Link as LinkIcon, Repeat, Video, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import { buildOccurrenceRows, type OccurrenceRow } from '@/lib/classes/scheduleSessions';
 import { formatSchoolDate, trinidadToday } from '@/lib/classes/academicCalendar';
 import { TRINIDAD_TZ } from '@/lib/payments/secureSpot';
@@ -207,6 +208,99 @@ export type ScheduleSessionsModalProps = {
   onLinkSaved: (mode: MeetingLinkMode, url: string, setAt: string | null) => void;
   /** Called with the server's occurrence rows (real ids) before the modal closes. */
   onSessionsCreated: (occurrences: CreatedOccurrence[], durationMin: number) => void;
+};
+
+/**
+ * Two skins, one modal. Flag off: the old look, class for class. Flag on (new
+ * UI): design-system tokens, 44px targets, and no Cancel button, because the X
+ * closes it (owner, 2026-11-16: where a prompt has an X, drop the separate
+ * dismiss). The JSX and every handler are shared, so the two cannot drift.
+ */
+const OLD_SKIN = {
+  overlay: "fixed inset-0 z-50 grid place-items-center bg-black/40 backdrop-blur-sm p-4",
+  panel: "w-full max-w-lg rounded-2xl bg-background shadow-xl border border-border max-h-[90vh] flex flex-col",
+  head: "px-5 py-4 border-b border-border flex items-center justify-between gap-3 shrink-0",
+  title: "font-bold text-ink",
+  titleStep: "font-normal text-muted-foreground",
+  sub: "text-xs text-muted-foreground mt-0.5",
+  close: "size-8 shrink-0 grid place-items-center rounded-lg hover:bg-muted disabled:opacity-50",
+  scroll: "p-5 space-y-4 overflow-y-auto",
+  labelIcon: "text-xs font-bold uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1.5",
+  label: "text-xs font-bold uppercase tracking-wider text-muted-foreground",
+  input: "mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand",
+  select: "w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand appearance-none",
+  hint: "mt-1 text-[11px] text-muted-foreground",
+  chip: "px-3 py-1.5 rounded-lg border text-xs font-semibold",
+  chipWide: "px-3 py-2 rounded-lg border text-xs font-semibold capitalize",
+  day: "size-10 rounded-lg border text-xs font-semibold",
+  chipOn: "bg-brand/10 border-brand text-brand-deep",
+  chipOff: "border-border bg-background text-muted-foreground hover:text-ink",
+  dayOn: "bg-brand text-white border-brand",
+  step: "size-8 grid place-items-center rounded-lg border border-border hover:bg-muted text-sm font-bold",
+  stepVal: "text-sm font-semibold text-ink w-20 text-center",
+  preview: "rounded-lg bg-brand/5 border border-brand/20 px-3 py-2 text-xs text-brand-deep space-y-1",
+  warn: "rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 flex items-start gap-2",
+  errLine: "text-xs font-medium text-rose-600",
+  errBox: "rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-700",
+  linkRow: "rounded-xl border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-2 text-sm",
+  linkChange: "shrink-0 text-xs font-semibold text-brand-deep hover:underline",
+  foot: "px-5 py-3 border-t border-border flex items-center gap-2 shrink-0",
+  back: "inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-muted disabled:opacity-50",
+  cancel: "px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-muted disabled:opacity-50",
+  secondary: "px-3 py-1.5 rounded-lg border border-border bg-background text-sm font-semibold text-ink hover:bg-muted disabled:opacity-50",
+  primary: "px-4 py-1.5 rounded-lg bg-brand text-white text-sm font-semibold hover:bg-brand/90 disabled:opacity-50",
+  overlay2: "fixed inset-0 z-[60] grid place-items-center bg-black/40 backdrop-blur-sm p-4",
+  panel2: "w-full max-w-md rounded-2xl bg-background border border-border shadow-xl p-6 space-y-4",
+  title2: "font-bold text-ink text-lg",
+  sub2: "text-sm text-muted-foreground mt-0.5",
+  warnIcon: "size-10 rounded-xl bg-amber-100 grid place-items-center shrink-0",
+  warnList: "space-y-1 text-sm bg-amber-50 rounded-xl p-3 border border-amber-200",
+  warnItem: "text-amber-900 font-medium",
+  secondary2: "px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted",
+  primary2: "px-4 py-2 rounded-xl bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700",
+} as const;
+const NEW_SKIN: Record<keyof typeof OLD_SKIN, string> = {
+  overlay: "fixed inset-0 z-50 grid place-items-end sm:place-items-center bg-ink/50 sm:p-4",
+  panel: "w-full max-w-lg rounded-t-[16px] sm:rounded-ds-card bg-surface-page bw-hair border-ink max-h-[92vh] flex flex-col font-body",
+  head: "px-ds-4 py-ds-3 bw-b-hair border-line-soft flex items-center justify-between gap-3 shrink-0",
+  title: "font-display text-[20px] font-extrabold leading-tight text-ink",
+  titleStep: "font-body text-[14px] font-bold text-ink-muted",
+  sub: "text-[14px] text-ink-muted mt-0.5",
+  close: "size-11 shrink-0 grid place-items-center rounded-full text-ink hover:bg-surface-sunken disabled:opacity-50",
+  scroll: "p-ds-4 space-y-5 overflow-y-auto",
+  labelIcon: "text-[15px] font-extrabold text-ink inline-flex items-center gap-1.5",
+  label: "text-[15px] font-extrabold text-ink",
+  input: "mt-1.5 w-full min-w-0 h-[48px] px-3 rounded-ds-btn bw-hair border-border-strong bg-surface-card text-[16px] text-ink focus:outline-none focus:border-brand-edge focus:shadow-[0_0_0_1px_#0f6e3f]",
+  select: "w-full h-[48px] pl-9 pr-3 rounded-ds-btn bw-hair border-border-strong bg-surface-card text-[16px] text-ink focus:outline-none focus:border-brand-edge focus:shadow-[0_0_0_1px_#0f6e3f] appearance-none",
+  hint: "mt-1 text-[13px] text-ink-muted",
+  chip: "min-h-[40px] px-3 rounded-ds-btn bw-bold text-[14px] font-extrabold",
+  chipWide: "min-h-[44px] px-3 rounded-ds-btn bw-bold text-[14px] font-extrabold capitalize",
+  day: "size-11 rounded-ds-btn bw-bold text-[14px] font-extrabold",
+  chipOn: "bg-brand border-ink text-ink",
+  chipOff: "border-border-strong bg-surface-card text-ink",
+  dayOn: "bg-ink border-ink text-on-ink",
+  step: "size-11 grid place-items-center rounded-ds-btn bw-hair border-ink bg-surface-card text-[18px] font-extrabold text-ink",
+  stepVal: "text-[16px] font-extrabold text-ink w-20 text-center tabular-nums",
+  preview: "rounded-ds-card bw-hair border-brand-edge bg-[#e6f7ec] px-ds-3 py-ds-2 text-[14px] text-ink space-y-1",
+  warn: "rounded-ds-card bw-hair border-accent-orange bg-surface-card px-ds-3 py-ds-2 text-[14px] text-ink flex items-start gap-2",
+  errLine: "text-[14px] font-bold text-danger",
+  errBox: "rounded-ds-card bw-hair border-danger bg-danger-soft px-ds-3 py-ds-2 text-[14px] font-bold text-ink",
+  linkRow: "rounded-ds-card bw-hair border-ink bg-surface-card px-ds-3 py-ds-3 flex items-center gap-2 text-[15px]",
+  linkChange: "shrink-0 min-h-[44px] px-1 text-[14px] font-extrabold text-ink underline",
+  foot: "px-ds-4 py-ds-3 bw-t-hair border-line-soft bg-surface-card flex items-center gap-2 shrink-0",
+  back: "inline-flex min-h-[44px] items-center gap-1 px-2 text-[15px] font-extrabold text-ink disabled:opacity-50",
+  cancel: "hidden",
+  secondary: "inline-flex h-[42px] items-center px-ds-3 mb-[3px] rounded-ds-btn bw-bold border-ink bg-surface-card text-[14px] font-extrabold text-ink shadow-edge-ink active:translate-y-[2px] active:shadow-edge-ink-active disabled:opacity-45",
+  primary: "inline-flex h-[42px] items-center px-ds-4 mb-[3px] rounded-ds-btn bw-bold border-brand bg-brand text-[15px] font-extrabold text-ink shadow-edge-brand active:translate-y-[2px] active:shadow-edge-brand-active disabled:opacity-45",
+  overlay2: "fixed inset-0 z-[60] grid place-items-center bg-ink/50 p-4",
+  panel2: "w-full max-w-md rounded-ds-card bg-surface-page bw-hair border-ink p-ds-4 space-y-4 font-body",
+  title2: "font-display text-[20px] font-extrabold text-ink",
+  sub2: "text-[14px] text-ink-muted mt-0.5",
+  warnIcon: "size-10 rounded-ds-btn bw-hair border-accent-orange bg-surface-card grid place-items-center shrink-0",
+  warnList: "space-y-1 text-[14px] bg-surface-card rounded-ds-card p-3 bw-hair border-accent-orange",
+  warnItem: "text-ink font-bold",
+  secondary2: "inline-flex h-[42px] items-center px-ds-3 mb-[3px] rounded-ds-btn bw-bold border-ink bg-surface-card text-[14px] font-extrabold text-ink shadow-edge-ink active:translate-y-[2px] active:shadow-edge-ink-active",
+  primary2: "inline-flex h-[42px] items-center px-ds-4 mb-[3px] rounded-ds-btn bw-bold border-ink bg-ink text-[14px] font-extrabold text-on-ink shadow-edge-ink-raised active:translate-y-[2px] active:shadow-edge-ink-raised-active",
 };
 
 export default function ScheduleSessionsModal({
@@ -480,10 +574,12 @@ export default function ScheduleSessionsModal({
       ? 'Students see these sessions on their calendar.'
       : 'Every Join button for this class — yours and your students\' — uses this.';
 
+  const K: Record<keyof typeof OLD_SKIN, string> = isNewUiEnabled() ? NEW_SKIN : OLD_SKIN;
+
   return (
     <>
       <div
-        className="fixed inset-0 z-50 grid place-items-center bg-black/40 backdrop-blur-sm p-4"
+        className={K.overlay}
         onClick={() => { if (dismissOnBackdrop) requestClose(); }}
       >
         <div
@@ -491,33 +587,33 @@ export default function ScheduleSessionsModal({
           aria-modal="true"
           aria-label={headerTitle}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-lg rounded-2xl bg-background shadow-xl border border-border max-h-[90vh] flex flex-col"
+          className={K.panel}
         >
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 shrink-0">
+          <div className={K.head}>
             <div className="min-w-0">
-              <div className="font-bold text-ink">
+              <div className={K.title}>
                 {headerTitle}
-                {headerStep && <span className="font-normal text-muted-foreground"> · {headerStep}</span>}
+                {headerStep && <span className={K.titleStep}> · {headerStep}</span>}
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5">{headerSub}</div>
+              <div className={K.sub}>{headerSub}</div>
             </div>
             <button
               type="button"
               onClick={requestClose}
               disabled={saving}
               aria-label="Close"
-              className="size-8 shrink-0 grid place-items-center rounded-lg hover:bg-muted disabled:opacity-50"
+              className={K.close}
             >
               <X className="size-4" />
             </button>
           </div>
 
           {step === 1 ? (
-            <div className="p-5 space-y-4 overflow-y-auto">
+            <div className={K.scroll}>
               {/* Date + time */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  <label className={K.label}>
                     {isRecurring ? 'First session' : 'Date'}
                   </label>
                   <input
@@ -526,28 +622,28 @@ export default function ScheduleSessionsModal({
                     min={today}
                     max={classEnd ?? undefined}
                     onChange={(e) => setDate(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                    className={K.input}
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Start time</label>
+                  <label className={K.label}>Start time</label>
                   <div className="mt-1 relative">
                     <Clock className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <select
                       value={form.time}
                       onChange={(e) => setForm({ ...form, time: e.target.value })}
-                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand appearance-none"
+                      className={K.select}
                     >
                       {TIME_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </div>
-                  <div className="mt-1 text-[11px] text-muted-foreground">Trinidad time (AST)</div>
+                  <div className={K.hint}>Trinidad time (AST)</div>
                 </div>
               </div>
 
               {/* Duration */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Duration</label>
+                <label className={K.label}>Duration</label>
                 <div className="mt-1 flex gap-2 flex-wrap">
                   {[30, 60, 90, 120, 180, 300].map((d) => (
                     <button
@@ -555,10 +651,10 @@ export default function ScheduleSessionsModal({
                       type="button"
                       onClick={() => setForm({ ...form, duration: d })}
                       className={cn(
-                        'px-3 py-1.5 rounded-lg border text-xs font-semibold',
+                        K.chip,
                         form.duration === d
-                          ? 'bg-brand/10 border-brand text-brand-deep'
-                          : 'border-border bg-background text-muted-foreground hover:text-ink',
+                          ? K.chipOn
+                          : K.chipOff,
                       )}
                     >
                       {durationLabel(d)}
@@ -569,15 +665,15 @@ export default function ScheduleSessionsModal({
                   <button
                     type="button"
                     onClick={() => setForm((f) => ({ ...f, duration: Math.max(15, f.duration - 15) }))}
-                    className="size-8 grid place-items-center rounded-lg border border-border hover:bg-muted text-sm font-bold"
+                    className={K.step}
                   >
                     −
                   </button>
-                  <div className="text-sm font-semibold text-ink w-20 text-center">{durationLabel(form.duration)}</div>
+                  <div className={K.stepVal}>{durationLabel(form.duration)}</div>
                   <button
                     type="button"
                     onClick={() => setForm((f) => ({ ...f, duration: Math.min(300, f.duration + 15) }))}
-                    className="size-8 grid place-items-center rounded-lg border border-border hover:bg-muted text-sm font-bold"
+                    className={K.step}
                   >
                     +
                   </button>
@@ -587,7 +683,7 @@ export default function ScheduleSessionsModal({
 
               {/* Recurrence */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1.5">
+                <label className={K.labelIcon}>
                   <Repeat className="size-3.5" /> Repeats
                 </label>
                 <div className="mt-1 grid grid-cols-3 gap-2">
@@ -597,10 +693,10 @@ export default function ScheduleSessionsModal({
                       type="button"
                       onClick={() => setForm({ ...form, recurrence: r })}
                       className={cn(
-                        'px-3 py-2 rounded-lg border text-xs font-semibold capitalize',
+                        K.chipWide,
                         form.recurrence === r
-                          ? 'bg-brand/10 border-brand text-brand-deep'
-                          : 'border-border bg-background text-muted-foreground hover:text-ink',
+                          ? K.chipOn
+                          : K.chipOff,
                       )}
                     >
                       {r === 'none' ? 'One-off' : r}
@@ -611,7 +707,7 @@ export default function ScheduleSessionsModal({
 
               {form.recurrence === 'weekly' && (
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Repeat on</label>
+                  <label className={K.label}>Repeat on</label>
                   <div className="mt-1 flex gap-1.5 flex-wrap">
                     {WEEKDAYS.map((w, i) => (
                       <button
@@ -621,10 +717,10 @@ export default function ScheduleSessionsModal({
                         aria-label={DAY_NAMES[i]}
                         onClick={() => toggleWeekday(i)}
                         className={cn(
-                          'size-10 rounded-lg border text-xs font-semibold',
+                          K.day,
                           form.weekdays.includes(i)
-                            ? 'bg-brand text-white border-brand'
-                            : 'border-border bg-background text-muted-foreground hover:text-ink',
+                            ? K.dayOn
+                            : K.chipOff,
                         )}
                       >
                         {w[0]}
@@ -636,16 +732,16 @@ export default function ScheduleSessionsModal({
 
               {isRecurring && (
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Last session</label>
+                  <label className={K.label}>Last session</label>
                   <input
                     type="date"
                     value={form.endDate}
                     min={dateValid ? form.date : today}
                     max={classEnd ?? undefined}
                     onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                    className={K.input}
                   />
-                  <div className="mt-1 text-[11px] text-muted-foreground">
+                  <div className={K.hint}>
                     {classEnd
                       ? `Up to the class end date, ${formatSchoolDate(classEnd)}.`
                       : 'Optional.'}
@@ -655,7 +751,7 @@ export default function ScheduleSessionsModal({
 
               {/* Preview — buildOccurrenceRows, so it is what the server will create. */}
               {!step1Error && rows.length > 0 && (
-                <div className="rounded-lg bg-brand/5 border border-brand/20 px-3 py-2 text-xs text-brand-deep space-y-1">
+                <div className={K.preview}>
                   {form.recurrence === 'none' ? (
                     <div>
                       One session on <strong>{fmtDay(rows[0].scheduled_start_at, true)}</strong> at{' '}
@@ -675,7 +771,7 @@ export default function ScheduleSessionsModal({
               )}
 
               {oneOffOnly && (
-                <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 flex items-start gap-2">
+                <div className={K.warn}>
                   <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
                   <span>
                     A single one-off session won&apos;t put this class on the marketplace — students find classes by
@@ -685,13 +781,13 @@ export default function ScheduleSessionsModal({
               )}
 
               {/* Says why Next is disabled, rather than leaving a grey button. */}
-              {step1Error && <p className="text-xs font-medium text-rose-600">{step1Error}</p>}
+              {step1Error && <p className={K.errLine}>{step1Error}</p>}
               {error && (
-                <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-700">{error}</div>
+                <div className={K.errBox}>{error}</div>
               )}
             </div>
           ) : (
-            <div className="p-5 space-y-4 overflow-y-auto">
+            <div className={K.scroll}>
               {linkExpanded ? (
                 <ClassLinkChoice
                   value={linkDraft}
@@ -703,7 +799,7 @@ export default function ScheduleSessionsModal({
                   showErrors={showLinkErrors}
                 />
               ) : (
-                <div className="rounded-xl border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-2 text-sm">
+                <div className={K.linkRow}>
                   {linkDraft.mode === 'custom'
                     ? <LinkIcon className="size-4 shrink-0 text-brand-deep" />
                     : <Video className="size-4 shrink-0 text-brand-deep" />}
@@ -711,25 +807,25 @@ export default function ScheduleSessionsModal({
                   <button
                     type="button"
                     onClick={() => setLinkExpanded(true)}
-                    className="shrink-0 text-xs font-semibold text-brand-deep hover:underline"
+                    className={K.linkChange}
                   >
                     Change
                   </button>
                 </div>
               )}
               {error && (
-                <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-700">{error}</div>
+                <div className={K.errBox}>{error}</div>
               )}
             </div>
           )}
 
-          <div className="px-5 py-3 border-t border-border flex items-center gap-2 shrink-0">
+          <div className={K.foot}>
             {step === 2 && !linkOnly && (
               <button
                 type="button"
                 onClick={() => { setError(''); setStep(1); }}
                 disabled={saving}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-muted disabled:opacity-50"
+                className={K.back}
               >
                 <ArrowLeft className="size-3.5" /> Back
               </button>
@@ -739,7 +835,7 @@ export default function ScheduleSessionsModal({
                 type="button"
                 onClick={requestClose}
                 disabled={saving}
-                className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-muted disabled:opacity-50"
+                className={K.cancel}
               >
                 Cancel
               </button>
@@ -748,7 +844,7 @@ export default function ScheduleSessionsModal({
                   type="button"
                   onClick={() => void save(false, true)}
                   disabled={saving}
-                  className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm font-semibold text-ink hover:bg-muted disabled:opacity-50"
+                  className={K.secondary}
                 >
                   Continue and add link later
                 </button>
@@ -758,7 +854,7 @@ export default function ScheduleSessionsModal({
                   type="button"
                   onClick={goNext}
                   disabled={!!step1Error || saving}
-                  className="px-4 py-1.5 rounded-lg bg-brand text-white text-sm font-semibold hover:bg-brand/90 disabled:opacity-50"
+                  className={K.primary}
                 >
                   {physical ? (saving ? 'Saving…' : 'Save schedule') : 'Next'}
                 </button>
@@ -767,7 +863,7 @@ export default function ScheduleSessionsModal({
                   type="button"
                   onClick={() => void save(false)}
                   disabled={saving}
-                  className="px-4 py-1.5 rounded-lg bg-brand text-white text-sm font-semibold hover:bg-brand/90 disabled:opacity-50"
+                  className={K.primary}
                 >
                   {saving ? 'Saving…' : linkOnly ? 'Save class link' : 'Save schedule'}
                 </button>
@@ -779,23 +875,23 @@ export default function ScheduleSessionsModal({
 
       {/* Clash warning. Above the modal (z-[60]); it asks, it doesn't block. */}
       {conflicts.length > 0 && (
-        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-background border border-border shadow-xl p-6 space-y-4">
+        <div className={K.overlay2}>
+          <div className={K.panel2}>
             <div className="flex items-start gap-3">
-              <div className="size-10 rounded-xl bg-amber-100 grid place-items-center shrink-0">
+              <div className={K.warnIcon}>
                 <AlertTriangle className="size-5 text-amber-600" />
               </div>
               <div>
-                <div className="font-bold text-ink text-lg">Time conflict detected</div>
-                <p className="text-sm text-muted-foreground mt-0.5">
+                <div className={K.title2}>Time conflict detected</div>
+                <p className={K.sub2}>
                   {conflicts.length === 1 ? 'This time overlaps' : `These ${conflicts.length} times overlap`} with a
                   session already in this class:
                 </p>
               </div>
             </div>
-            <ul className="space-y-1 text-sm bg-amber-50 rounded-xl p-3 border border-amber-200">
+            <ul className={K.warnList}>
               {conflicts.slice(0, CONFLICTS_SHOWN).map((c) => (
-                <li key={c.scheduled_start_at} className="text-amber-900 font-medium">
+                <li key={c.scheduled_start_at} className={K.warnItem}>
                   {fmtDay(c.scheduled_start_at)} · {fmtTime(c.scheduled_start_at)}
                 </li>
               ))}
@@ -807,14 +903,14 @@ export default function ScheduleSessionsModal({
               <button
                 type="button"
                 onClick={() => setConflicts([])}
-                className="px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted"
+                className={K.secondary2}
               >
                 Change time
               </button>
               <button
                 type="button"
                 onClick={advance}
-                className="px-4 py-2 rounded-xl bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700"
+                className={K.primary2}
               >
                 {physical ? 'Add anyway' : 'Continue anyway'}
               </button>

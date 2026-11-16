@@ -31,10 +31,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, Segmented, SubjectTile, Tag } from '@/components/ui';
+import { Button, Card, Segmented } from '@/components/ui';
 import { Sheet } from '@/components/parent/v2/Sheet';
-import { subjectCode, subjectColor } from '@/components/parent/v2/subjectTile';
-import { parentInitials } from '@/components/parent/v2/initials';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { useTutorCompletion } from '@/lib/hooks/useTutorCompletion';
 import { usePhysicalClasses } from '@/lib/hooks/usePhysicalClasses';
@@ -53,6 +51,8 @@ import {
 } from '@/lib/classes/academicCalendar';
 import { cn } from '@/lib/utils';
 import { money } from './classState';
+import ClassCard, { classCardColor } from '@/components/marketplace/ClassCard';
+import { formatLevel } from '@/lib/utils/formatLevel';
 import TutorV2Shell from './TutorV2Shell';
 
 type DbSubject = { id: string; label: string; curriculum: string };
@@ -95,6 +95,7 @@ export default function TutorClassNewV2() {
   const router = useRouter();
   const { profile } = useProfile();
   const completion = useTutorCompletion(profile);
+  const tutorVerified = (profile as { tutor_verification_status?: string | null } | null)?.tutor_verification_status === 'VERIFIED';
   const physicalClasses = usePhysicalClasses();
 
   const [type, setType] = useState<ClassType>('group');
@@ -231,7 +232,8 @@ export default function TutorClassNewV2() {
       subject={subject}
       title={title}
       teacher={profile?.display_name || profile?.full_name || 'You'}
-      initials={parentInitials(profile) || '?'}
+      avatar={profile?.avatar_url ?? null}
+      description={bio}
       format={isGroup ? inPerson.classFormat : 'online'}
       price={price}
       seats={isGroup ? seats : 1}
@@ -343,7 +345,7 @@ export default function TutorClassNewV2() {
           </Card>
 
           <Card className="gap-ds-4">
-            <div className={cn('grid gap-ds-3', isGroup && 'grid-cols-2')}>
+            <div className={cn('grid gap-ds-3', isGroup && 'sm:grid-cols-2')}>
               <Field label="Price per month">
                 <div className="relative">
                   <span className="pointer-events-none absolute left-ds-3 top-1/2 -translate-y-1/2 text-[16px] font-bold text-ink-muted">TT$</span>
@@ -416,7 +418,18 @@ export default function TutorClassNewV2() {
             </Field>
           </Card>
 
-          {isGroup && physicalClasses ? (
+          {/* In person is for verified tutors only (owner, 2026-11-16); the API
+              refuses it too. Unverified tutors see one line instead. */}
+          {isGroup && physicalClasses && !tutorVerified ? (
+            <Hint>
+              Classes meet online. In-person classes open once you have the{' '}
+              <a href="/tutor/verification" className="ds-link font-extrabold text-brand-edge">
+                Verified badge
+              </a>
+              .
+            </Hint>
+          ) : null}
+          {isGroup && physicalClasses && tutorVerified ? (
             <Card title="Delivery" className="gap-ds-3">
               {/* The existing in-person editor (venues, per-seat caps, cash).
                   Old styling inside the new card: PROVISIONAL. */}
@@ -556,7 +569,8 @@ function Stepper({ value, min, max, unit, onChange }: { value: number; min: numb
         aria-label={unit}
         value={value}
         onChange={(e) => onChange(clamp(Number(e.target.value)))}
-        className={cn(inputCls, 'min-w-0 text-center tabular-nums')}
+        // Wide enough for 3 digits even at 390px; no native spinner (the − / + are the spinner).
+        className={cn(inputCls, 'min-w-[72px] flex-1 px-ds-2 text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
       />
       <button type="button" aria-label={`More ${unit}`} className={btn} onClick={() => onChange(clamp(value + 1))}>
         +
@@ -586,12 +600,21 @@ function Toggle({ label, hint, value, onChange }: { label: string; hint?: string
   );
 }
 
+/**
+ * "What families will see": the SAME card families get in Explore and in Find
+ * Your iTutor (components/marketplace/ClassCard), fed the draft. It used to be
+ * a card drawn just for this form, which looked nothing like the real one.
+ * Values a new class cannot have yet show as they will on day one: no
+ * schedule (set on the next step), no seats taken, no cover image (added from
+ * the class page). Not clickable.
+ */
 function PreviewCard({
   level,
   subject,
   title,
   teacher,
-  initials,
+  avatar,
+  description,
   format,
   price,
   seats,
@@ -600,38 +623,43 @@ function PreviewCard({
   subject: string;
   title: string;
   teacher: string;
-  initials: string;
-  format: string;
+  avatar: string | null;
+  description: string;
+  format: 'online' | 'physical' | 'hybrid';
   price: number;
   seats: number;
 }) {
-  const label = bareSubject(subject) || title || 'Class';
-  const exam = examFor(level);
   return (
-    <Card eyebrow="What families will see" className="gap-ds-3">
-      <div className="flex items-center gap-ds-3">
-        <SubjectTile code={subjectCode(label)} color={subjectColor(label)} size={48} className="text-[15px] font-black" />
-        <div className="min-w-0 flex flex-wrap gap-ds-1">
-          {exam ? <Tag tone="outline">{exam}</Tag> : null}
-          {subject ? <Tag tone="outline">{bareSubject(subject)}</Tag> : null}
-        </div>
+    <section className="flex flex-col gap-ds-2" aria-label="What families will see">
+      <span className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-ink-muted">What families will see</span>
+      <div className="pointer-events-none select-none" aria-hidden>
+        <ClassCard
+          href="#"
+          l={{
+            id: 'preview',
+            title: title || 'Your class name',
+            tutor: teacher,
+            tutorAvatar: avatar,
+            subject: subject || 'General',
+            level: formatLevel(level),
+            day: '',
+            time: '',
+            hasCompactSchedule: false,
+            scheduleEntries: [],
+            monthlyPrice: price,
+            seats: { taken: 0, total: seats },
+            sessionLength: null,
+            tutorRating: null,
+            tutorReviews: 0,
+            color: classCardColor(subject),
+            description: description || null,
+            coverImage: null,
+            classFormat: format,
+          }}
+        />
       </div>
-      <div className="font-display text-[18px] font-extrabold leading-6 text-ink">{title || 'Your class name'}</div>
-      <div className="flex items-center gap-ds-2 text-[13px] text-ink-muted">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand font-display text-[11px] font-extrabold text-ink">{initials}</span>
-        <span className="font-bold text-ink">{teacher}</span>
-      </div>
-      <div className="text-[13px] text-ink-muted">
-        {format === 'physical' ? 'In person' : format === 'hybrid' ? 'Online & in person' : 'Online'} · days and times set next
-      </div>
-      <div className="flex items-baseline gap-ds-1 bw-t-hair border-line-soft pt-ds-3">
-        <span className="font-display text-[20px] font-extrabold tabular-nums text-ink">{price > 0 ? money(price) : 'Free'}</span>
-        <span className="text-[13px] text-ink-muted">
-          {price > 0 ? 'per month · ' : ''}
-          {seats} {seats === 1 ? 'seat' : 'seats'}
-        </span>
-      </div>
-    </Card>
+      <p className="m-0 text-[13px] text-ink-muted">Days and times appear here once you set them on the next step.</p>
+    </section>
   );
 }
 

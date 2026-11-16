@@ -97,6 +97,28 @@ function TutorAvatar({ avatarUrl, name, size = 40 }: { avatarUrl?: string | null
   );
 }
 
+
+/** The banner gradient for a class with no cover image, by subject keyword. */
+const SUBJECT_COLOR: Record<string, string> = {
+  math: 'from-coral to-peach',
+  physics: 'from-sky to-lavender',
+  chemistry: 'from-brand-deep to-forest',
+  biology: 'from-brand to-brand-deep',
+  english: 'from-lavender to-brand-soft',
+  history: 'from-peach to-coral',
+  economics: 'from-peach to-coral',
+  information: 'from-sky to-lavender',
+  spanish: 'from-coral to-peach',
+  french: 'from-sky to-lavender',
+  sea: 'from-brand to-brand-deep',
+  accounting: 'from-peach to-coral',
+};
+export function classCardColor(subject: string): string {
+  const lower = (subject || '').toLowerCase();
+  for (const [key, val] of Object.entries(SUBJECT_COLOR)) if (lower.includes(key)) return val;
+  return 'from-brand to-brand-deep';
+}
+
 export { TutorAvatar, promoLabel, formatDuration };
 
 export default function ClassCard({

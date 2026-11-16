@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isPhysicalClassesEnabled, PHYSICAL_CLASSES_DISABLED_MESSAGE } from '@/lib/featureFlags/physicalClasses';
+import { isPhysicalClassesEnabled, PHYSICAL_CLASSES_DISABLED_MESSAGE, IN_PERSON_NEEDS_VERIFIED } from '@/lib/featureFlags/physicalClasses';
 import { getServerClient, getServiceClient } from '@/lib/supabase/server';
 import type { CreateGroupInput } from '@/lib/types/groups';
 import { trinidadToday } from '@/lib/payments/secureSpot';
@@ -557,7 +557,7 @@ export async function POST(request: NextRequest) {
     const service = getServiceClient();
     const { data: profile } = await service
       .from('profiles')
-      .select('role')
+      .select('role, tutor_verification_status')
       .eq('id', user.id)
       .single();
 
@@ -659,6 +659,11 @@ export async function POST(request: NextRequest) {
     // stops nobody from posting class_format directly.
     if (!isPhysicalClassesEnabled() && rawFormat && rawFormat !== 'online') {
       return NextResponse.json({ error: PHYSICAL_CLASSES_DISABLED_MESSAGE }, { status: 400 });
+    }
+    // Owner, 2026-11-16: meeting families in person is for verified tutors only.
+    // The create form hides the option too; this is what makes it real.
+    if (rawFormat && rawFormat !== 'online' && (profile as any)?.tutor_verification_status !== 'VERIFIED') {
+      return NextResponse.json({ error: IN_PERSON_NEEDS_VERIFIED }, { status: 403 });
     }
     const classFormat: (typeof FORMATS)[number] =
       isPhysicalClassesEnabled() && FORMATS.includes(rawFormat) ? rawFormat : 'online';

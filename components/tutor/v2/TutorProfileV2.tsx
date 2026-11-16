@@ -145,18 +145,16 @@ function ProfileBody() {
         </div>
       </div>
       <div className="flex flex-wrap gap-ds-2">
-        {emailConfirmed === null ? null : emailConfirmed ? (
-          <Tag tone="brand">Email confirmed</Tag>
-        ) : (
-          <Tag tone="warning">Email not confirmed</Tag>
-        )}
+        {/* Owner, 2026-11-16: no "Email confirmed" badge. The warning stays: an
+            unconfirmed email is something the tutor has to act on. */}
+        {emailConfirmed === false ? <Tag tone="warning">Email not confirmed</Tag> : null}
         {step ? <Tag tone={step === 'Not applied' ? 'outline' : verifyTone(step)}>{verifyChip(step)}</Tag> : null}
       </div>
       <div className="flex flex-wrap gap-ds-2">
         <Button variant="outline" size="sm" onClick={() => router.push('/tutor/profile/edit')}>
           Edit profile
         </Button>
-        <Button variant="outline" size="sm" onClick={() => router.push(publicHref)}>
+        <Button variant="outline" size="sm" onClick={() => router.push('/tutor/profile/preview')}>
           View as a family
         </Button>
       </div>

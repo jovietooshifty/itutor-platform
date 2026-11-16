@@ -38,9 +38,20 @@ import {
 
 export default function TutorVerificationV2({ legacy }: { legacy: ReactNode }) {
   const [apply, setApply] = useState<boolean | null>(null);
+  // Read ?apply=1 on mount AND on Back/Forward. Pushing the same route with a
+  // new query does not remount this component, so a mount-only read left the
+  // Apply button doing nothing but scrolling to the top.
   useEffect(() => {
-    setApply(new URLSearchParams(window.location.search).get('apply') === '1');
+    const read = () => setApply(new URLSearchParams(window.location.search).get('apply') === '1');
+    read();
+    window.addEventListener('popstate', read);
+    return () => window.removeEventListener('popstate', read);
   }, []);
+  const openApply = () => {
+    window.history.pushState(null, '', '/tutor/verification?apply=1');
+    setApply(true);
+    window.scrollTo(0, 0);
+  };
 
   if (apply === null) return <TutorV2Shell title="Verification">{null}</TutorV2Shell>;
   if (apply) {
@@ -52,12 +63,12 @@ export default function TutorVerificationV2({ legacy }: { legacy: ReactNode }) {
   }
   return (
     <TutorV2Shell title="Verification">
-      <VerificationBody />
+      <VerificationBody onApply={openApply} />
     </TutorV2Shell>
   );
 }
 
-function VerificationBody() {
+function VerificationBody({ onApply }: { onApply: () => void }) {
   const router = useRouter();
   const { profile, loading } = useProfile();
   const [state, setState] = useState<VerificationState | null | undefined>(undefined);
@@ -143,7 +154,7 @@ function VerificationBody() {
           {canApply ? 'Not now' : 'Back'}
         </Button>
         {canApply ? (
-          <Button onClick={() => router.push('/tutor/verification?apply=1')}>
+          <Button onClick={onApply}>
             {step === 'Changes requested' ? 'Upload again' : 'Apply'}
           </Button>
         ) : null}
