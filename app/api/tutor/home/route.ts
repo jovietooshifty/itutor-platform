@@ -194,6 +194,7 @@ export async function GET(_req: NextRequest) {
             : 'One-on-one',
           href: `/tutor/bookings/${b.id}`,
           cta: 'Review',
+          ...(at && at.getTime() < now.getTime() ? { detail: 'The requested time has passed', cta: 'Open' } : {}),
         });
       }
     }

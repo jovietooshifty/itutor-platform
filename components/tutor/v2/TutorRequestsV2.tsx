@@ -201,17 +201,23 @@ function RequestsBody() {
 
       {pending.length ? (
         <Group title="Lesson requests" count={pending.length}>
-          {pending.map((b) => (
-            <RequestCard
-              key={b.id}
-              tag={b.subject}
-              title={b.student}
-              detail={`${when(b.requested_start_at)}${b.duration_minutes ? ` · ${b.duration_minutes} min` : ''}${b.price_ttd != null ? ` · TT$${Number(b.price_ttd).toLocaleString('en-US')}` : ''}`}
-              note={b.student_notes}
-              href={`/tutor/bookings/${b.id}`}
-              cta="Review request"
-            />
-          ))}
+          {pending.map((b) => {
+            // A request can outlive its time when nothing expired it; say so
+            // rather than present it as something to accept.
+            const passed = Boolean(b.requested_start_at && new Date(b.requested_start_at).getTime() < now);
+            return (
+              <RequestCard
+                key={b.id}
+                tag={b.subject}
+                title={b.student}
+                detail={`${when(b.requested_start_at)}${b.duration_minutes ? ` · ${b.duration_minutes} min` : ''}${b.price_ttd != null ? ` · TT$${Number(b.price_ttd).toLocaleString('en-US')}` : ''}${passed ? ' · This time has passed' : ''}`}
+                note={b.student_notes}
+                href={`/tutor/bookings/${b.id}`}
+                cta={passed ? 'Open' : 'Review request'}
+                quiet={passed}
+              />
+            );
+          })}
         </Group>
       ) : null}
 

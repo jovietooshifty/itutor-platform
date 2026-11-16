@@ -348,7 +348,8 @@ export default function TutorOneOnOneV2() {
                       {wins[d.dow].map((w, i) => {
                         const bad = mins(w.end) <= mins(w.start);
                         return (
-                          <div key={i} className="flex flex-wrap items-center gap-ds-2">
+                          <div key={i} className="flex flex-col gap-[4px]">
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_44px] items-center gap-ds-2 lg:max-w-[420px]">
                             <TimeSelect label={`${d.long} from`} value={w.start} onChange={(v) => setWin(d.dow, i, { start: v })} max="23:30" />
                             <span className="text-[14px] font-bold text-ink-muted">to</span>
                             <TimeSelect label={`${d.long} to`} value={w.end} onChange={(v) => setWin(d.dow, i, { end: v })} min="00:30" bad={bad} />
@@ -360,6 +361,8 @@ export default function TutorOneOnOneV2() {
                             >
                               <Trash size={20} weight="bold" aria-hidden />
                             </button>
+                          </div>
+                          {bad ? <span className="text-[13px] font-bold text-danger">Pick an end time after the start.</span> : null}
                           </div>
                         );
                       })}
@@ -422,7 +425,7 @@ function TimeSelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={cn(
-        'h-[44px] min-w-[124px] cursor-pointer rounded-ds-sm bw-hair bg-surface-card px-ds-2 font-body text-[16px] font-bold text-ink focus:outline-none focus:ring-2 focus:ring-brand',
+        'h-[44px] w-full min-w-0 cursor-pointer rounded-ds-sm bw-hair bg-surface-card px-ds-2 font-body text-[16px] font-bold text-ink focus:outline-none focus:ring-2 focus:ring-brand',
         bad ? 'border-danger' : 'border-border-strong'
       )}
     >
