@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
+import TutorReviewsV2 from '@/components/tutor/v2/TutorReviewsV2';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import { StarRow } from '@/components/ratings/StarInput';
 
 /* ─── Types ─────────────────────────────────────────── */
@@ -43,6 +46,13 @@ type Tab = '1on1' | 'group';
 /* ─── Page shell ─────────────────────────────────────── */
 
 export default function TutorReviewsPage() {
+  if (isNewUiEnabled()) {
+    return (
+      <TutorV2Shell width="wide" title="Reviews">
+        <TutorReviewsV2 />
+      </TutorV2Shell>
+    );
+  }
   return (
     <TutorShell>
       <ReviewsContent />

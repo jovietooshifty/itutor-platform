@@ -35,7 +35,7 @@ const TABS: Tab[] = [
   { id: 'classes', label: 'Classes', icon: 'teach', href: '/tutor/classes', also: ['/tutor/sessions'] },
   { id: 'messages', label: 'Messages', icon: 'messages', href: '/tutor/messages' },
   { id: 'wallet', label: 'Wallet', icon: 'wallet', href: '/tutor/wallet' },
-  { id: 'insights', label: 'Insights', icon: 'insights', href: '/tutor/analytics', group: 'Grow', sideOnly: true },
+  { id: 'insights', label: 'Insights', icon: 'insights', href: '/tutor/analytics', also: ['/tutor/reviews'], group: 'Grow', sideOnly: true },
   { id: 'profile', label: 'Profile', icon: 'profile', href: '/tutor/profile', group: 'Account' },
   { id: 'settings', label: 'Settings', icon: 'settings', href: '/tutor/settings', sideOnly: true },
 ];
