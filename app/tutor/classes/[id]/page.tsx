@@ -259,7 +259,19 @@ function ClassPageV2() {
 
   if (loading || !id) return null;
   const hub = wantsHub || overviewFailed || profile?.role !== 'tutor';
-  if (!hub) return <TutorClassManageV2 classId={id} onUnavailable={onUnavailable} />;
+  // The overview keeps its new-design header card and share rail; below them
+  // sits the hub's own tab section (Stream / Sessions / Students / Settings /
+  // Analytics), embedded rather than reached through a list of links — the
+  // old page's layout, in the new style (owner, 2026-11-16).
+  if (!hub) {
+    return (
+      <TutorClassManageV2
+        classId={id}
+        onUnavailable={onUnavailable}
+        renderTabs={(tab, setTab) => <ClassHubContent embedded tab={tab} onTabChange={setTab} />}
+      />
+    );
+  }
   return (
     <div className="flex flex-col gap-ds-3">
       {profile?.role === 'tutor' && !overviewFailed ? (
@@ -272,7 +284,13 @@ function ClassPageV2() {
   );
 }
 
-function ClassHubContent() {
+function ClassHubContent({ embedded = false, tab: controlledTab, onTabChange }: {
+  /** Inside the Manage overview: no hero, no banner prompt, new-style tab bar. */
+  embedded?: boolean;
+  /** Controlled tab, so the overview's own buttons can switch it. */
+  tab?: Tab;
+  onTabChange?: (t: Tab) => void;
+} = {}) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -299,7 +317,9 @@ function ClassHubContent() {
   const [sessions, setSessions] = useState<GroupSession[]>([]);
   const [posts, setPosts] = useState<StreamPost[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>(() => (arrival.schedule || arrival.sessionsTab ? 'sessions' : arrival.tab ?? 'stream'));
+  const [localTab, setLocalTab] = useState<Tab>(() => (arrival.schedule || arrival.sessionsTab ? 'sessions' : arrival.tab ?? 'stream'));
+  const tab = controlledTab ?? localTab;
+  const setTab = (t: Tab) => { if (onTabChange) onTabChange(t); else setLocalTab(t); };
   const [settingsDirty, setSettingsDirty] = useState(false);
 
   // The scheduling pop-up lives here rather than in SessionsTab so it outlives
@@ -740,9 +760,10 @@ function ClassHubContent() {
           <span>Viewing as admin — you are acting as the tutor. Every change is logged.</span>
         </div>
       )}
-      {/* Banner header */}
+      {/* Banner header — the Manage overview has its own header card. */}
       {/* 176px could not hold chips + title + the stacked price boxes on a
           phone; the new UI gives it room. The old UI is left as it was. */}
+      {!embedded && (
       <div className={cn('relative', newUi ? 'h-64 rounded-ds-card lg:h-52' : 'h-44 lg:h-52', !group.coverImage && (group.thumbnailGradient ?? 'from-brand to-emerald-400'), !group.coverImage && 'bg-gradient-to-br')}
         style={group.coverImage ? { backgroundImage: `url(${group.coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
         {group.coverImage && (
@@ -807,9 +828,10 @@ function ClassHubContent() {
           </div>
         </div>
       </div>
+      )}
 
-      <div className="px-4 lg:px-8 pb-12">
-        {!group.coverImage && !adminMode && (
+      <div className={embedded ? 'pb-12' : 'px-4 lg:px-8 pb-12'}>
+        {!embedded && !group.coverImage && !adminMode && (
           <Link href={`/tutor/classes/${group.id}/banner`}
             className="mt-6 flex items-center gap-3 rounded-2xl border border-dashed border-brand/40 bg-brand-soft/40 px-4 py-3 transition hover:bg-brand-soft/70">
             <div className="size-9 rounded-xl bg-brand text-white grid place-items-center shrink-0"><UploadCloud className="size-4" /></div>
@@ -820,6 +842,24 @@ function ClassHubContent() {
             <span className="ml-auto shrink-0 text-xs font-semibold text-brand-deep">Open builder →</span>
           </Link>
         )}
+        {embedded ? (
+          <div role="tablist" aria-label="Class sections" className="flex gap-ds-2 overflow-x-auto pb-ds-1">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={tab === t.key}
+                onClick={() => switchTab(t.key)}
+                className={cn(
+                  'ds-press shrink-0 rounded-ds-full bw-bold px-ds-4 py-ds-2 font-body text-[15px] font-extrabold whitespace-nowrap cursor-pointer',
+                  tab === t.key ? 'border-ink bg-ink text-on-ink' : 'border-ink/15 bg-surface-card text-ink hover:border-ink/40'
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        ) : (
         <div className="border-b border-border mt-6 flex items-center gap-6 overflow-x-auto">
           {tabs.map((t) => (
             <button key={t.key} onClick={() => switchTab(t.key)}
@@ -830,6 +870,7 @@ function ClassHubContent() {
             </button>
           ))}
         </div>
+        )}
 
         {oauthError && (
           <div role="alert" className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">

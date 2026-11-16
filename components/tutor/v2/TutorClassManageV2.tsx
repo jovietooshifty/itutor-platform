@@ -26,7 +26,7 @@
  * preview on previews), never the canvas's illustrative itutor.app/c/… link.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, Card, NavRow, SubjectTile, Tag } from '@/components/ui';
@@ -112,7 +112,19 @@ function shareBase(): string {
 
 const FORMAT_LABEL: Record<string, string> = { online: 'Online', physical: 'In person', hybrid: 'Online & in person' };
 
-export default function TutorClassManageV2({ classId, onUnavailable }: { classId: string; onUnavailable: () => void }) {
+/** The class hub's sections, embedded below the overview. */
+export type ClassTab = 'stream' | 'sessions' | 'roster' | 'payments' | 'settings' | 'analytics';
+
+export default function TutorClassManageV2({ classId, onUnavailable, renderTabs }: {
+  classId: string;
+  onUnavailable: () => void;
+  /**
+   * The hub's tab section (Stream / Sessions / Students / Settings / Analytics),
+   * rendered full width under the overview. When absent the overview falls back
+   * to its own roster table and a list of links into the hub.
+   */
+  renderTabs?: (tab: ClassTab, setTab: (t: ClassTab) => void) => ReactNode;
+}) {
   const router = useRouter();
   const [data, setData] = useState<Overview | null>(null);
   const [isError, setError] = useState(false);
@@ -147,7 +159,16 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
     load();
   }, [load]);
 
-  const hub = (tab: 'sessions' | 'roster' | 'settings' | 'stream') => router.push(`/tutor/classes/${classId}?tab=${tab}`);
+  // With the hub's tabs embedded below (renderTabs), every "go to X" button
+  // switches that section in place and scrolls to it. Without them, the old
+  // behaviour: open the full hub at that tab.
+  const [tab, setTab] = useState<ClassTab>('stream');
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const hub = (t: ClassTab) => {
+    if (!renderTabs) { router.push(`/tutor/classes/${classId}?tab=${t}`); return; }
+    setTab(t);
+    requestAnimationFrame(() => tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
 
   const share = useMemo(() => {
     if (!data) return null;
@@ -308,7 +329,9 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
           {fixCard}
           {requestsCard}
 
-          {/* Roster: list on phones (m10), table on desktop (d03). */}
+          {/* Roster: list on phones (m10), table on desktop (d03). Replaced by
+              the embedded Students tab when renderTabs is given. */}
+          {!renderTabs && (<>
           <section className="flex flex-col gap-ds-2">
             <div className="flex items-baseline justify-between">
               <h2 className="m-0 font-display text-[18px] font-extrabold text-ink">Students</h2>
@@ -389,6 +412,7 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
             <NavRow title="Stream" meta="Posts and announcements for the class" onClick={() => hub('stream')} />
             <NavRow title="Settings" meta="Details, price, visibility, pause, archive" onClick={() => hub('settings')} />
           </section>
+          </>)}
         </div>
 
         {/* Desktop right rail (d03): the share card. */}
@@ -396,6 +420,13 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
           <ShareCard message={share.message} url={share.url} />
         </aside>
       </div>
+
+      {/* The class hub's sections, full width — the old page's lower layout. */}
+      {renderTabs ? (
+        <div ref={tabsRef} className="scroll-mt-ds-4">
+          {renderTabs(tab, setTab)}
+        </div>
+      ) : null}
 
       {/* m11 — only when it really is live: published and with a session. */}
       <Sheet
@@ -442,7 +473,7 @@ export default function TutorClassManageV2({ classId, onUnavailable }: { classId
         <ShareCard message={share.message} url={share.url} bare />
         <button
           type="button"
-          onClick={() => hub('roster')}
+          onClick={() => { setShareOpen(false); hub('roster'); }}
           className="w-fit border-0 bg-transparent p-0 font-body text-[14px] font-extrabold text-ink underline cursor-pointer"
         >
           Add a student who already has an account
