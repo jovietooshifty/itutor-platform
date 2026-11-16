@@ -197,7 +197,7 @@ export default function TutorRosterV2() {
           href={`/tutor/classes/${groupId}`}
           className="ds-press -ml-ds-1 inline-flex min-h-[44px] items-center gap-[6px] self-start px-ds-1 font-body text-[15px] font-extrabold text-ink no-underline"
         >
-          <ArrowLeft size={20} weight="bold" aria-hidden /> {groupName || 'Class'}
+          <ArrowLeft size={20} weight="bold" aria-hidden /> Back to class
         </Link>
 
         <div className="flex flex-col gap-ds-1">
