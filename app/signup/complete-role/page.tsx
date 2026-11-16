@@ -11,6 +11,8 @@ import { setUserSubjects } from '@/lib/supabase/userSubjects';
 import { ensureSchoolCommunityAndMembership } from '@/lib/actions/community';
 import ProfilePhotoStep from '@/components/onboarding/ProfilePhotoStep';
 import { cn } from '@/lib/utils';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import CompleteRoleV2 from '@/components/auth/v2/CompleteRoleV2';
 
 type UserRole = 'student' | 'tutor' | 'parent';
 
@@ -239,6 +241,42 @@ export default function CompleteRolePage() {
       setError(err instanceof Error ? err.message : 'An error occurred.');
     } finally { setLoading(false); }
   };
+
+  // New UI: same state and handlers, drawn by components/auth/v2/CompleteRoleV2.
+  if (isNewUiEnabled()) {
+    return (
+      <CompleteRoleV2
+        checking={checkingSession}
+        step={step}
+        userId={userId}
+        role={role}
+        setRole={setRole}
+        error={error}
+        clearError={() => setError('')}
+        loading={loading}
+        parentAccountsEnabled={parentAccountsEnabled}
+        onRoleContinue={handleRoleContinue}
+        years={YEAR_LEVELS}
+        year={year}
+        setYear={setYear}
+        school={studentInstitution}
+        setSchool={setStudentInstitution}
+        markSchoolOptional={() => setAffiliation('attend')}
+        onStudentSave={handleStudentProfile}
+        tutorLevels={TUTOR_LEVELS}
+        tLevels={tLevels}
+        toggleLevel={toggleLevel}
+        tSubjects={tSubjects}
+        tQuery={tQuery}
+        setTQuery={setTQuery}
+        subjectMatches={filteredTutorSubjects}
+        addSubject={addTutorSubject}
+        removeSubject={removeTutorSubject}
+        onTutorSave={handleTutorProfile}
+        onDone={() => router.push(destination)}
+      />
+    );
+  }
 
   if (checkingSession) {
     return (
