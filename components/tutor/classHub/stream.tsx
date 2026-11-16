@@ -46,7 +46,8 @@ import { formatOffersSeat, seatTypesFor, type ClassFormat } from '@/lib/utils/se
 import InPersonSection, { type InPersonDraft } from '@/components/tutor/classes/InPersonSection';
 import { usePhysicalClasses } from '@/lib/hooks/usePhysicalClasses';
 import PaymentsGrid from '@/components/tutor/classes/PaymentsGrid';
-import { DbSubject, LEVEL_OPTIONS, Tab, Subscriber, GroupMember, StreamPost, GroupSession, URL_LINE_RE, GroupDetail, classCapacity, SettingsHead, Toggle, Banner, EmptyState, SideCard, InfoRow, SettCard, SetField, InfoPop, MenuBtn, MomCard, StatCard, ChartCard, formatRelative } from './shared';
+import { Button, Tag } from '@/components/ui';
+import { DS_CARD, DS_INPUT, DS_LABEL, DS_PILL, DS_PILL_ON, DbSubject, LEVEL_OPTIONS, Tab, Subscriber, GroupMember, StreamPost, GroupSession, URL_LINE_RE, GroupDetail, classCapacity, SettingsHead, Toggle, Banner, EmptyState, SideCard, InfoRow, SettCard, SetField, InfoPop, MenuBtn, MomCard, StatCard, ChartCard, formatRelative } from './shared';
 import { NO_CLASS_LINK_MESSAGE, SessionRow, SessionsTab } from './sessions';
 import { SUB_STATUS_CFG, fmtShortDate, RosterTab, PendingRequestRow, PardonButton, SecuredSpotsSummary, SecuredPayoutInfo, RosterRow } from './roster';
 import { SETTINGS_SECTIONS, SettingsSectionId, SettingsTab, ClassBannerUpload, ClassPreviewCard } from './settings';
@@ -91,16 +92,18 @@ export function StreamTab({ group, posts, setPosts }: { group: GroupDetail; post
     }
   };
 
+  const pinned = sorted.filter((p) => p.pinned);
+
   return (
-    <div className="grid lg:grid-cols-[1fr,280px] gap-6">
-      <div className="space-y-4">
+    <div className="grid min-w-0 gap-ds-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="flex min-w-0 flex-col gap-ds-4">
         <ClassPostComposer group={group} onPosted={(post) => setPosts((prev) => [post, ...prev])} />
 
         {sorted.length === 0 && <EmptyState icon={Bell} title="No posts yet" body="Start the conversation with an announcement or share a file." />}
         {sorted.map((p) => <StreamCard key={p.id} post={p} onPin={() => togglePin(p.id)} onRemove={() => remove(p.id)} />)}
       </div>
 
-      <aside className="space-y-4">
+      <aside className="flex min-w-0 flex-col gap-ds-4">
         <SideCard title="Class info">
           <InfoRow label="Subject" value={group.subject} />
           <InfoRow label="Level" value={formatLevel(group.level)} />
@@ -108,14 +111,14 @@ export function StreamTab({ group, posts, setPosts }: { group: GroupDetail; post
           <InfoRow label="Status" value={group.status} />
         </SideCard>
         <SideCard title="Pinned">
-          <ul className="space-y-2 text-sm">
-            {sorted.filter((p) => p.pinned).map((p) => (
-              <li key={p.id} className="flex items-start gap-2">
-                <Pin className="size-3.5 text-rose-400 mt-0.5" />
-                <span className="text-ink line-clamp-2">{p.title}</span>
+          <ul className="m-0 flex list-none flex-col gap-ds-2 p-0">
+            {pinned.map((p) => (
+              <li key={p.id} className="flex min-w-0 items-start gap-ds-2 text-[14px]">
+                <Pin className="mt-[3px] size-3.5 shrink-0 fill-ink text-ink" />
+                <span className="line-clamp-2 min-w-0 font-extrabold text-ink [overflow-wrap:anywhere]">{p.title}</span>
               </li>
             ))}
-            {sorted.filter((p) => p.pinned).length === 0 && <li className="text-xs text-muted-foreground">Nothing pinned yet.</li>}
+            {pinned.length === 0 && <li className="text-[13px] text-ink-muted">Nothing pinned yet.</li>}
           </ul>
         </SideCard>
       </aside>
@@ -125,30 +128,23 @@ export function StreamTab({ group, posts, setPosts }: { group: GroupDetail; post
 
 export type ComposerKind = 'announcement' | 'attachment' | 'link';
 
+// Copy and icon per composer mode. The per-mode colour classes the old UI
+// carried (amber / violet / blue) are gone: in the design system every mode
+// uses the same card, inputs and button.
 export const COMPOSER_THEME: Record<ComposerKind, {
   label: string; icon: any; heading: string; desc: string; cta: string;
-  pillActive: string; cardBorder: string; cardBg: string; iconBox: string; button: string; ring: string;
 }> = {
   announcement: {
     label: 'Announcement', icon: Bell,
     heading: 'New announcement', desc: 'Broadcast a message to everyone in this class.', cta: 'Post announcement',
-    pillActive: 'bg-amber-50 text-amber-700 border-amber-300 ring-1 ring-amber-200',
-    cardBorder: 'border-amber-200', cardBg: 'bg-amber-50/50', iconBox: 'bg-amber-100 text-amber-600',
-    button: 'bg-amber-500 hover:bg-amber-600 text-white', ring: 'focus:ring-amber-300',
   },
   attachment: {
     label: 'File attachment', icon: Paperclip,
     heading: 'Share files', desc: 'Drop worksheets, PDFs, or images for your class.', cta: 'Attach',
-    pillActive: 'bg-violet-50 text-violet-700 border-violet-300 ring-1 ring-violet-200',
-    cardBorder: 'border-violet-200', cardBg: 'bg-violet-50/50', iconBox: 'bg-violet-100 text-violet-600',
-    button: 'bg-violet-500 hover:bg-violet-600 text-white', ring: 'focus:ring-violet-300',
   },
   link: {
     label: 'Link', icon: LinkIcon,
     heading: 'Share a link', desc: 'Paste a URL to a video, article, or resource.', cta: 'Share link',
-    pillActive: 'bg-blue-50 text-blue-700 border-blue-300 ring-1 ring-blue-200',
-    cardBorder: 'border-blue-200', cardBg: 'bg-blue-50/50', iconBox: 'bg-blue-100 text-blue-600',
-    button: 'bg-blue-500 hover:bg-blue-600 text-white', ring: 'focus:ring-blue-300',
   },
 };
 
@@ -246,163 +242,170 @@ export function ClassPostComposer({ group, onPosted }: { group: GroupDetail; onP
   const HeadingIcon = t.icon;
 
   return (
-    <div className="rounded-2xl bg-card border border-border p-5 space-y-4">
-      <div className="text-xs uppercase tracking-wider font-bold text-muted-foreground">Post to your class</div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        {(['announcement', 'attachment', 'link'] as ComposerKind[]).map((k) => {
-          const th = COMPOSER_THEME[k];
-          const Icon = th.icon;
-          const active = kind === k;
-          return (
-            <button key={k} type="button" onClick={() => switchKind(k)}
-              className={cn('inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition',
-                active ? th.pillActive : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300')}>
-              <Icon className="size-3.5" /> {th.label}
-            </button>
-          );
-        })}
+    <section className={cn(DS_CARD, 'flex min-w-0 flex-col gap-ds-4')}>
+      <div className="flex flex-col gap-ds-3">
+        <h3 className="m-0 font-display text-[17px] font-extrabold text-ink">Post to your class</h3>
+        <div role="tablist" aria-label="Post type" className="flex flex-wrap items-center gap-ds-2">
+          {(['announcement', 'attachment', 'link'] as ComposerKind[]).map((k) => {
+            const th = COMPOSER_THEME[k];
+            const Icon = th.icon;
+            const active = kind === k;
+            return (
+              <button key={k} type="button" role="tab" aria-selected={active} onClick={() => switchKind(k)}
+                className={cn(DS_PILL, active && DS_PILL_ON)}>
+                <Icon className="size-3.5" /> {th.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className={cn('rounded-xl border p-4 space-y-3', t.cardBorder, t.cardBg)}>
-        <div className="flex items-start gap-3">
-          <div className={cn('size-9 rounded-lg grid place-items-center shrink-0', t.iconBox)}>
+      <div className="flex flex-col gap-ds-3 bw-t-hair border-line-soft pt-ds-4">
+        <div className="flex items-start gap-ds-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-ds-btn bg-surface-sunken text-ink">
             <HeadingIcon className="size-4" />
-          </div>
-          <div>
-            <div className="font-semibold text-ink">{t.heading}</div>
-            <div className="text-sm text-muted-foreground">{t.desc}</div>
+          </span>
+          <div className="min-w-0">
+            <div className="text-[15px] font-extrabold text-ink">{t.heading}</div>
+            <div className="text-[14px] leading-5 text-ink-muted">{t.desc}</div>
           </div>
         </div>
 
         {kind === 'announcement' && (
           <>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Announcement title"
-              className={cn('w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2', t.ring)} />
+              aria-label="Announcement title" className={DS_INPUT} />
             <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write a message to your students…"
-              className={cn('w-full min-h-28 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2', t.ring)} />
+              aria-label="Message" className={cn(DS_INPUT, 'min-h-28 resize-y')} />
           </>
         )}
 
         {kind === 'attachment' && (
           <>
             <div
+              role="button"
+              tabIndex={0}
               onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
               onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
               onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
               onDrop={(e) => { e.preventDefault(); setDragActive(false); addFiles(e.dataTransfer.files); }}
-              className={cn('rounded-xl border-2 border-dashed grid place-items-center text-center px-4 py-8 cursor-pointer transition',
-                dragActive ? 'border-violet-400 bg-violet-50' : 'border-violet-200 hover:border-violet-300 bg-white/40')}>
-              <UploadCloud className="size-6 text-violet-500" />
-              <div className="mt-2 text-sm font-semibold text-ink">
-                Drag &amp; drop files here, or <span className="text-violet-600 underline">browse</span>
+              className={cn('grid cursor-pointer place-items-center rounded-ds-card bw-bold bw-dashed px-ds-4 py-ds-8 text-center transition-colors',
+                dragActive ? 'border-ink bg-brand/10' : 'border-border bg-surface-sunken hover:border-ink')}>
+              <UploadCloud className="size-6 text-ink" />
+              <div className="mt-ds-2 text-[14px] font-extrabold text-ink">
+                Drag &amp; drop files here, or <span className="text-brand-edge underline">browse</span>
               </div>
-              <div className="text-xs text-muted-foreground mt-1">PDF, DOCX, PNG, JPG up to {COMPOSER_MAX_MB} MB each</div>
+              <div className="mt-ds-1 text-[13px] text-ink-muted">PDF, DOCX, PNG, JPG up to {COMPOSER_MAX_MB} MB each</div>
             </div>
             <input ref={fileInputRef} type="file" multiple className="hidden"
               accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.gif,image/*,application/pdf"
               onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
             {files.length > 0 && (
-              <ul className="flex flex-wrap gap-1.5">
+              <ul className="m-0 flex list-none flex-wrap gap-ds-2 p-0">
                 {files.map((f, i) => (
-                  <li key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-violet-200 bg-white text-xs">
-                    <Paperclip className="size-3 text-violet-500" />
-                    <span className="truncate max-w-[160px]">{f.name}</span>
+                  <li key={i} className="inline-flex min-w-0 max-w-full items-center gap-[6px] rounded-ds-full bw-hair border-border bg-surface-card py-[4px] pl-ds-3 pr-[6px] text-[13px] font-extrabold text-ink">
+                    <Paperclip className="size-3 shrink-0" />
+                    <span className="min-w-0 max-w-[180px] truncate">{f.name}</span>
                     <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))}
-                      className="text-slate-400 hover:text-rose-500" aria-label="Remove">
-                      <X className="size-3" />
+                      className="grid size-6 shrink-0 place-items-center rounded-full text-ink-muted hover:bg-danger/10 hover:text-danger" aria-label={`Remove ${f.name}`}>
+                      <X className="size-3.5" />
                     </button>
                   </li>
                 ))}
               </ul>
             )}
             <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Add a message to go with these files…"
-              className={cn('w-full min-h-20 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2', t.ring)} />
+              aria-label="Message" className={cn(DS_INPUT, 'min-h-20 resize-y')} />
           </>
         )}
 
         {kind === 'link' && (
           <>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">URL</label>
-              <div className="relative">
-                <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <label className="flex flex-col gap-ds-1">
+              <span className={DS_LABEL}>URL</span>
+              <span className="relative block">
+                <LinkIcon className="pointer-events-none absolute left-ds-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
                 <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/resource"
-                  className={cn('w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2', t.ring)} />
-              </div>
-            </div>
+                  inputMode="url" className={cn(DS_INPUT, 'pl-9')} />
+              </span>
+            </label>
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for your students"
-              className={cn('w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2', t.ring)} />
+              aria-label="Note" className={DS_INPUT} />
           </>
         )}
 
-        {error && <p className="text-xs text-rose-500">{error}</p>}
+        {error && <p role="alert" className="m-0 text-[13px] font-extrabold text-danger [overflow-wrap:anywhere]">{error}</p>}
 
-        <div className="flex justify-end items-center gap-2 pt-1">
-          <button type="button" onClick={reset} className="px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-muted">Cancel</button>
-          <button type="button" onClick={submit} disabled={!canSubmit || submitting}
-            className={cn('px-4 py-1.5 rounded-lg text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed', t.button)}>
+        <div className="flex flex-wrap items-center justify-end gap-ds-2 pt-ds-1">
+          <Button variant="outline" size="sm" onClick={reset}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={submit} disabled={!canSubmit || submitting}>
             {submitting ? 'Posting…' : t.cta}
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
 export function StreamCard({ post, onPin, onRemove }: { post: StreamPost; onPin: () => void; onRemove: () => void }) {
-  const meta: Record<StreamPost['kind'], { icon: any; cls: string; tag: string }> = {
-    announcement: { icon: Bell,      cls: 'bg-amber-100 text-amber-700',   tag: 'Announcement' },
-    attachment:   { icon: Paperclip, cls: 'bg-violet-100 text-violet-700', tag: 'Attachment' },
-    link:         { icon: LinkIcon,  cls: 'bg-blue-100 text-blue-700',     tag: 'Link' },
+  const meta: Record<StreamPost['kind'], { icon: any; tag: string }> = {
+    announcement: { icon: Bell,      tag: 'Announcement' },
+    attachment:   { icon: Paperclip, tag: 'Attachment' },
+    link:         { icon: LinkIcon,  tag: 'Link' },
   };
-  const M = meta[post.kind] ?? { icon: Bell, cls: 'bg-muted text-muted-foreground', tag: post.kind };
+  const M = meta[post.kind] ?? { icon: Bell, tag: post.kind };
   const Icon = M.icon;
+  const chip = 'mt-ds-3 inline-flex min-w-0 max-w-full items-center gap-ds-2 rounded-ds-btn bw-hair border-border bg-surface-sunken px-ds-3 py-[6px] text-[13px] font-extrabold text-ink';
   return (
-    <div className={cn('rounded-2xl bg-card border p-5', post.pinned ? 'border-rose-200 ring-1 ring-rose-100' : 'border-border')}>
-      <div className="flex items-start gap-3">
-        <div className={cn('size-10 rounded-xl grid place-items-center shrink-0', M.cls)}><Icon className="size-4" /></div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{M.tag}</span>
-            {post.pinned && <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 text-rose-600">Pinned</span>}
+    <article className={cn('rounded-ds-card bg-surface-card p-ds-card', post.pinned ? 'bw-bold border-ink' : 'bw-hair border-border')}>
+      <div className="flex items-start gap-ds-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-ds-btn bg-surface-sunken text-ink"><Icon className="size-4" /></span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-ds-2">
+            <Tag tone="outline">{M.tag}</Tag>
+            {post.pinned && <Tag tone="dark">Pinned</Tag>}
           </div>
-          <div className="mt-1 font-semibold text-ink">{post.title}</div>
-          {post.body && <p className="text-sm text-muted-foreground mt-1">{post.body}</p>}
+          <div className="mt-ds-2 font-display text-[16px] font-extrabold leading-snug text-ink [overflow-wrap:anywhere]">{post.title}</div>
+          {post.body && <p className="m-0 mt-ds-1 whitespace-pre-line text-[14px] leading-5 text-ink-muted [overflow-wrap:anywhere]">{post.body}</p>}
           {post.attachmentName && post.attachmentUrl && (
             <a
               href={post.attachmentUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-xs font-semibold hover:bg-muted">
-              <Paperclip className="size-3.5" /> {post.attachmentName}
+              className={cn(chip, 'hover:border-ink')}>
+              <Paperclip className="size-3.5 shrink-0" /> <span className="min-w-0 truncate">{post.attachmentName}</span>
             </a>
           )}
           {post.attachmentName && !post.attachmentUrl && (
-            <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-xs font-semibold">
-              <Paperclip className="size-3.5" /> {post.attachmentName}
+            <div className={chip}>
+              <Paperclip className="size-3.5 shrink-0" /> <span className="min-w-0 truncate">{post.attachmentName}</span>
             </div>
           )}
           {post.linkUrl && (
             <a href={post.linkUrl} target="_blank" rel="noreferrer"
-              className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-xs font-semibold text-brand-deep hover:bg-brand/5">
-              <ExternalLink className="size-3.5" /> {post.linkUrl}
+              className={cn(chip, 'text-brand-edge hover:border-ink')}>
+              <ExternalLink className="size-3.5 shrink-0" /> <span className="min-w-0 [overflow-wrap:anywhere]">{post.linkUrl}</span>
             </a>
           )}
-          <div className="mt-3 flex items-center justify-between">
-            <div className="text-[11px] text-muted-foreground">{post.at}</div>
-            <div className="flex items-center gap-1">
-              <button onClick={onPin} className="size-7 grid place-items-center rounded-md hover:bg-muted text-muted-foreground" title={post.pinned ? 'Unpin' : 'Pin'}>
-                <Pin className={cn('size-3.5', post.pinned && 'fill-rose-400 text-rose-400')} />
+          <div className="mt-ds-3 flex items-center justify-between gap-ds-2">
+            <div className="text-[12px] font-bold text-ink-muted">{post.at}</div>
+            <div className="flex items-center gap-ds-1">
+              <button type="button" onClick={onPin} aria-pressed={!!post.pinned}
+                className="grid size-9 place-items-center rounded-ds-sm text-ink hover:bg-surface-sunken"
+                title={post.pinned ? 'Unpin' : 'Pin'} aria-label={post.pinned ? 'Unpin' : 'Pin'}>
+                <Pin className={cn('size-4', post.pinned && 'fill-ink')} />
               </button>
-              <button onClick={onRemove} className="size-7 grid place-items-center rounded-md hover:bg-rose-50 text-rose-500" title="Delete">
-                <Trash2 className="size-3.5" />
+              <button type="button" onClick={onRemove}
+                className="grid size-9 place-items-center rounded-ds-sm text-danger hover:bg-danger/10"
+                title="Delete" aria-label="Delete post">
+                <Trash2 className="size-4" />
               </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
