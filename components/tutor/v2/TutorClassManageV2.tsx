@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { parentInitials } from '@/components/parent/v2/initials';
 import { STATE_TAG, money, shortDate, type ClassItem } from './classState';
+import { shareOrCopy } from '@/components/tutor/classHub/shared';
 
 type RosterRow = {
   id: string;
@@ -501,14 +502,16 @@ function Avatar({ label }: { label: string }) {
 }
 
 export function ShareCard({ message, url, bare }: { message: string; url: string; bare?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard blocked: the link is on screen to copy by hand */
+  // The device's share menu (WhatsApp, Messages, Mail…) where the browser has
+  // one, the clipboard elsewhere. Owner, 2026-11-16.
+  const [canShare, setCanShare] = useState(false);
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  useEffect(() => setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function'), []);
+  const share = async () => {
+    const r = await shareOrCopy({ title: 'Join my class on iTutor', text: message, url });
+    if (r === 'copied' || r === 'failed') {
+      setState(r);
+      setTimeout(() => setState('idle'), 2500);
     }
   };
   const body = (
@@ -523,8 +526,8 @@ export function ShareCard({ message, url, bare }: { message: string; url: string
         >
           Share on WhatsApp
         </Button>
-        <Button variant="outline" size="md" block onClick={copy}>
-          {copied ? 'Link copied' : 'Copy link'}
+        <Button variant="outline" size="md" block onClick={share}>
+          {state === 'copied' ? 'Message copied' : state === 'failed' ? "Couldn't copy: copy it above" : canShare ? 'Share…' : 'Copy message'}
         </Button>
       </div>
     </>
