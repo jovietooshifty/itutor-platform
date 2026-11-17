@@ -6,8 +6,17 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
 import ConversationView from '@/components/ConversationView';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorMessagesV2 from '@/components/tutor/v2/TutorMessagesV2';
 
-export default function TutorConversationPage() {
+/** New UI: the same screen as /tutor/messages, with this thread open (canvas m16 / d05). */
+export default function TutorConversationRoute() {
+  const params = useParams();
+  const conversationId = params.conversationId as string;
+  return isNewUiEnabled() ? <TutorMessagesV2 initialConversationId={conversationId} /> : <TutorConversationPage />;
+}
+
+function TutorConversationPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
   const params = useParams();

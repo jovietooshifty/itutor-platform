@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorVerificationV2 from '@/components/tutor/v2/TutorVerificationV2';
 import SupportFormModal from '@/components/SupportFormModal';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { checkVerificationFile, describeStorageUploadFailure } from '@/lib/utils/verificationUpload';
@@ -21,6 +23,11 @@ interface VerificationRequest {
 }
 
 export default function TutorVerificationPage() {
+  if (isNewUiEnabled()) return <TutorVerificationV2 legacy={<LegacyVerificationPage />} />;
+  return <LegacyVerificationPage />;
+}
+
+function LegacyVerificationPage() {
   const { profile, loading } = useProfile();
   const router = useRouter();
   const [verificationStatus, setVerificationStatus] = useState<{

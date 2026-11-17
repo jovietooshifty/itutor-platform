@@ -38,6 +38,9 @@ export async function GET(_req: NextRequest) {
             id, scheduled_start_at, meeting_link, group_session_id,
             session:group_sessions!inner(id, title, duration_minutes, group_id)
           `)
+          // Scope to THIS tutor's classes. Without it the service client returned
+          // every tutor's upcoming occurrences, meeting_link included.
+          .in('session.group_id', groupIds)
           .gte('scheduled_start_at', now.toISOString())
           .lte('scheduled_start_at', in7days)
           .eq('status', 'upcoming')

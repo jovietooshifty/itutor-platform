@@ -14,7 +14,9 @@ import {
   subscribeToBookingMessages
 } from '@/lib/services/bookingService';
 import { supabase } from '@/lib/supabase/client';
-import TutorShell from '@/components/tutor/TutorShell';
+import TutorShell, { TutorShellEmbedded } from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
 import { getDisplayName } from '@/lib/utils/displayName';
 import { Booking, BookingMessage, BookingMessageWithSender } from '@/lib/types/booking';
 import { formatDateTime, formatTimeRange, getRelativeTime } from '@/lib/utils/calendar';
@@ -25,7 +27,21 @@ import { Session } from '@/lib/types/sessions';
 import { isPaidClassesEnabled } from '@/lib/featureFlags/paidClasses';
 import CancelBookingModal from '@/components/cancellation/CancelBookingModal';
 
+// New UI: the request screen keeps its old body (accept, decline, propose a
+// time, cancel) inside the new shell until it is redrawn. PROVISIONAL.
 export default function TutorBookingThreadPage() {
+  if (isNewUiEnabled())
+    return (
+      <TutorV2Shell title="Request" width="wide">
+        <TutorShellEmbedded.Provider value>
+          <LegacyBookingThreadPage />
+        </TutorShellEmbedded.Provider>
+      </TutorV2Shell>
+    );
+  return <LegacyBookingThreadPage />;
+}
+
+function LegacyBookingThreadPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
   const params = useParams();

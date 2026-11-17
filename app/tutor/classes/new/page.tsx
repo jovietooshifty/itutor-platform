@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorClassNewV2 from '@/components/tutor/v2/TutorClassNewV2';
 import { LEVEL_LABELS } from '@/lib/utils/formatLevel';
 import InPersonSection, { type InPersonDraft } from '@/components/tutor/classes/InPersonSection';
 import { usePhysicalClasses } from '@/lib/hooks/usePhysicalClasses';
@@ -34,6 +36,8 @@ type ClassType = 'group' | 'recurring-1on1';
 type Visibility = 'public' | 'private';
 
 export default function CreateLessonPage() {
+  // The new form renders its own shell (it docks Save draft / Publish in it).
+  if (isNewUiEnabled()) return <TutorClassNewV2 />;
   return (
     <TutorShell>
       <CreateClassContent />

@@ -39,6 +39,7 @@
 import { useEffect, useId, useState } from 'react';
 import { AlertTriangle, Check, Copy, ExternalLink, Link as LinkIcon, Pencil, RefreshCw, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import { supabase } from '@/lib/supabase/client';
 import { normalizeClassLinkUrl } from '@/lib/utils/meetingLink';
 import { inRotationWindow, isRotationDue, rotationWindowStart } from '@/lib/classes/linkRotation';
@@ -239,6 +240,59 @@ const ROTATION_NOTE =
 
 // ── The choice ──────────────────────────────────────────────────────────────
 
+/** Old look (flag off) vs design system (new UI): same JSX, two class maps. */
+const CHOICE_OLD = {
+  connected: "flex items-center gap-1.5 text-xs font-semibold text-brand-deep",
+  warn: "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 space-y-2",
+  warnBtn: "inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-background px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50",
+  label: "text-xs font-bold uppercase tracking-wider text-muted-foreground",
+  input: "mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2",
+  inputErr: "border-rose-300 focus:ring-rose-300",
+  inputOk: "border-border focus:ring-brand",
+  err: "mt-1.5 text-xs text-rose-600",
+  okLine: "mt-1.5 flex items-center gap-2 text-xs text-muted-foreground min-w-0",
+  test: "shrink-0 inline-flex items-center gap-1 font-semibold text-brand-deep hover:underline",
+  note: "mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground",
+  card: "rounded-xl border transition-colors",
+  cardOn: "border-brand bg-brand/5",
+  cardOff: "border-border bg-background",
+  cardBtn: "w-full flex items-start gap-3 p-3 text-left disabled:cursor-not-allowed",
+  radio: "mt-0.5 size-4 shrink-0 rounded-full border-2 grid place-items-center",
+  radioOn: "border-brand",
+  dot: "size-2 rounded-full bg-brand",
+  icon: "size-4 mt-0.5 shrink-0 text-brand-deep",
+  title: "block text-sm font-semibold text-ink",
+  body: "block text-xs text-muted-foreground mt-0.5",
+  kids: "px-3 pb-3",
+  radioOff: "border-border",
+} as const;
+const CHOICE_NEW: Record<keyof typeof CHOICE_OLD, string> = {
+  connected: "flex items-center gap-1.5 text-[14px] font-extrabold text-brand-edge",
+  warn: "rounded-ds-card bw-hair border-accent-orange bg-surface-card px-ds-3 py-ds-2 text-[14px] text-ink space-y-2",
+  warnBtn: "inline-flex h-[42px] items-center gap-1.5 mb-[3px] rounded-ds-btn bw-bold border-ink bg-surface-card px-ds-3 text-[14px] font-extrabold text-ink shadow-edge-ink active:translate-y-[2px] active:shadow-edge-ink-active disabled:opacity-45",
+  label: "text-[15px] font-extrabold text-ink",
+  input: "mt-1.5 w-full min-w-0 h-[48px] px-3 rounded-ds-btn bw-hair bg-surface-card text-[16px] text-ink focus:outline-none",
+  inputErr: "border-danger shadow-[0_0_0_1px_#c2362f]",
+  inputOk: "border-border-strong focus:border-brand-edge focus:shadow-[0_0_0_1px_#0f6e3f]",
+  err: "mt-1.5 text-[14px] font-bold text-danger",
+  okLine: "mt-1.5 flex items-center gap-2 text-[14px] text-ink-muted min-w-0",
+  test: "shrink-0 inline-flex min-h-[44px] items-center gap-1 font-extrabold text-ink underline",
+  note: "mt-2 flex items-start gap-1.5 text-[13px] leading-relaxed text-ink-muted",
+  card: "rounded-ds-card bw-hair transition-colors",
+  cardOn: "border-ink bg-[#e6f7ec] shadow-[0_3px_0_rgb(var(--ds-ink))]",
+  cardOff: "border-border-strong bg-surface-card",
+  cardBtn: "w-full flex items-start gap-3 p-ds-3 min-h-[44px] text-left disabled:cursor-not-allowed",
+  radio: "mt-0.5 size-5 shrink-0 rounded-full border-2 grid place-items-center",
+  radioOn: "border-ink",
+  dot: "size-2.5 rounded-full bg-ink",
+  icon: "size-5 mt-0.5 shrink-0 text-ink",
+  title: "block text-[16px] font-extrabold text-ink",
+  body: "block text-[14px] text-ink-muted mt-0.5",
+  kids: "px-ds-3 pb-ds-3",
+  radioOff: "border-border-strong",
+};
+const choiceSkin = (): Record<keyof typeof CHOICE_OLD, string> => (isNewUiEnabled() ? CHOICE_NEW : CHOICE_OLD);
+
 export default function ClassLinkChoice({
   value,
   onChange,
@@ -258,6 +312,7 @@ export default function ClassLinkChoice({
   /** Show "Enter your class link." for an empty box — set once Save is pressed. */
   showErrors?: boolean;
 }) {
+  const K = choiceSkin();
   const inputId = useId();
   const connectedProvider = connection.status === 'connected' ? connection.provider : null;
   const generatedName = providerLabel(connectedProvider);
@@ -271,13 +326,13 @@ export default function ClassLinkChoice({
   let generatedExtra: React.ReactNode = null;
   if (value.mode === 'generated' && connection.status === 'connected') {
     generatedExtra = (
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-deep">
+      <div className={K.connected}>
         <Check className="size-3.5" /> {generatedName} is connected.
       </div>
     );
   } else if (value.mode === 'generated' && connection.status === 'not_connected') {
     generatedExtra = (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 space-y-2">
+      <div className={K.warn}>
         <div className="flex items-start gap-2">
           <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
           <span>
@@ -290,7 +345,7 @@ export default function ClassLinkChoice({
             type="button"
             onClick={onSaveAndConnect}
             disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-background px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+            className={K.warnBtn}
           >
             <Video className="size-3.5" /> Save &amp; connect Google Meet
           </button>
@@ -323,7 +378,7 @@ export default function ClassLinkChoice({
         >
           {value.mode === 'custom' ? (
             <div>
-              <label htmlFor={inputId} className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <label htmlFor={inputId} className={K.label}>
                 Class link <span className="text-rose-600">*</span>
               </label>
               <input
@@ -340,13 +395,13 @@ export default function ClassLinkChoice({
                 onChange={(e) => onChange({ ...value, input: e.target.value })}
                 placeholder="https://zoom.us/j/…"
                 className={cn(
-                  'mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2',
-                  linkError ? 'border-rose-300 focus:ring-rose-300' : 'border-border focus:ring-brand',
+                  K.input,
+                  linkError ? K.inputErr : K.inputOk,
                 )}
               />
-              {linkError && <p className="mt-1.5 text-xs text-rose-600">{linkError}</p>}
+              {linkError && <p className={K.err}>{linkError}</p>}
               {normalised?.ok && (
-                <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                <div className={K.okLine}>
                   <Check className="size-3.5 shrink-0 text-brand-deep" />
                   <span className="min-w-0 truncate">
                     Students will open <span className="font-medium text-ink">{normalised.url}</span>
@@ -357,13 +412,13 @@ export default function ClassLinkChoice({
                     href={normalised.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 inline-flex items-center gap-1 font-semibold text-brand-deep hover:underline"
+                    className={K.test}
                   >
                     Open to test <ExternalLink className="size-3" />
                   </a>
                 </div>
               )}
-              <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+              <p className={K.note}>
                 <RefreshCw className="size-3 mt-0.5 shrink-0" />
                 <span>{ROTATION_NOTE}</span>
               </p>
@@ -392,31 +447,32 @@ function OptionCard({
   body: string;
   children?: React.ReactNode;
 }) {
+  const K = choiceSkin();
   return (
-    <div className={cn('rounded-xl border transition-colors', selected ? 'border-brand bg-brand/5' : 'border-border bg-background')}>
+    <div className={cn(K.card, selected ? K.cardOn : K.cardOff)}>
       <button
         type="button"
         role="radio"
         aria-checked={selected}
         onClick={onSelect}
         disabled={disabled}
-        className="w-full flex items-start gap-3 p-3 text-left disabled:cursor-not-allowed"
+        className={K.cardBtn}
       >
         <span
           className={cn(
-            'mt-0.5 size-4 shrink-0 rounded-full border-2 grid place-items-center',
-            selected ? 'border-brand' : 'border-border',
+            K.radio,
+            selected ? K.radioOn : K.radioOff,
           )}
         >
-          {selected && <span className="size-2 rounded-full bg-brand" />}
+          {selected && <span className={K.dot} />}
         </span>
-        <Icon className="size-4 mt-0.5 shrink-0 text-brand-deep" />
+        <Icon className={K.icon} />
         <span className="min-w-0">
-          <span className="block text-sm font-semibold text-ink">{title}</span>
-          <span className="block text-xs text-muted-foreground mt-0.5">{body}</span>
+          <span className={K.title}>{title}</span>
+          <span className={K.body}>{body}</span>
         </span>
       </button>
-      {children ? <div className="px-3 pb-3">{children}</div> : null}
+      {children ? <div className={K.kids}>{children}</div> : null}
     </div>
   );
 }

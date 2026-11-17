@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isPhysicalClassesEnabled, PHYSICAL_CLASSES_DISABLED_MESSAGE } from '@/lib/featureFlags/physicalClasses';
+import { isPhysicalClassesEnabled, PHYSICAL_CLASSES_DISABLED_MESSAGE, IN_PERSON_NEEDS_VERIFIED } from '@/lib/featureFlags/physicalClasses';
 import { getServerClient, getServiceClient } from '@/lib/supabase/server';
 import { seatState } from '@/lib/services/seatOccupancy';
 import { resolveGroupActor, auditAdminOverride } from '@/lib/auth/groupAccess';
@@ -835,6 +835,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       // An existing physical class is left alone — only a CHANGE is refused.
       if (!isPhysicalClassesEnabled() && wantsFormat && rawFormat !== 'online') {
         return NextResponse.json({ error: PHYSICAL_CLASSES_DISABLED_MESSAGE }, { status: 400 });
+      }
+      // Verified tutors only (owner, 2026-11-16). Only a CHANGE to in person is
+      // refused, so an existing in-person class can still be edited.
+      // A superadmin acting as the tutor is not gated (matches the Settings tab).
+      if (wantsFormat && !actor.isAdminOverride && rawFormat !== 'online' && rawFormat !== (currentGroup as any)?.class_format) {
+        const { data: owner } = await service
+          .from('profiles')
+          .select('tutor_verification_status')
+          .eq('id', (currentGroup as any)?.tutor_id ?? user.id)
+          .maybeSingle();
+        if (owner?.tutor_verification_status !== 'VERIFIED') {
+          return NextResponse.json({ error: IN_PERSON_NEEDS_VERIFIED }, { status: 403 });
+        }
       }
       if (wantsFormat && !FORMATS.includes(rawFormat)) {
         return NextResponse.json({ error: 'Unknown class format.' }, { status: 400 });

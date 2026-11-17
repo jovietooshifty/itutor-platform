@@ -11,6 +11,8 @@ import { UnsavedBar } from '@/components/UnsavedBar';
 import { supabase } from '@/lib/supabase/client';
 import CountrySelect from '@/components/CountrySelect';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorSettingsV2 from '@/components/tutor/v2/TutorSettingsV2';
 
 type Section = 'profile' | 'teaching' | 'notifications' | 'security' | 'payouts';
 
@@ -23,6 +25,11 @@ const SECTIONS: { id: Section; label: string; icon: typeof User }[] = [
 ];
 
 export default function TutorSettingsPage() {
+  if (isNewUiEnabled()) return <TutorSettingsV2 legacy={<LegacySettingsPage />} />;
+  return <LegacySettingsPage />;
+}
+
+function LegacySettingsPage() {
   return (
     <TutorShell>
       <SettingsContent />

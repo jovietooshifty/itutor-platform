@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Video, MessageSquare, CheckCircle2, Star, Users, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
 
 type SessionRow = {
   id: string;
@@ -42,11 +45,28 @@ type GroupFolder = {
 };
 
 export default function TutorSessionsPage() {
+  if (isNewUiEnabled()) {
+    // Owner 2026-11-16: the new UI has no Sessions page. Old links (emails,
+    // notifications, /tutor/sessions/[id]) land on Classes instead.
+    return (
+      <TutorV2Shell width="wide" title="Classes">
+        <ToClasses />
+      </TutorV2Shell>
+    );
+  }
   return (
     <TutorShell>
       <SessionsContent />
     </TutorShell>
   );
+}
+
+function ToClasses() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/tutor/classes');
+  }, [router]);
+  return null;
 }
 
 function SessionsContent() {

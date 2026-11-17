@@ -8,6 +8,8 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { useTutorCompletion } from '@/lib/hooks/useTutorCompletion';
 import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorInsightsV2 from '@/components/tutor/v2/TutorInsightsV2';
 
 type MonthData = { month: string; actual: number; projected: number; isCurrentMonth: boolean };
 
@@ -27,6 +29,7 @@ const COMPLETED_STATUSES = ['COMPLETED_ASSUMED'];
 const FINAL_STATUSES = ['COMPLETED_ASSUMED', 'NO_SHOW_STUDENT', 'NO_SHOW_TUTOR', 'EARLY_END_SHORT', 'CANCELLED'];
 
 export default function TutorAnalyticsPage() {
+  if (isNewUiEnabled()) return <TutorInsightsV2 />;
   return (
     <TutorShell>
       <AnalyticsContent />

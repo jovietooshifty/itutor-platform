@@ -32,6 +32,10 @@
 export const PHYSICAL_CLASSES_DISABLED_MESSAGE =
   'In-person classes are not available yet. Classes meet online for now.';
 
+/** In-person and hybrid classes are for verified tutors only (owner, 2026-11-16). */
+export const IN_PERSON_NEEDS_VERIFIED =
+  'In-person classes are open to verified tutors. Get the Verified badge first, then add a venue.';
+
 export function isPhysicalClassesEnabled(): boolean {
   const val = (process.env.PHYSICAL_CLASSES_ENABLED ?? 'true').toLowerCase();
   return val !== 'false';

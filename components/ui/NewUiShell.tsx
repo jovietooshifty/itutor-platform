@@ -72,6 +72,8 @@ export interface NewUiShellProps {
   /** Light-on-ink logo and small mark for the side navigation. */
   sideLogo?: ReactNode;
   sideMark?: ReactNode;
+  /** Foot of the lg sidebar (tutor "me" card). */
+  sideFooter?: ReactNode;
   className?: string;
 }
 
@@ -94,6 +96,7 @@ export function NewUiShell({
   title,
   sideLogo,
   sideMark,
+  sideFooter,
   bottomBar,
   className,
 }: NewUiShellProps) {
@@ -122,6 +125,7 @@ export function NewUiShell({
           onSelect={onSelect}
           logo={sideLogo}
           mark={sideMark}
+          footer={sideFooter}
           className="sticky top-0 z-20 hidden h-screen shrink-0 md:flex"
         />
       ) : null}

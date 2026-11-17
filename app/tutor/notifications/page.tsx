@@ -11,9 +11,19 @@ import {
 } from '@/lib/services/notificationService';
 import type { Notification, NotificationType } from '@/lib/types/notifications';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
+import StudentNotificationsV2 from '@/components/student/v2/StudentNotificationsV2';
 import BrowserPushToggle from '@/components/BrowserPushToggle';
 
 export default function TutorNotificationsPage() {
+  if (isNewUiEnabled()) {
+    return (
+      <TutorV2Shell title="Notifications">
+        <StudentNotificationsV2 audience="tutor" />
+      </TutorV2Shell>
+    );
+  }
   return (
     <TutorShell>
       <NotificationsContent />

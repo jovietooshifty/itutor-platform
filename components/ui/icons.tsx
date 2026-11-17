@@ -14,9 +14,13 @@
 import {
   Bell,
   CaretRight,
+  ChalkboardTeacher,
+  ChartLine,
   ChatCircle,
+  Chats,
   Compass,
   CreditCard,
+  Gear,
   GraduationCap,
   House,
   Lifebuoy,
@@ -26,6 +30,7 @@ import {
   SlidersHorizontal,
   User,
   Users,
+  Wallet,
   type Icon as PhosphorIcon,
   type IconWeight,
 } from '@phosphor-icons/react';
@@ -44,7 +49,12 @@ export type IconName =
   | 'users'
   | 'filters'
   | 'lock'
-  | 'help';
+  | 'help'
+  | 'teach'
+  | 'messages'
+  | 'wallet'
+  | 'insights'
+  | 'settings';
 
 const ICONS: Record<IconName, PhosphorIcon> = {
   home: House,
@@ -61,6 +71,12 @@ const ICONS: Record<IconName, PhosphorIcon> = {
   filters: SlidersHorizontal,
   lock: Lock,
   help: Lifebuoy,
+  // Tutor tabs (canvas "iTutor Teacher UI": chalkboard-teacher, chats, wallet).
+  teach: ChalkboardTeacher,
+  messages: Chats,
+  wallet: Wallet,
+  insights: ChartLine,
+  settings: Gear,
 };
 
 export interface DsIconProps {

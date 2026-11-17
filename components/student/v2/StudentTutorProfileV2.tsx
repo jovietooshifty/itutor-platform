@@ -66,12 +66,18 @@ export function StudentTutorProfileV2({
   reviews,
   rateLabel,
   showBook,
+  classHref,
+  hideBack,
 }: {
   tutor: TutorV2Data;
   reviews: TutorV2Review[];
   /** "TT$100" / "Free" / null when the tutor has no rate. */
   rateLabel: string | null;
   showBook: boolean;
+  /** Where a class card goes. Families: the join page. The tutor preview: their own class. */
+  classHref?: (classId: string) => string;
+  /** The tutor's own preview has its own way back, so it hides this one. */
+  hideBack?: boolean;
 }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -117,13 +123,13 @@ export function StudentTutorProfileV2({
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <button
+      {hideBack ? null : (<button
         type="button"
         onClick={back}
         className="ds-press -ml-ds-1 inline-flex min-h-[44px] items-center gap-[6px] self-start border-0 bg-transparent px-ds-1 font-body text-[15px] font-extrabold text-ink cursor-pointer"
       >
         <ArrowLeft size={20} weight="bold" aria-hidden /> Explore
-      </button>
+      </button>)}
 
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-[18px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-ds-8">
         <div className="flex flex-col gap-[18px]">
@@ -207,7 +213,7 @@ export function StudentTutorProfileV2({
               {classes.map((c) => {
                 const label = c.subject || c.name;
                 return (
-                  <Link key={c.id} href={`/student/explore/${c.id}`} className="block no-underline">
+                  <Link key={c.id} href={classHref ? classHref(c.id) : `/student/explore/${c.id}`} className="block no-underline">
                     <ClassRow
                       code={subjectCode(label)}
                       color={subjectColor(label)}

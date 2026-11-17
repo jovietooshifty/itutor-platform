@@ -8,10 +8,13 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { useTutorCompletion } from '@/lib/hooks/useTutorCompletion';
 import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorProfileV2 from '@/components/tutor/v2/TutorProfileV2';
 
 type SubjectInfo = { id: string; name: string; price: number | null };
 
 export default function TutorProfilePage() {
+  if (isNewUiEnabled()) return <TutorProfileV2 />;
   return (
     <TutorShell>
       <ProfileContent />

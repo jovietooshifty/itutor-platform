@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, ReactNode, ComponentType } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, ComponentType } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -36,7 +36,21 @@ const nav: NavItem[] = [
 
 const COLLAPSE_KEY = 'itutor.tutorSidebar.collapsed';
 
+/**
+ * Set by a new-UI page that shows an old screen inside TutorV2Shell (Settings'
+ * account sections, the verification upload). The old page still wraps itself
+ * in TutorShell; inside this provider that wrapper steps aside so the screen
+ * does not get a second sidebar.
+ */
+export const TutorShellEmbedded = createContext(false);
+
 export default function TutorShell({ children }: { children: ReactNode }) {
+  const embedded = useContext(TutorShellEmbedded);
+  if (embedded) return <>{children}</>;
+  return <TutorShellFrame>{children}</TutorShellFrame>;
+}
+
+function TutorShellFrame({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() || '';
   const { profile, loading } = useProfile();

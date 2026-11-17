@@ -14,6 +14,9 @@ import { supabase } from '@/lib/supabase/client';
 import TutorShell from '@/components/tutor/TutorShell';
 import ReliabilityPanel from '@/components/reliability/ReliabilityPanel';
 import CampaignDashboardBanner from '@/components/classMatchWeek/CampaignDashboardBanner';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
+import TutorHomeV2 from '@/components/tutor/v2/TutorHomeV2';
 
 type DashboardStats = {
   activeStudents: number;
@@ -40,7 +43,21 @@ type ActivityItem = {
   at: string;
 };
 
-export default function TutorDashboardPage() {
+export default function TutorDashboardRoute() {
+  if (isNewUiEnabled()) {
+    return (
+      <TutorV2Shell width="wide" title="Home">
+        <div className="mb-ds-4 empty:hidden">
+          <CampaignDashboardBanner audience="teacher" />
+        </div>
+        <TutorHomeV2 />
+      </TutorV2Shell>
+    );
+  }
+  return <TutorDashboardPage />;
+}
+
+function TutorDashboardPage() {
   return (
     <TutorShell>
       <DashboardContent />
