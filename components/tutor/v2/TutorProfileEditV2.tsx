@@ -20,7 +20,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Camera } from '@phosphor-icons/react';
-import AvatarUploadModal from '@/components/AvatarUploadModal';
+import AvatarUploadModal from './AvatarUploadSheetV2';
 import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
