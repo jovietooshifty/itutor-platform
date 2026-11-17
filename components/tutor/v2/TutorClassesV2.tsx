@@ -39,7 +39,7 @@ import { ShareNetwork } from '@phosphor-icons/react';
 import { ShareCard, shareBase } from './TutorClassManageV2';
 import { formatLevel } from '@/lib/utils/formatLevel';
 
-type Half = 'classes' | 'sessions' | 'class-match-week';
+type Half = 'classes' | 'class-match-week';
 type Filter = 'all' | 'live' | 'draft' | 'paused';
 
 const FILTERS: { id: Filter; label: string; match: (c: ClassItem) => boolean }[] = [
@@ -49,14 +49,18 @@ const FILTERS: { id: Filter; label: string; match: (c: ClassItem) => boolean }[]
   { id: 'paused', label: 'Paused', match: (c) => c.state === 'paused' },
 ];
 
-/** The segment shared by Classes and Sessions (m08 draws it on both). */
+/**
+ * My classes / Match Week switch. Owner 2026-11-16: the Sessions half is gone
+ * (the class page's Sessions tab covers it), so with no campaign there is
+ * nothing to switch between and the segment hides.
+ */
 export function ClassesSegment({ value, campaign, onCampaign }: { value: Half; campaign: boolean; onCampaign?: () => void }) {
   const router = useRouter();
   const options: { id: Half; label: string }[] = [
     { id: 'classes', label: 'My classes' },
-    { id: 'sessions', label: 'Sessions' },
   ];
   if (campaign) options.push({ id: 'class-match-week', label: 'Match Week' });
+  if (options.length < 2) return null;
   return (
     <Segmented<Half>
       label="Classes"
@@ -65,8 +69,7 @@ export function ClassesSegment({ value, campaign, onCampaign }: { value: Half; c
       className="lg:max-w-[480px]"
       onChange={(id) => {
         if (id === value) return;
-        if (id === 'sessions') router.push('/tutor/sessions');
-        else if (id === 'classes') router.push('/tutor/classes');
+        if (id === 'classes') router.push('/tutor/classes');
         else if (onCampaign) onCampaign();
         else router.push('/tutor/classes?tab=class-match-week');
       }}

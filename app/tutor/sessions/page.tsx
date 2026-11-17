@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Video, MessageSquare, CheckCircle2, Star, Users, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
@@ -9,8 +10,6 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import TutorShell from '@/components/tutor/TutorShell';
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import TutorV2Shell from '@/components/tutor/v2/TutorV2Shell';
-import { ClassesSegment } from '@/components/tutor/v2/TutorClassesV2';
-import { useTeacherCampaignEntry } from '@/lib/hooks/useTeacherCampaignEntry';
 
 type SessionRow = {
   id: string;
@@ -47,12 +46,11 @@ type GroupFolder = {
 
 export default function TutorSessionsPage() {
   if (isNewUiEnabled()) {
-    // The Sessions half of the Classes tab (m08's segment). The list below is
-    // still the old content inside the new shell; its restyle is not in this
-    // phase. PROVISIONAL.
+    // Owner 2026-11-16: the new UI has no Sessions page. Old links (emails,
+    // notifications, /tutor/sessions/[id]) land on Classes instead.
     return (
-      <TutorV2Shell width="wide" title="Sessions">
-        <SessionsV2Frame />
+      <TutorV2Shell width="wide" title="Classes">
+        <ToClasses />
       </TutorV2Shell>
     );
   }
@@ -63,15 +61,12 @@ export default function TutorSessionsPage() {
   );
 }
 
-function SessionsV2Frame() {
-  const { profile } = useProfile();
-  const campaign = useTeacherCampaignEntry(profile);
-  return (
-    <div className="flex flex-col gap-ds-4">
-      <ClassesSegment value="sessions" campaign={Boolean(campaign.campaign)} />
-      <SessionsContent />
-    </div>
-  );
+function ToClasses() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/tutor/classes');
+  }, [router]);
+  return null;
 }
 
 function SessionsContent() {

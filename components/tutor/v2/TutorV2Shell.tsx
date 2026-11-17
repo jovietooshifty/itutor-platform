@@ -32,7 +32,7 @@ type Tab = NavItem & { href: string; also?: string[] };
 
 const TABS: Tab[] = [
   { id: 'home', label: 'Home', icon: 'home', href: '/tutor/dashboard' },
-  { id: 'classes', label: 'Classes', icon: 'teach', href: '/tutor/classes', also: ['/tutor/sessions'] },
+  { id: 'classes', label: 'Classes', icon: 'teach', href: '/tutor/classes' },
   { id: 'messages', label: 'Messages', icon: 'messages', href: '/tutor/messages' },
   { id: 'wallet', label: 'Wallet', icon: 'wallet', href: '/tutor/wallet' },
   { id: 'insights', label: 'Insights', icon: 'insights', href: '/tutor/analytics', also: ['/tutor/reviews'], group: 'Grow', sideOnly: true },
