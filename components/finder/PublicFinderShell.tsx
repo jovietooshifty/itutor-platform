@@ -35,6 +35,8 @@ import {
 import type { ReactNode } from 'react';
 import { StudentShell, type StudentNavItem } from '@/components/student/StudentShell';
 import { loginThen, signupThen, type FinderRole } from '@/lib/finder/links';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import PublicFinderFrameV2 from './v2/PublicFinderFrameV2';
 
 export default function PublicFinderShell({
   children,
@@ -51,6 +53,16 @@ export default function PublicFinderShell({
   role: FinderRole;
   returnTo: string;
 }) {
+  // New UI: a light public frame instead of the old StudentShell (build-time
+  // flag, so no hook-order concern).
+  if (isNewUiEnabled()) {
+    return (
+      <PublicFinderFrameV2 role={role} returnTo={returnTo}>
+        {children}
+      </PublicFinderFrameV2>
+    );
+  }
+
   // The parent's equivalents of the account-only pages. Same reason
   // CampaignShell resolves its "Back to iTutor" from the role: a parent sent to
   // /student/classes lands somewhere that is not theirs.

@@ -62,6 +62,8 @@ import { PRODUCT_EVENTS, type FinderEntryRoute, type FinderTrigger } from '@/lib
 import FinderArt from './FinderArt';
 import FinderExitControls from './FinderExitControls';
 import RolePicker from './RolePicker';
+import FinderWizardV2 from './v2/FinderWizardV2';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 
 interface Props {
   /** From `?role=` pre-auth, from the profile when there is a session. */
@@ -415,6 +417,53 @@ export default function FinderWizard({
       setSubmitting(false);
     }
   }, [answers, submitting, router, isParent, isAuthenticated, role]);
+
+  // New UI: same state and handlers, drawn by FinderWizardV2. Placed after every
+  // hook so the hook order never depends on the flag (it is build-time anyway).
+  if (isNewUiEnabled()) {
+    const nextStep = index >= 0 && index < total - 1 ? seq[index + 1] : null;
+    return (
+      <FinderWizardV2
+        step={step}
+        isParent={isParent}
+        isAuthenticated={isAuthenticated}
+        firstName={firstName}
+        answers={answers}
+        setAnswers={setAnswers}
+        subjectOptions={subjectOptions}
+        subjectError={subjectError}
+        onRetrySubjects={() => setRetry(n => n + 1)}
+        query={query}
+        setQuery={setQuery}
+        savedShown={filtered(saved)}
+        restShown={filtered(rest)}
+        who={who}
+        index={index}
+        total={total}
+        isLastStep={isLastStep}
+        canGoBack={canGoBack}
+        answered={answered}
+        submitting={submitting}
+        submitError={submitError}
+        firstStep={firstStep}
+        nextStep={nextStep}
+        advance={advance}
+        goBack={goBack}
+        goToStep={goToStep}
+        skip={skip}
+        submit={submit}
+        onSubjectPicked={() => {
+          // Tapping a subject row is the answer (OB05). The state update lands
+          // before the URL change re-renders, so the next step sees it.
+          if (nextStep === null) return;
+          trackClient(PRODUCT_EVENTS.FINDER_STEP, { step, value: null });
+          goToStep(nextStep);
+        }}
+        headingRef={headingRef}
+        searchParams={searchParams}
+      />
+    );
+  }
 
   // ── step content ─────────────────────────────────────────────────────────
   let title = '';

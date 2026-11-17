@@ -13,6 +13,9 @@ import { getLatestFinderRequest } from '@/lib/finder/latestRequest';
 import { adoptFinderRunFromCookie } from '@/lib/finder/adoptFromCookie';
 import ParentShell from '@/components/parent/ParentShell';
 import MatchResults from '@/components/finder/MatchResults';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import { FinderButton } from '@/components/finder/v2/FinderKit';
+import ParentV2Shell from '@/components/parent/v2/ParentV2Shell';
 import { isFinderEnabled } from '@/lib/featureFlags/finder';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +46,23 @@ export default async function ParentMatchesPage({
   // Never run the Finder? Invite rather than redirect. A redirect into a forced
   // wizard from a page the student chose to open takes the choice away, and this
   // page is reachable from the dashboard card.
+  if (!row && isNewUiEnabled()) {
+    return (
+      <ParentV2Shell width="wide">
+        <div className="flex max-w-[480px] flex-col gap-ds-3">
+          <h1 className="font-display text-[30px] font-extrabold leading-[1.08] text-ink">My best matches</h1>
+          <p className="text-[15px] leading-[1.45] text-ink-muted">
+            Answer a few quick questions and we will line up the classes that fit your subject, your timetable and your
+            budget.
+          </p>
+          <FinderButton tone="parent" href="/find?trigger=dashboard">
+            Find my iTutor
+          </FinderButton>
+        </div>
+      </ParentV2Shell>
+    );
+  }
+
   if (!row) {
     return (
       <ParentShell>
@@ -62,6 +82,14 @@ export default async function ParentMatchesPage({
         </Link>
       </div>
       </ParentShell>
+    );
+  }
+
+  if (isNewUiEnabled()) {
+    return (
+      <ParentV2Shell width="wide">
+        <MatchResults row={row} notify={searchParams?.notify} role="parent" />
+      </ParentV2Shell>
     );
   }
 
