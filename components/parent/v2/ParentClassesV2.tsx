@@ -78,6 +78,16 @@ type Subscription = {
   nextCharge: string | null;
 };
 
+/** One row of /api/parent/children/classes: a class a child is in. */
+type ChildClass = {
+  childId: string;
+  childName: string;
+  groupId: string;
+  className: string;
+  tutorName: string | null;
+  billed: boolean;
+};
+
 /** A 1:1 session a child asked for. */
 type SessionRequest = {
   id: string;
@@ -159,6 +169,7 @@ export default function ParentClassesV2() {
   const checkoutBookingId = params.get('booking');
   const [checkoutDismissed, setCheckoutDismissed] = useState(false);
   const [subs, setSubs] = useState<Subscription[] | null>(null);
+  const [childClasses, setChildClasses] = useState<ChildClass[]>([]);
   const [sessionReqs, setSessionReqs] = useState<SessionRequest[]>([]);
   const [classReqs, setClassReqs] = useState<ClassRequest[]>([]);
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
@@ -173,11 +184,19 @@ export default function ParentClassesV2() {
     setLoading(true);
     setError(false);
     try {
-      const [billingRes, approvalsRes, classRes] = await Promise.all([
+      const [billingRes, approvalsRes, classRes, childClassesRes] = await Promise.all([
         fetch('/api/parent/billing', { cache: 'no-store' }),
         fetch('/api/parent/approvals', { cache: 'no-store' }),
         fetch('/api/parent/class-requests', { cache: 'no-store' }),
+        // Free classes. They have no billing row, so without this a child in a
+        // free class had nothing under Upcoming while the child page and the
+        // Calendar both showed it. Not fatal.
+        fetch('/api/parent/children/classes', { cache: 'no-store' }).catch(() => null),
       ]);
+      if (childClassesRes?.ok) {
+        const j = await childClassesRes.json();
+        setChildClasses((j.classes ?? []) as ChildClass[]);
+      }
 
       // Billing carries the screen. If the two request queues fail the screen
       // is still worth rendering without them, so only this one is fatal.
@@ -251,7 +270,30 @@ export default function ParentClassesV2() {
     );
   }
 
-  const upcoming = subs.filter((s) => !isPast(s));
+  // Upcoming = every class a child is in (the shared rule, which the child page
+  // and Home count with): the live subscriptions, plus each class held by
+  // membership alone — a free class — shown as a Free row.
+  const billedUpcoming = subs.filter((s) => !isPast(s));
+  const billedKeys = new Set(billedUpcoming.map((s) => `${s.childId}:${s.groupId}`));
+  const freeRows: Subscription[] = childClasses
+    .filter((c) => !billedKeys.has(`${c.childId}:${c.groupId}`))
+    .map((c) => ({
+      id: `member:${c.childId}:${c.groupId}`,
+      groupId: c.groupId,
+      childId: c.childId,
+      childName: c.childName,
+      className: c.className,
+      tutorName: c.tutorName,
+      status: 'ACTIVE',
+      amount: 0,
+      cancelled: false,
+      cancelScheduled: false,
+      paused: false,
+      pausedByTutor: false,
+      pauseEnds: null,
+      nextCharge: null,
+    }));
+  const upcoming = [...billedUpcoming, ...freeRows];
   const past = subs.filter(isPast);
   const requestCount = sessionReqs.length + classReqs.length;
   const shown = tab === 'upcoming' ? upcoming : past;
@@ -421,7 +463,7 @@ export default function ParentClassesV2() {
           <ClassPreviewPane
             key={selected.groupId}
             groupId={selected.groupId}
-            enrolments={subs
+            enrolments={upcoming
               .filter((x) => x.groupId === selected.groupId)
               .map((x) => ({ childId: x.childId, childName: x.childName, status: 'in' as const }))}
           />

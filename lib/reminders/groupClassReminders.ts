@@ -26,6 +26,7 @@
 // the unique index on (group_occurrence_id, recipient_email, reminder_type)
 // makes that atomic, so a re-run or two overlapping polls cannot double-send.
 
+import { lessonRemindersOff } from '@/lib/reminders/lessonReminderOptOut';
 import { type SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/services/emailService';
 import { renderEmail } from '@/lib/email/design';
@@ -286,7 +287,14 @@ export async function sendGroupOccurrenceReminder(args: {
   const { admin, occurrenceId, groupId, groupName, tutorId, startAt, reminderType, joinUrl, appUrl } = args;
   const result: GroupReminderResult = { claimed: 0, sent: 0, failed: 0 };
 
-  const recipients = await resolveRecipients(admin, groupId, tutorId);
+  const everyone = await resolveRecipients(admin, groupId, tutorId);
+  // Students who switched lesson reminders off (migration 270) are skipped:
+  // no email and no in-app reminder. Tutors always get theirs.
+  const off = await lessonRemindersOff(
+    admin,
+    everyone.filter((r) => r.type === 'student').map((r) => r.userId)
+  );
+  const recipients = everyone.filter((r) => r.type !== 'student' || !off.has(r.userId));
   if (recipients.length === 0) return result;
 
   const classLink = `${appUrl}/student/classes/${groupId}`;

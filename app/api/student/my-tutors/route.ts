@@ -117,6 +117,9 @@ export async function GET(_request: NextRequest) {
         quota: {
           used: quota.used,
           usedBy: quota.usedBy,
+          // This month's request is still waiting on the tutor (not answered,
+          // not superseded). The card shows "Processing" while it is.
+          pending: quota.openRequestId !== null,
           // The plain reason §9.2 asks for, naming who spent it.
           reason: quota.reason,
           nextOpens: quota.nextOpens,

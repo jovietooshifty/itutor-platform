@@ -29,6 +29,9 @@ import { adoptFinderRunFromCookie } from '@/lib/finder/adoptFromCookie';
 import MatchResults, { type FinderRequestRow } from '@/components/finder/MatchResults';
 import PublicFinderShell from '@/components/finder/PublicFinderShell';
 import Link from 'next/link';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import { FinderButton } from '@/components/finder/v2/FinderKit';
+import PublicFinderFrameV2 from '@/components/finder/v2/PublicFinderFrameV2';
 
 export const dynamic = 'force-dynamic';
 
@@ -129,6 +132,21 @@ export default async function FinderResultsPage({
  * error: there is nothing wrong, they simply have not answered anything yet.
  */
 function NoRun() {
+  if (isNewUiEnabled()) {
+    return (
+      <PublicFinderFrameV2 role="student" returnTo="/find/results">
+        <div className="mx-auto flex w-full max-w-[440px] flex-col gap-ds-3 pt-ds-8">
+          <h1 className="font-display text-[30px] font-extrabold leading-[1.08] text-ink">Let&rsquo;s find your iTutor</h1>
+          <p className="text-[15px] leading-[1.45] text-ink-muted">
+            Answer a few quick questions and we&rsquo;ll show you the classes that fit. No account needed.
+          </p>
+          <FinderButton tone="student" href="/start">
+            Start
+          </FinderButton>
+        </div>
+      </PublicFinderFrameV2>
+    );
+  }
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-16 text-center sm:px-6">
       <h1 className="text-[24px] font-semibold tracking-tight text-ink">

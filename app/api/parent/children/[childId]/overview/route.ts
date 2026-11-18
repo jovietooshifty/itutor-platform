@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ParentAccessError, requireParentContext, requireParentChild } from '@/lib/server/parentAccess';
+import { loadChildClasses } from '@/lib/server/parentChildClasses';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +75,36 @@ export async function GET(_request: NextRequest, { params }: Params) {
       };
     });
 
+    // `current` is the shared definition (lib/server/parentChildClasses): not
+    // archived, and a live membership OR a live subscription. The page counts
+    // and lists from this flag rather than re-deriving it from `status`, which
+    // counted an archived class and missed a class held only by subscription.
+    const current = (await loadChildClasses(admin, [childId])).get(childId) ?? [];
+    const currentIds = new Set(current.map((c) => c.groupId));
+    const listed = new Set<string>();
+    const enrollmentsOut: Array<Record<string, unknown>> = enrollments.map((e) => {
+      listed.add(e.groupId);
+      return { ...e, current: currentIds.has(e.groupId) };
+    });
+    for (const c of current) {
+      if (listed.has(c.groupId)) continue;
+      enrollmentsOut.push({
+        groupId: c.groupId,
+        name: c.className,
+        subject: c.subject,
+        formLevel: null,
+        coverImage: null,
+        priceMonthly: c.priceMonthly,
+        rating: null,
+        tutorName: c.tutorName ?? 'Tutor',
+        scheduleData: null,
+        sessionSchedule: null,
+        status: 'active',
+        joinedAt: null,
+        current: true,
+      });
+    }
+
     // 1:1 booking history
     const { data: bk } = await admin
       .from('bookings')
@@ -102,7 +133,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
     return NextResponse.json({
       child: { name: child.display_name || child.full_name || 'Child' },
-      enrollments,
+      enrollments: enrollmentsOut,
       bookings,
     });
   } catch (error) {

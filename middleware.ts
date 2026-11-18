@@ -35,6 +35,9 @@ function isPublicAssetPath(pathname: string) {
   return (
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/assets/') ||
+    // Logos and auth artwork (public/brand). Signed-in requests for these used
+    // to run the pending-feedback gate, which can redirect an <img> to a page.
+    pathname.startsWith('/brand/') ||
     pathname.startsWith('/favicon') ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml' ||

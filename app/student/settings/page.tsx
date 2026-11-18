@@ -15,6 +15,20 @@ import { useAvatarUpload } from '@/lib/hooks/useAvatarUpload';
 import { User, Bell, Lock, CreditCard, GraduationCap, ChevronRight, Camera, LogOut, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Area } from '@/lib/utils/imageCrop';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import StudentSettingsV2 from '@/components/student/v2/StudentSettingsV2';
+
+/** New UI (Figma 2:2219) behind NEXT_PUBLIC_NEW_UI_ENABLED; fixed at build time. */
+export default function StudentSettingsRoute() {
+  return isNewUiEnabled() ? (
+    <StudentV2Shell width="wide" title="Settings">
+      <StudentSettingsV2 />
+    </StudentV2Shell>
+  ) : (
+    <StudentSettingsPage />
+  );
+}
 
 type Section = 'profile' | 'academic' | 'notifications' | 'security' | 'billing';
 
@@ -74,7 +88,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
-export default function StudentSettingsPage() {
+function StudentSettingsPage() {
   const { profile, loading: profileLoading } = useProfile();
   const router = useRouter();
   const { uploadAvatar, deleteAvatar, uploading: avatarUploading } = useAvatarUpload(profile?.id ?? '');

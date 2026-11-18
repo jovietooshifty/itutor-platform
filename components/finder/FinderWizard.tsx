@@ -62,6 +62,8 @@ import { PRODUCT_EVENTS, type FinderEntryRoute, type FinderTrigger } from '@/lib
 import FinderArt from './FinderArt';
 import FinderExitControls from './FinderExitControls';
 import RolePicker from './RolePicker';
+import FinderWizardV2 from './v2/FinderWizardV2';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 
 interface Props {
   /** From `?role=` pre-auth, from the profile when there is a session. */
@@ -99,7 +101,7 @@ function pickAnswered(a: FinderAnswers): Partial<FinderAnswers> {
   const out: Partial<FinderAnswers> = {};
   if (a.childLabel) out.childLabel = a.childLabel;
   if (a.level) out.level = a.level;
-  if (a.subject) out.subject = a.subject;
+  if (a.subjects.length > 0) out.subjects = a.subjects;
   if (a.availabilityBlocks.length > 0) out.availabilityBlocks = a.availabilityBlocks;
   if (a.lessonType) out.lessonType = a.lessonType;
   if (a.deliveryPref) out.deliveryPref = a.deliveryPref;
@@ -193,7 +195,7 @@ export default function FinderWizard({
 
   const [answers, setAnswers] = useState<FinderAnswers>(() => ({
     ...emptyAnswers(),
-    subject: prefillSubject,
+    subjects: prefillSubject ? [prefillSubject] : [],
     // An authed run does not ask the level; pre-selecting it from the profile
     // keeps the wizard from ever disagreeing with the account.
     level: profileLevel,
@@ -392,7 +394,7 @@ export default function FinderWizard({
           // both are known. Null for CAPE, on purpose: signup asks which
           // sixth-form year rather than us guessing one.
           formLevelLabel: formLevelLabelFor(answers.level),
-          subject: answers.subject,
+          subjects: answers.subjects,
           availabilityBlocks: answers.availabilityBlocks,
           lessonType: answers.lessonType,
           deliveryPref: answers.deliveryPref,
@@ -415,6 +417,46 @@ export default function FinderWizard({
       setSubmitting(false);
     }
   }, [answers, submitting, router, isParent, isAuthenticated, role]);
+
+  // New UI: same state and handlers, drawn by FinderWizardV2. Placed after every
+  // hook so the hook order never depends on the flag (it is build-time anyway).
+  if (isNewUiEnabled()) {
+    const nextStep = index >= 0 && index < total - 1 ? seq[index + 1] : null;
+    return (
+      <FinderWizardV2
+        step={step}
+        isParent={isParent}
+        isAuthenticated={isAuthenticated}
+        firstName={firstName}
+        answers={answers}
+        setAnswers={setAnswers}
+        subjectOptions={subjectOptions}
+        subjectError={subjectError}
+        onRetrySubjects={() => setRetry(n => n + 1)}
+        query={query}
+        setQuery={setQuery}
+        savedShown={filtered(saved)}
+        restShown={filtered(rest)}
+        who={who}
+        index={index}
+        total={total}
+        isLastStep={isLastStep}
+        canGoBack={canGoBack}
+        answered={answered}
+        submitting={submitting}
+        submitError={submitError}
+        firstStep={firstStep}
+        nextStep={nextStep}
+        advance={advance}
+        goBack={goBack}
+        goToStep={goToStep}
+        skip={skip}
+        submit={submit}
+        headingRef={headingRef}
+        searchParams={searchParams}
+      />
+    );
+  }
 
   // ── step content ─────────────────────────────────────────────────────────
   let title = '';
@@ -520,8 +562,8 @@ export default function FinderWizard({
                 key={subject}
                 label={subject}
                 badge="You study this"
-                selected={answers.subject === subject}
-                onSelect={() => setAnswers(a => ({ ...a, subject }))}
+                selected={answers.subjects.includes(subject)}
+                onSelect={() => setAnswers(a => ({ ...a, subjects: [subject] }))}
               />
             ))}
             {savedShown.length > 0 && restShown.length > 0 ? (
@@ -533,8 +575,8 @@ export default function FinderWizard({
               <OptionRow
                 key={subject}
                 label={subject}
-                selected={answers.subject === subject}
-                onSelect={() => setAnswers(a => ({ ...a, subject }))}
+                selected={answers.subjects.includes(subject)}
+                onSelect={() => setAnswers(a => ({ ...a, subjects: [subject] }))}
               />
             ))}
           </div>

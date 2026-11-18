@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { User, Bell, Lock, CreditCard, Users, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/lib/hooks/useProfile';
@@ -29,23 +29,32 @@ const SECTIONS = [
 type Section = typeof SECTIONS[number]['id'];
 
 /**
- * Settings — frame `160:7984`.
+ * Settings — frame `160:7981`, and the Account tab's root under the new UI.
  *
- * `nav={false}` because the frame has no tab bar: it is a detail screen
- * reached from the account sheet, with a back link to Home. The old
- * five-section switcher is still here behind the flag, and still serves the
- * ?section= deep links the new screen points at for billing, notifications
- * and security.
+ * NEW UI: the hub only, WITH the tab bar (it is a tab root now, QA handoff
+ * §1). The old five-section switcher is gone from this path; every row opens
+ * its own screen. Old `?section=` deep links are redirected to the screen
+ * that replaced each section, so a bookmarked or emailed link still lands.
+ *
+ * FLAG OFF: unchanged — the old tabbed SettingsContent inside ParentShell.
  */
 export default function ParentSettingsPage() {
   if (isNewUiEnabled()) return <SettingsV2Route />;
   return <ParentShell><SettingsContent /></ParentShell>;
 }
 
+/** Where each retired section lives now. Unknown sections fall to the hub. */
+const SECTION_REDIRECTS: Record<string, string> = {
+  profile: '/parent/profile',
+  billing: '/parent/billing',
+  notifications: '/parent/settings/notifications',
+  security: '/parent/settings/security',
+  household: '/parent/settings',
+};
+
 function SettingsV2Route() {
   // Suspense because useSearchParams opts the page into dynamic rendering
-  // and Next asks for a boundary. The fallback is the shell itself, so the
-  // header does not flash.
+  // and Next asks for a boundary.
   return (
     <Suspense fallback={null}>
       <SettingsV2Inner />
@@ -54,16 +63,20 @@ function SettingsV2Route() {
 }
 
 function SettingsV2Inner() {
+  const router = useRouter();
   const { profile } = useProfile();
-  // REACTIVE, unlike the window.location read this replaced: pushing
-  // ?section=billing from the hub is a query-only navigation on the page
-  // you are already on, so a value read during render never changed and
-  // three rows looked dead.
   const params = useSearchParams();
   const section = params.get('section');
+  const target = section ? SECTION_REDIRECTS[section] ?? '/parent/settings' : null;
+
+  useEffect(() => {
+    if (target) router.replace(target);
+  }, [target, router]);
+
+  if (target && target !== '/parent/settings') return null;
   return (
-    <ParentV2Shell initials={parentInitials(profile)} nav={false}>
-      {section ? <SettingsContent key={section} /> : <ParentSettingsV2 />}
+    <ParentV2Shell initials={parentInitials(profile)}>
+      <ParentSettingsV2 />
     </ParentV2Shell>
   );
 }

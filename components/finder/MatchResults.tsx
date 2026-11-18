@@ -55,6 +55,8 @@ import ClassCard from '@/components/marketplace/ClassCard';
 import { getServiceClient } from '@/lib/supabase/server';
 import { loadFinderSupply } from '@/lib/finder/supply';
 import { supplyRowToCard } from '@/lib/finder/cardData';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import MatchResultsV2 from './v2/MatchResultsV2';
 
 export interface FinderRequestRow {
   id: string;
@@ -177,6 +179,39 @@ export default async function MatchResults({
             // claim the family disproves one click later.
             `Nothing matched exactly, but here is what we teach in this subject.`
           : null;
+
+  // New UI: same data and rules, drawn by MatchResultsV2 (Figma PO05).
+  if (isNewUiEnabled()) {
+    const chips: { label: string; href: string }[] = [];
+    if (levelText) chips.push({ label: levelText, href: `${findBase}step=${STEP.LEVEL}` });
+    chips.push({ label: blocksPhrase(blocks), href: `${findBase}step=${STEP.AVAILABILITY}` });
+    if (lessonTypeText) chips.push({ label: lessonTypeText, href: `${findBase}step=${STEP.LESSON_TYPE}` });
+    if (row.delivery_pref) chips.push({ label: deliveryPrefLabel(row.delivery_pref), href: `${findBase}step=${STEP.DELIVERY}` });
+    chips.push({ label: budgetLabelFor(row.budget_max), href: `${findBase}step=${STEP.BUDGET}` });
+    return (
+      <MatchResultsV2
+        role={role}
+        isAnonymous={isAnonymous}
+        learner={learner}
+        matchClass={row.match_class}
+        heading={heading}
+        chips={chips}
+        cards={cards.map(({ match, row: r }) => ({ groupId: match.group_id, row: r }))}
+        missNote={row.match_class === 'near' && row.near_miss_on === 'availability' && blocks.length > 0 ? blocksPhrase(blocks) : null}
+        nearMiss={
+          row.match_class === 'near' && row.near_miss_on
+            ? {
+                href: `${findBase}step=${nearMissStep(row.near_miss_on as GatingDimension)}`,
+                label: nearMissButtonLabel(row.near_miss_on as GatingDimension),
+              }
+            : null
+        }
+        lessonType={row.lesson_type}
+        notify={notify}
+        requestId={row.id}
+      />
+    );
+  }
 
   // Exactly Explore's own content container — `max-w-6xl mx-auto space-y-6`,
   // with no padding of its own, because every shell that renders this supplies

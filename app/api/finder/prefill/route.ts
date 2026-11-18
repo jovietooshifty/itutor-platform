@@ -24,13 +24,26 @@ import { NextResponse } from 'next/server';
 import { getServerClient, getServiceClient } from '@/lib/supabase/server';
 import { readFinderToken } from '@/lib/finder/token';
 import { isFinderEnabled } from '@/lib/featureFlags/finder';
+import { subjectsForRun } from '@/lib/finder/runSubjects';
 
 export const dynamic = 'force-dynamic';
 
-const EMPTY = { role: null, form_level_label: null, child_label: null };
+// `enabled` lets signup send a student or parent with no run to the Finder
+// first, without ever sending them into a Finder that is switched off.
+// `has_run`, `level` and `subjects` prefill signup's profile step.
+const EMPTY = {
+  enabled: false,
+  has_run: false,
+  role: null,
+  level: null,
+  form_level_label: null,
+  child_label: null,
+  subjects: [] as string[],
+};
 
 export async function GET() {
   if (!isFinderEnabled()) return NextResponse.json(EMPTY);
+  const NONE = { ...EMPTY, enabled: true };
 
   try {
     const token = await readFinderToken();
@@ -42,13 +55,13 @@ export async function GET() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user && !token) return NextResponse.json(EMPTY);
+    if (!user && !token) return NextResponse.json(NONE);
 
     // Service client: an anonymous caller has no RLS identity, and the
     // authenticated policy is scoped to user_id — null for the run in question.
     const service = getServiceClient();
 
-    let query = service.from('finder_requests').select('role, form_level_label, child_label');
+    let query = service.from('finder_requests').select('id, subject_id, role, level, form_level_label, child_label');
     query = user ? query.eq('user_id', user.id) : query.eq('token', token as string);
 
     const { data, error } = await query
@@ -60,24 +73,31 @@ export async function GET() {
       // Most likely 247 is unapplied, so the columns do not exist yet. Not worth
       // surfacing: signup simply asks the question as it always did.
       console.warn('[finder/prefill] read failed:', error.message);
-      return NextResponse.json(EMPTY);
+      return NextResponse.json(NONE);
     }
 
     const row = (data ?? null) as {
+      id: string;
+      subject_id?: string | null;
+      level?: string | null;
       role?: string | null;
       form_level_label?: string | null;
       child_label?: string | null;
     } | null;
 
-    if (!row) return NextResponse.json(EMPTY);
+    if (!row) return NextResponse.json(NONE);
 
     return NextResponse.json({
+      enabled: true,
+      has_run: true,
+      level: row.level ?? null,
+      subjects: await subjectsForRun(service, row.id, row.subject_id ?? null),
       role: row.role ?? null,
       form_level_label: row.form_level_label ?? null,
       child_label: row.child_label ?? null,
     });
   } catch (err) {
     console.error('[GET finder/prefill]', err);
-    return NextResponse.json(EMPTY);
+    return NextResponse.json(NONE);
   }
 }

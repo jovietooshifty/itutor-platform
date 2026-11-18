@@ -10,7 +10,8 @@
  * - Four filters became two (All / Unread). "Enrolment" and "Alerts" matched
  *   on substrings of the type and hid rows they should have shown.
  * - Unread is marked by weight and a dark dot, not the old orange dot.
- * - The notification switches moved to Settings › Notifications, where every
+ * - The notification switches live only on Settings › Notifications
+ *   (/parent/settings/notifications), where every
  *   other setting lives; this screen links there.
  * - Every row that has somewhere to go opens it, and reading it marks it read.
  */
@@ -74,7 +75,14 @@ function when(iso: string): string {
   return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} · ${t}`;
 }
 
-export default function ParentNotificationsV2() {
+type Props = {
+  /** page: /parent/notifications. panel: the bell popup on large screens. */
+  variant?: 'page' | 'panel';
+  /** Keeps the shell's bell dot in step as rows are read. */
+  onUnreadChange?: (count: number) => void;
+};
+
+export default function ParentNotificationsV2({ variant = 'page', onUnreadChange }: Props = {}) {
   const router = useRouter();
   const { profile } = useProfile();
   const [items, setItems] = useState<NotifRow[]>([]);
@@ -98,6 +106,9 @@ export default function ParentNotificationsV2() {
 
   const unread = items.filter((n) => !n.is_read).length;
   const shown = unreadOnly ? items.filter((n) => !n.is_read) : items;
+  useEffect(() => {
+    if (!loading) onUnreadChange?.(unread);
+  }, [loading, unread, onUnreadChange]);
 
   const markAllRead = async () => {
     if (!profile?.id) return;
@@ -114,13 +125,7 @@ export default function ParentNotificationsV2() {
     if (href) router.push(href);
   };
 
-  return (
-    <DetailScreen
-      backLabel="Back"
-      fallbackHref="/parent/dashboard"
-      title="Notifications"
-      action={
-        unread > 0 ? (
+  const markAll = unread > 0 ? (
           <button
             type="button"
             onClick={markAllRead}
@@ -128,9 +133,10 @@ export default function ParentNotificationsV2() {
           >
             Mark all read
           </button>
-        ) : null
-      }
-    >
+        ) : null;
+
+  const tabs = (
+    <>
       <div role="tablist" aria-label="Show" className="flex gap-ds-2">
         {[
           { on: false, label: 'All' },
@@ -154,7 +160,11 @@ export default function ParentNotificationsV2() {
           );
         })}
       </div>
+    </>
+  );
 
+  const list = (
+    <>
       {loading && profile?.id ? (
         <DetailSkeleton rows={4} />
       ) : shown.length === 0 ? (
@@ -197,9 +207,40 @@ export default function ParentNotificationsV2() {
           })}
         </ul>
       )}
+    </>
+  );
+
+  if (variant === 'panel') {
+    return (
+      <>
+        <div className="flex flex-col gap-ds-3 bw-b-hair border-border p-ds-4">
+          <div className="flex items-center justify-between gap-ds-2">
+            <h2 className="m-0 font-display text-[20px] font-extrabold text-ink">Notifications</h2>
+            {markAll}
+          </div>
+          {tabs}
+        </div>
+        <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overscroll-contain p-ds-4">{list}</div>
+        <div className="bw-t-hair border-border p-ds-2">
+          <NavRow href="/parent/settings/notifications" title="Notification settings" meta="Choose what we send you" />
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <DetailScreen
+      backLabel="Back"
+      fallbackHref="/parent/dashboard"
+      title="Notifications"
+      action={markAll}
+    >
+      {tabs}
+
+      {list}
 
       <NavRow
-        href="/parent/settings?section=notifications"
+        href="/parent/settings/notifications"
         title="Notification settings"
         meta="Choose what we send you"
       />

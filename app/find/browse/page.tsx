@@ -38,6 +38,8 @@ import { supplyRowToCard } from '@/lib/finder/cardData';
 import PublicFinderShell from '@/components/finder/PublicFinderShell';
 import { classHref } from '@/lib/finder/links';
 import { STEP } from '@/lib/finder/wizard';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import FinderBrowseV2 from '@/components/finder/v2/FinderBrowseV2';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +95,14 @@ export default async function FinderBrowsePage({
   // Straight to the shared marketplace card — same component Explore renders,
   // so this page cannot drift into a poorer version of the same catalogue.
   const shown = ordered.slice(0, MAX_SHOWN);
+
+  if (isNewUiEnabled()) {
+    return (
+      <PublicFinderShell role={role} returnTo={`/find/browse?role=${role}`}>
+        <FinderBrowseV2 role={role} query={query} shown={shown} />
+      </PublicFinderShell>
+    );
+  }
 
   return (
     // Exactly Explore's content container. The wordmark-and-Log-in row that used

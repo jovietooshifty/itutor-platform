@@ -31,6 +31,11 @@ export interface AppHeaderProps {
   title?: ReactNode;
   titleVisible?: boolean;
   actions?: HeaderAction[];
+  /**
+   * Something that sits before the icon buttons — the student credits pill
+   * (Figma 2:1995, 2:2219, 2:2573). Supplied by the consumer, like the logo.
+   */
+  extra?: ReactNode;
   /** Red dot on the bell. */
   unread?: boolean;
   initials?: string;
@@ -51,6 +56,7 @@ export function AppHeader({
   title,
   titleVisible,
   actions = ['bell'],
+  extra,
   unread,
   initials,
   onAction,
@@ -83,6 +89,7 @@ export function AppHeader({
       ) : null}
 
       <div className="ml-auto flex items-center gap-ds-1h">
+        {extra}
         {actions.map((action) => (
           <button
             key={action}

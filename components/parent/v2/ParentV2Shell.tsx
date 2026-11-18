@@ -4,7 +4,7 @@
  * ParentV2Shell — the new parent app's chrome.
  *
  * Wraps `NewUiShell` with the five tabs SCREEN_MAP's logic row 2 approved
- * (Home · Explore · Classes · Billing · Profile, down from eight) and wires
+ * (Home · Explore · Classes · Billing · Account, down from eight) and wires
  * them to routes. It does not touch `ParentShell`, which still renders the old
  * dark app for everyone the flag is off for.
  *
@@ -23,12 +23,17 @@
  * files.
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { NewUiShell, type NavItem } from '@/components/ui';
 import ParentAccountSheet from '@/components/parent/v2/ParentAccountSheet';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
+import { NotificationsPopover, prefersNotificationsPopover } from '@/components/ui/NotificationsPopover';
+
+// Loaded on first open only.
+const ParentNotificationsV2 = dynamic(() => import('./ParentNotificationsV2'), { ssr: false });
 
 const TABS: Array<NavItem & { href: string }> = [
   { id: 'home', label: 'Home', icon: 'home', href: '/parent/dashboard' },
@@ -37,19 +42,40 @@ const TABS: Array<NavItem & { href: string }> = [
   // /parent/subscriptions and /parent/approvals both redirect to it.
   { id: 'classes', label: 'Classes', icon: 'classes', href: '/parent/my-classes' },
   { id: 'billing', label: 'Billing', icon: 'billing', href: '/parent/billing' },
-  // The Profile FRAME (160:8114) carries the tab bar with Profile active,
-  // so the tab lands there. Settings (160:7984) has a back link and no
-  // nav, and is reached from the account sheet instead.
-  { id: 'profile', label: 'Profile', icon: 'profile', href: '/parent/profile' },
+  // QA handoff §1: the fifth tab is ACCOUNT and it lands on Settings, which
+  // is now a tab root (nav shown, no back link). Profile is one row inside
+  // it. The person icon is the Figma tab bar's.
+  { id: 'account', label: 'Account', icon: 'profile', href: '/parent/settings' },
 ];
+
+/**
+ * Everything the Settings screen leads to belongs to the Account tab, so it
+ * stays highlighted on the way down: Profile, the settings sub-screens, Help,
+ * the household pages and the three unframed extras Settings links to.
+ */
+const ACCOUNT_PREFIXES = [
+  '/parent/settings',
+  '/parent/profile',
+  '/parent/help',
+  '/parent/children',
+  '/parent/calendar',
+  '/parent/feedback',
+  '/parent/rewards',
+  '/parent/messages',
+];
+
+const under = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 function activeFromPath(pathname: string | null): string | undefined {
   if (!pathname) return undefined;
+  if (ACCOUNT_PREFIXES.some((p) => under(pathname, p))) return 'account';
+  // A tutor is opened from Explore (class page or the 1:1 tutors list).
+  if (under(pathname, '/parent/tutors')) return 'explore';
   // Longest href first, so /parent/classes does not shadow a future
   // /parent/classes/[groupId] belonging to another tab.
   const match = [...TABS]
     .sort((a, b) => b.href.length - a.href.length)
-    .find((t) => pathname === t.href || pathname.startsWith(`${t.href}/`));
+    .find((t) => under(pathname, t.href));
   return match?.id;
 }
 
@@ -81,6 +107,9 @@ export default function ParentV2Shell({
   // did nothing. It now opens the account sheet, which is also where the
   // five sidebar sections the tab bar displaced now live.
   const [accountOpen, setAccountOpen] = useState(false);
+  // Large screens: the bell opens a popup instead of the page.
+  const [notifOpen, setNotifOpen] = useState(false);
+  const closeNotif = useCallback(() => setNotifOpen(false), []);
   const { profile } = useProfile();
   const profileName = profile?.display_name || profile?.full_name || undefined;
 
@@ -123,7 +152,9 @@ export default function ParentV2Shell({
       unread={unread}
       initials={initials}
       onHeaderAction={(action) => {
-        if (action === 'bell') router.push('/parent/notifications');
+        if (action !== 'bell') return;
+        if (prefersNotificationsPopover() && pathname !== '/parent/notifications') setNotifOpen((o) => !o);
+        else router.push('/parent/notifications');
       }}
       onAccount={() => setAccountOpen(true)}
       onSelect={(id) => {
@@ -154,6 +185,10 @@ export default function ParentV2Shell({
     >
       {children}
     </NewUiShell>
+
+    <NotificationsPopover open={notifOpen} onClose={closeNotif}>
+      {notifOpen ? <ParentNotificationsV2 variant="panel" /> : null}
+    </NotificationsPopover>
 
     <ParentAccountSheet
       open={accountOpen}

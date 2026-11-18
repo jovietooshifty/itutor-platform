@@ -12,8 +12,26 @@
 import { Suspense } from 'react';
 import { Check } from 'lucide-react';
 import SignupCard from '@/components/auth/SignupCard';
+import SignupV2 from '@/components/auth/v2/SignupV2';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 
+/**
+ * New UI on: the role picker (Figma RO01) and the role-coloured account
+ * screens (components/auth/v2/SignupV2). Off: the old card below.
+ */
 export default function SignupPage() {
+  if (isNewUiEnabled()) {
+    return (
+      // useSearchParams inside needs a Suspense boundary.
+      <Suspense fallback={null}>
+        <SignupV2 />
+      </Suspense>
+    );
+  }
+  return <LegacySignupPage />;
+}
+
+function LegacySignupPage() {
   return (
     <main
       className="min-h-screen text-white"

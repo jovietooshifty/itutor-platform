@@ -228,7 +228,7 @@ export default function ParentBillingV2() {
           {/* NOT /help: that is the marketing site, which shows "Get started"
               and "Log in" to a parent who is already signed in. /parent/help
               is the in-app help screen, opened at its billing questions. */}
-          <NavRow title="Billing help" onClick={() => router.push('/parent/help#billing')} className="hidden lg:flex" />
+          <NavRow title="Billing help" onClick={() => router.push('/parent/help/billing')} className="hidden lg:flex" />
         </aside>
 
         <div className="flex min-w-0 flex-col gap-ds-card lg:col-start-1 lg:row-start-1">
@@ -248,12 +248,9 @@ export default function ParentBillingV2() {
                   {statusTag(s)}
                 </>
               }
-              // The class itself, not the old subscriptions list. Figma has a
-              // payment-detail screen here; until that exists the class page is
-              // the real destination rather than a list the parent just left.
-              onClick={() =>
-                router.push(s.groupId ? `/parent/classes/${s.groupId}` : '/parent/my-classes')
-              }
+              // Payment detail (frame 160:6853): next payment, history, and
+              // the Pause or cancel flow, which lives nowhere else in the new UI.
+              onClick={() => router.push(`/parent/billing/${s.id}`)}
             />
           ))}
 
@@ -263,7 +260,7 @@ export default function ParentBillingV2() {
             onClick={() => router.push('/parent/transactions')}
             className="lg:hidden"
           />
-          <NavRow title="Billing help" onClick={() => router.push('/parent/help#billing')} className="lg:hidden" />
+          <NavRow title="Billing help" onClick={() => router.push('/parent/help/billing')} className="lg:hidden" />
 
           <section className="hidden flex-col gap-ds-3 pt-ds-2 lg:flex">
             <SectionHeader

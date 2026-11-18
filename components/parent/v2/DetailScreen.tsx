@@ -30,10 +30,16 @@ export interface DetailScreenProps {
   action?: ReactNode;
   /** 'wide' for a detail page with its own two-column layout from lg up. */
   width?: 'reading' | 'wide';
+  /** One centred column (checkout): the reading column otherwise sits at the
+   *  left of the 1280 frame, which on a payment screen reads as misplaced. */
+  centered?: boolean;
+  /** false when the caller already wraps the page in a shell (the student
+   *  Settings › Payment methods pages reuse this screen inside StudentV2Shell). */
+  shell?: boolean;
   children: ReactNode;
 }
 
-export function DetailScreen({ backLabel, fallbackHref, title, action, width = 'reading', children }: DetailScreenProps) {
+export function DetailScreen({ backLabel, fallbackHref, title, action, width = 'reading', centered = false, shell = true, children }: DetailScreenProps) {
   const router = useRouter();
   const { profile } = useProfile();
 
@@ -42,18 +48,12 @@ export function DetailScreen({ backLabel, fallbackHref, title, action, width = '
     else router.push(fallbackHref);
   };
 
-  return (
-    <ParentV2Shell
-      initials={parentInitials(profile)}
-      nav={false}
-      width={width}
-      title={typeof title === 'string' ? title : undefined}
-    >
-      <div className="flex flex-col gap-ds-4">
+  const body = (
+      <div className={centered ? 'mx-auto flex w-full max-w-[720px] flex-col gap-ds-4' : 'flex flex-col gap-ds-4'}>
         <button
           type="button"
           onClick={back}
-          className="ds-link flex items-center gap-ds-2 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+          className="ds-link flex items-center gap-ds-2 self-start border-0 bg-transparent p-0 font-display text-[16px] font-extrabold text-ink cursor-pointer focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink"
         >
           <span className="rotate-180">
             <DsIcon name="chevron" size={20} />
@@ -72,6 +72,16 @@ export function DetailScreen({ backLabel, fallbackHref, title, action, width = '
         ) : null}
         {children}
       </div>
+  );
+  if (!shell) return body;
+  return (
+    <ParentV2Shell
+      initials={parentInitials(profile)}
+      nav={false}
+      width={centered ? 'wide' : width}
+      title={typeof title === 'string' ? title : undefined}
+    >
+      {body}
     </ParentV2Shell>
   );
 }

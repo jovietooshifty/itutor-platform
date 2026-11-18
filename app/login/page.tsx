@@ -5,17 +5,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Check } from 'lucide-react';
-import { supabase, setRememberMePreference, createSupabaseClient } from '@/lib/supabase/client';
-import { getAdminHomePath, isEmailManagementOnlyAdmin } from '@/lib/auth/adminAccess';
-import { safeRedirectPath } from '@/lib/utils/safeRedirect';
+import { supabase } from '@/lib/supabase/client';
+import { passwordLogin } from '@/lib/auth/passwordLogin';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import LoginV2 from '@/components/auth/v2/LoginV2';
 
-function isNetworkError(error: unknown): boolean {
-  if (error instanceof TypeError && error.message === 'Failed to fetch') return true;
-  if (error instanceof Error && (error.message.includes('network') || error.message.includes('fetch'))) return true;
-  return typeof navigator !== 'undefined' ? !navigator.onLine : false;
+/** The new UI's log-in (Figma LG01/LG02) when the flag is on; the old page otherwise. */
+export default function LoginPage() {
+  return isNewUiEnabled() ? <LoginV2 /> : <LegacyLoginPage />;
 }
 
-export default function LoginPage() {
+function LegacyLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get('redirect');
@@ -69,97 +69,13 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    try {
-      setRememberMePreference(rememberMe);
-      const supabaseClient = createSupabaseClient(rememberMe);
-
-      const { data: authData, error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
-
-      if (signInError) {
-        if (signInError.message.includes('Email not confirmed') || signInError.message.includes('not confirmed') || signInError.message.includes('verify your email')) {
-          router.push(`/verify-code?email=${encodeURIComponent(email)}`);
-          return;
-        }
-        setError(
-          signInError.message.includes('Invalid login credentials') || signInError.message.includes('credentials')
-            ? 'Incorrect email or password'
-            : signInError.message
-        );
-        setLoading(false);
-        return;
-      }
-
-      if (!authData.user) { setError('Unable to log in. Please try again.'); setLoading(false); return; }
-
-      const { data: profile, error: profileError } = await supabaseClient
-        .from('profiles').select('*').eq('id', authData.user.id).maybeSingle();
-
-      let profileData = profile;
-      if (profileError || !profileData) {
-        await fetch('/api/profile/ensure', { method: 'POST' }).catch(() => {});
-        const { data: ensured, error: ensuredError } = await supabaseClient
-          .from('profiles').select('*').eq('id', authData.user.id).maybeSingle();
-        if (ensuredError || !ensured) { setError('Unable to fetch user profile.'); setLoading(false); return; }
-        profileData = ensured;
-      }
-
-      if (!profileData.role) { router.push('/signup/complete-role'); return; }
-
-      // Same-origin paths only — see lib/utils/safeRedirect. An unchecked
-      // `?redirect=` here was an open redirect for anyone who signed in.
-      const redirectUrl = safeRedirectPath(searchParams.get('redirect'));
-
-      if (isEmailManagementOnlyAdmin(profileData.email)) { router.push('/admin/emails'); return; }
-      if (redirectUrl) { router.push(redirectUrl); return; }
-      if (profileData.role === 'admin') { router.push(getAdminHomePath(profileData.email)); return; }
-      if (profileData.is_reviewer) { router.push('/reviewer/dashboard'); return; }
-
-      // The one-time Finder backfill. Without it the entire existing user base
-      // is permanently unmatched and the test population is new signups only.
-      //
-      // It sits BELOW the two guards above on purpose:
-      //  - `redirectUrl` already won at line ~114. Someone arriving from a QR
-      //    code or deep link has a stated destination, and hijacking it breaks
-      //    the attributed journey this whole feature exists to protect.
-      //  - the incomplete-profile bounce is still checked first, per role, below.
-      //
-      // Only asked for accounts never prompted, so this costs one request once
-      // per account rather than one on every login. The gate itself is decided
-      // server-side because FINDER_GATE_MODE must not be readable — or
-      // defeatable — from the browser.
-      const wantsFinder = async () => {
-        if (profileData.finder_prompted_at) return false;
-        try {
-          const res = await fetch('/api/finder/gate');
-          if (!res.ok) return false;
-          const json = (await res.json()) as { prompt?: boolean };
-          return json.prompt === true;
-        } catch {
-          return false;
-        }
-      };
-
-      switch (profileData.role) {
-        case 'student': {
-          if (profileData.billing_mode === 'parent_required') { router.push('/student/dashboard'); break; }
-          if (!profileData.form_level) { router.push('/signup/complete-role'); break; }
-          if (await wantsFinder()) { router.push('/find?trigger=login_backfill'); break; }
-          router.push('/student/dashboard');
-          break;
-        }
-        case 'parent': {
-          if (await wantsFinder()) { router.push('/find?trigger=login_backfill'); break; }
-          router.push('/parent/dashboard');
-          break;
-        }
-        case 'tutor': router.push('/tutor/dashboard'); break;
-        default: setError('Invalid user role.'); setLoading(false);
-      }
-    } catch (err) {
-      setError(isNetworkError(err) ? 'Connect to the Internet' : 'An unexpected error occurred. Please try again.');
-      setLoading(false);
-    }
+    // The sign-in and every landing rule live in lib/auth/passwordLogin,
+    // shared with the new-UI screen. On success the spinner stays up while
+    // the next page loads, as before.
+    const result = await passwordLogin({ email, password, rememberMe, redirect: searchParams.get('redirect') });
+    if (result.ok) { router.push(result.to); return; }
+    setError(result.message);
+    setLoading(false);
   };
 
   return (

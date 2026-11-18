@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ShieldCheck, Check, X } from 'lucide-react';
 import { useProfile } from '@/lib/hooks/useProfile';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import { AuthAlert, AuthButton, AuthFrame, AuthLead, AuthMain, AuthTitle, AuthTopBar, Spinner, Wordmark } from '@/components/auth/v2/AuthKit';
 
 type Invite = { status: string; parentName: string; parentAvatar: string | null; childEmail: string; expiresAt: string };
 
@@ -69,6 +71,19 @@ export default function AcceptInvitePage() {
     }
   }
 
+  if (isNewUiEnabled()) {
+    return (
+      <InviteV2
+        busy={(authLoading || loading) && !error && !done}
+        done={done}
+        error={error}
+        invite={invite}
+        responding={responding}
+        respond={respond}
+      />
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background grid place-items-center p-4">
       <div className="w-full max-w-lg">
@@ -110,7 +125,7 @@ export default function AcceptInvitePage() {
               {invite.parentName} wants to connect as your parent or guardian
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              If you accept, they’ll see your classes, bookings and billing — nothing else. Declining is fine and shares nothing.
+              If you accept, they’ll see your classes, bookings and billing — nothing else. You’ll keep paying for your own classes unless they change that. Declining is fine and shares nothing.
             </p>
 
             <div className="mt-5 rounded-2xl bg-muted/50 border border-border p-4 flex items-center justify-between gap-3">
@@ -160,6 +175,137 @@ function Node({ label, text, avatar }: { label: string; text: string; avatar?: s
         {avatar ? <img src={avatar} alt="" className="size-12 object-cover" /> : text}
       </div>
       <span className="text-xs text-muted-foreground truncate max-w-full">{label}</span>
+    </div>
+  );
+}
+
+/* ─── New UI ──────────────────────────────────────────────────────────
+ * The same page in the design system, built from the auth screens' kit
+ * (AuthFrame supplies .ds-root): this screen is reached from an email, often
+ * on a phone, before the student is inside any app shell. Owner, 2026-11-16.
+ * The old card ran off a 390px screen: the student's email sat under their
+ * avatar with nothing letting it shrink. Here every label can wrap.
+ * PROVISIONAL: no frame for this screen. */
+
+function InviteV2({
+  busy,
+  done,
+  error,
+  invite,
+  responding,
+  respond,
+}: {
+  busy: boolean;
+  done: 'accept' | 'decline' | null;
+  error: string;
+  invite: Invite | null;
+  responding: boolean;
+  respond: (a: 'accept' | 'decline') => void;
+}) {
+  const parent = invite?.parentName || 'Your parent or guardian';
+  return (
+    <AuthFrame>
+      <AuthTopBar noBack right={<span className="mx-auto pr-11"><Wordmark /></span>} />
+      <AuthMain className="justify-center">
+        {busy ? (
+          <div className="flex items-center justify-center gap-ds-2 py-20 text-[15px] font-bold text-ink-muted">
+            <Spinner /> Loading your invite…
+          </div>
+        ) : done ? (
+          <>
+            <span
+              className={`grid size-16 place-items-center rounded-ds-card bw-bold border-ink font-display text-[30px] font-extrabold ${done === 'accept' ? 'bg-brand text-ink' : 'bg-surface-card text-ink-muted'}`}
+              aria-hidden
+            >
+              {done === 'accept' ? '✓' : '×'}
+            </span>
+            <AuthTitle>{done === 'accept' ? "You're connected" : 'Invite declined'}</AuthTitle>
+            <AuthLead>
+              {done === 'accept'
+                ? `${parent} can now see your classes, bookings and billing. You can change this in Settings any time.`
+                : 'No connection was made and nothing was shared.'}
+            </AuthLead>
+            <AuthButton tone="student" href="/student/dashboard" className="mt-ds-2">
+              Go to my home
+            </AuthButton>
+          </>
+        ) : error ? (
+          <>
+            <AuthTitle>This invite can&apos;t be opened</AuthTitle>
+            <AuthAlert>{error}</AuthAlert>
+            <AuthButton tone="outline" href="/student/dashboard">
+              Go to my home
+            </AuthButton>
+          </>
+        ) : invite && invite.status === 'pending' ? (
+          <>
+            <span className="self-start rounded-ds-full bg-[#0f2e47] px-ds-3 py-[5px] text-[12px] font-extrabold uppercase tracking-[0.08em] text-on-ink">
+              Parent invite
+            </span>
+            <AuthTitle>{parent} wants to connect as your parent or guardian</AuthTitle>
+            <AuthLead>Declining is fine. Nothing is shared unless you accept.</AuthLead>
+
+            {/* Who is connecting to whom. Each side can wrap; nothing overflows. */}
+            <div className="flex items-center gap-ds-3 rounded-ds-card bw-hair border-ink bg-surface-card p-ds-card">
+              <InvitePerson name={invite.parentName} avatar={invite.parentAvatar} role="Parent" />
+              <span className="shrink-0 text-[20px] font-extrabold text-ink-muted" aria-hidden>
+                →
+              </span>
+              <InvitePerson name={invite.childEmail} role="You" />
+            </div>
+
+            <div className="rounded-ds-card bg-surface-sunken p-ds-card">
+              <p className="m-0 text-[12px] font-extrabold uppercase tracking-[0.06em] text-ink-muted">If you accept, they can see</p>
+              <ul className="m-0 mt-ds-1 flex list-none flex-col gap-[2px] p-0 text-[15px] font-bold text-ink">
+                <li>• Your classes</li>
+                <li>• Your bookings</li>
+                <li>• Your billing</li>
+              </ul>
+              <p className="m-0 mt-ds-2 text-[14px] leading-5 text-ink-muted">
+                Nothing else. You keep paying for your own classes unless they change that.
+              </p>
+            </div>
+
+            <div className="mt-ds-1 flex flex-col gap-ds-2">
+              <AuthButton tone="student" onClick={() => respond('accept')} busy={responding}>
+                Accept
+              </AuthButton>
+              <AuthButton tone="outline" onClick={() => respond('decline')} disabled={responding}>
+                Decline
+              </AuthButton>
+            </div>
+          </>
+        ) : (
+          <>
+            <AuthTitle>This invite is no longer active</AuthTitle>
+            <AuthLead>
+              It was already {invite?.status ?? 'handled'}. Ask your parent or guardian to send a new one if you need it.
+            </AuthLead>
+            <AuthButton tone="outline" href="/student/dashboard">
+              Go to my home
+            </AuthButton>
+          </>
+        )}
+      </AuthMain>
+    </AuthFrame>
+  );
+}
+
+function InvitePerson({ name, avatar, role }: { name: string; avatar?: string | null; role: string }) {
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-ds-2">
+      {avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatar} alt="" className="size-11 shrink-0 rounded-full bw-hair border-ink object-cover" />
+      ) : (
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bw-hair border-ink bg-brand font-display text-[14px] font-extrabold text-ink">
+          {initials(name)}
+        </span>
+      )}
+      <span className="min-w-0">
+        <span className="block text-[11px] font-extrabold uppercase tracking-[0.06em] text-ink-muted">{role}</span>
+        <span className="block text-[14px] font-extrabold leading-5 text-ink [overflow-wrap:anywhere]">{name}</span>
+      </span>
     </div>
   );
 }

@@ -49,7 +49,7 @@ export function NavRow({
     'flex w-full items-center gap-ds-3 rounded-ds-card bw-hair border-border',
     'bg-surface-card p-ds-card text-left font-body text-ink',
     (href || onClick) && 'ds-press cursor-pointer',
-    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink focus-visible:outline-offset-2',
+    'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink focus-visible:outline-offset-2',
     className
   );
 

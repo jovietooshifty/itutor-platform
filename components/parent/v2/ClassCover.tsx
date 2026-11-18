@@ -4,6 +4,14 @@
  * ClassCover — a class's picture, the same on its Explore card and its page,
  * so opening a card reads as that card growing rather than a new screen.
  *
+ * BANNERS ARE SHOWN (14 Nov). Tutors make class banners in the Banner
+ * Builder, and every one on production is 4:1 (1600x400 / 1280x320), so the
+ * cover is drawn at aspect 4:1 by its callers and the banner is never cropped.
+ * The colour block uses the same 4:1 box, so a grid mixing both keeps one
+ * rhythm (the 10 Nov QA problem was a non-banner photo at a fixed height).
+ * Built-in default thumbnails stored in cover_image are not banners and fall
+ * back to the colour block, as does an image that fails to load.
+ *
  * The tutor's uploaded cover when there is one. Otherwise a panel in the
  * class's subject colour with its two-letter code: the same colour and code
  * as its SubjectTile everywhere else in the app. This replaced the
@@ -14,7 +22,9 @@
  * PROVISIONAL VISUALS: no frame draws a cover-less class.
  */
 
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { isDefaultThumbnail } from '@/lib/defaultThumbnails';
 import type { SubjectColor } from '@/components/ui';
 import { subjectCode, subjectColor } from './subjectTile';
 
@@ -33,10 +43,19 @@ export interface ClassCoverProps {
 }
 
 export function ClassCover({ image, subject, className }: ClassCoverProps) {
-  if (image) {
+  const [failed, setFailed] = useState(false);
+  if (image && !failed && !isDefaultThumbnail(image)) {
     // eslint-disable-next-line @next/next/no-img-element -- class covers are user
     // uploads on the allow-listed Supabase domain; next/image buys nothing here.
-    return <img src={image} alt="" className={cn('block w-full object-cover', className)} />;
+    return (
+      <img
+        src={image}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className={cn('block w-full bg-surface-sunken object-cover', className)}
+      />
+    );
   }
   const color = subjectColor(subject);
   return (

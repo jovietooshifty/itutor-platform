@@ -26,13 +26,16 @@ import type { AvailabilityBlock } from '@/lib/matching/availability';
 import type { CanonicalLevel } from '@/lib/matching/levels';
 import type { DeliveryPref } from '@/lib/matching/delivery';
 import { BUDGET_BANDS } from '@/lib/finder/wizard';
+import { subjectsForRun } from '@/lib/finder/runSubjects';
 
 export const dynamic = 'force-dynamic';
 
 const COLUMNS =
-  'level, availability_blocks, lesson_type, delivery_pref, budget_max, urgency, child_label';
+  'id, subject_id, level, availability_blocks, lesson_type, delivery_pref, budget_max, urgency, child_label';
 
 interface RunRow {
+  id: string;
+  subject_id: string | null;
   level: string | null;
   availability_blocks: string[] | null;
   lesson_type: string | null;
@@ -113,9 +116,13 @@ export async function GET() {
       const row = (data ?? null) as unknown as RunRow | null;
       if (!row) return NextResponse.json({ answers: null });
 
+      const subjects = await subjectsForRun(service, row.id, row.subject_id);
+
       return NextResponse.json({
         answers: {
           level: (row.level as CanonicalLevel | null) ?? null,
+          // Omitted when empty, so the wizard's merge keeps whatever it has.
+          ...(subjects.length > 0 ? { subjects } : {}),
           availabilityBlocks: (row.availability_blocks ?? []) as AvailabilityBlock[],
           lessonType: row.lesson_type,
           deliveryPref: (row.delivery_pref as DeliveryPref | null) ?? null,
