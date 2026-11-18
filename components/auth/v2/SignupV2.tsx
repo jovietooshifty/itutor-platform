@@ -577,7 +577,7 @@ function LearnerSubjectsField({
     <AuthField
       label={fromFinder ? 'Do you study anything else?' : 'What subjects do you study?'}
       htmlFor="su-learner-subject"
-      hint={fromFinder ? 'Your subjects from the questions are below. Search to add more.' : 'Search, then tap to add.'}
+      hint={fromFinder ? 'Search to add more. Tap a subject to remove it.' : 'Search, then tap to add.'}
     >
       {value.length > 0 && (
         <div className="flex flex-wrap gap-ds-2 pb-1">
