@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase/client';
 import InstitutionAutocomplete from '@/components/InstitutionAutocomplete';
 import { Institution } from '@/lib/hooks/useInstitutionsSearch';
 import { setUserSubjects } from '@/lib/supabase/userSubjects';
+import { saveLearnerSubjects } from '@/lib/auth/saveLearnerSubjects';
 import { ensureSchoolCommunityAndMembership } from '@/lib/actions/community';
 import ProfilePhotoStep from '@/components/onboarding/ProfilePhotoStep';
 import { cn } from '@/lib/utils';
@@ -84,6 +85,9 @@ export default function CompleteRolePage() {
   const [affiliation, setAffiliation] = useState<'attend' | 'teach' | 'no' | null>(null);
   const [studentInstitution, setStudentInstitution] = useState<Institution | null>(null);
   const [year, setYear] = useState('');
+  // Subjects picked in the Finder before this account existed; saved with the
+  // student profile so the Google path keeps them too.
+  const [finderSubjects, setFinderSubjects] = useState<string[]>([]);
 
   /**
    * Pick up the year level from a Finder run answered before this account
@@ -100,7 +104,8 @@ export default function CompleteRolePage() {
       try {
         const res = await fetch('/api/finder/prefill', { cache: 'no-store' });
         if (!res.ok) return;
-        const data = (await res.json()) as { form_level_label?: string | null };
+        const data = (await res.json()) as { form_level_label?: string | null; subjects?: string[] };
+        if (!cancelled && Array.isArray(data?.subjects)) setFinderSubjects(data.subjects);
         const label = data?.form_level_label ?? null;
         if (cancelled || !label) return;
         if (!YEAR_LEVELS.some((y) => y.value === label)) return;
@@ -210,6 +215,7 @@ export default function CompleteRolePage() {
         institution_id: showSchool && studentInstitution ? studentInstitution.id : null,
       });
       if (showSchool && studentInstitution) await ensureSchoolCommunityAndMembership(userId!);
+      if (finderSubjects.length > 0) await saveLearnerSubjects(userId!, finderSubjects, year);
       // The role dashboard is the FALLBACK, not the destination. `returnTo` is
       // the page the visitor was trying to reach before role selection cut in;
       // overwriting it here dropped it at the last step, after the callback had

@@ -134,7 +134,7 @@ interface SubmitBody {
    *  does not send it, and a stale tab should record null rather than 400. */
   deliveryPref?: DeliveryPref | null;
   budgetBand: string;
-  urgency: 'now' | 'this_month' | 'exploring';
+  urgency?: 'now' | 'this_month' | 'exploring' | null;
   childLabel?: string | null;
   /** The picker's answer. Optional so an authed run can omit it and take the
    *  role from the profile instead. */
@@ -330,7 +330,7 @@ export async function POST(req: NextRequest) {
       lesson_type: body.lessonType,
       delivery_pref: deliveryPref,
       budget_max: budgetMax,
-      urgency: body.urgency,
+      urgency: body.urgency ?? null,
       attribution,
     },
     ['delivery_pref', 'subject_text']
@@ -470,7 +470,7 @@ export async function POST(req: NextRequest) {
         lesson_type: body.lessonType,
         delivery_pref: deliveryPref,
         budget_band: body.budgetBand,
-        urgency: body.urgency,
+        urgency: body.urgency ?? null,
       },
       run_number: runNumber,
     },

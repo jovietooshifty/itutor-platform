@@ -231,7 +231,10 @@ export function questionSequence(isParent: boolean): number[] {
     STEP.LESSON_TYPE,
     STEP.DELIVERY,
     STEP.BUDGET,
-    STEP.URGENCY,
+    // STEP.URGENCY is no longer asked (owner, 18 Nov 2026). Nothing reads it:
+    // the matcher ignores it and no admin screen shows it, so it was a question
+    // that cost every family a screen and bought nothing. The constant stays so
+    // an old ?step=5 link is still recognised; the column is nullable.
   ];
   return isParent ? [STEP.CHILD, ...tail] : tail;
 }
@@ -374,8 +377,11 @@ export function validateAnswers(input: unknown): string | null {
   if (typeof a.budgetBand !== 'string' || !BUDGET_BANDS.some(b => b.value === a.budgetBand)) {
     return 'budgetBand';
   }
-  if (typeof a.urgency !== 'string' || !URGENCIES.some(u => u.value === a.urgency)) {
-    return 'urgency';
+  // Optional since the question was dropped; still validated when sent.
+  if (a.urgency !== null && a.urgency !== undefined) {
+    if (typeof a.urgency !== 'string' || !URGENCIES.some(u => u.value === a.urgency)) {
+      return 'urgency';
+    }
   }
 
   // childLabel is optional (students never have one) but must be sane if given.
