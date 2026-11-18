@@ -10,10 +10,8 @@
  * Continue disabled rather than hidden, no artificial delay) instead of two
  * that could drift.
  *
- * One deliberate behaviour difference, from the frame: tapping a SUBJECT row
- * selects it and moves on (OB05's rows carry a chevron, not a radio). Every
- * other question keeps an explicit Continue, because they are either
- * multi-select or worth a second look.
+ * The SUBJECT step is multi-select (owner, 18 Nov): a tap toggles a row and
+ * Continue moves on. OB05's subject tiles and chevrons are gone on purpose.
  */
 
 import type { ReadonlyURLSearchParams } from 'next/navigation';
@@ -43,6 +41,7 @@ import {
   DELIVERY_PREFS,
   FINDER_LEVEL_LABELS,
   LESSON_TYPES,
+  MAX_SUBJECTS,
   QUESTIONNAIRE_LEVELS,
   STEP,
   URGENCIES,
@@ -135,7 +134,6 @@ export interface FinderWizardV2Props {
   goToStep: (step: number) => void;
   skip: () => void;
   submit: () => void;
-  onSubjectPicked: () => void;
   headingRef: Ref<HTMLHeadingElement>;
   searchParams: ReadonlyURLSearchParams;
 }
@@ -199,11 +197,16 @@ export default function FinderWizardV2(p: FinderWizardV2Props) {
     );
   } else if (step === STEP.SUBJECT) {
     title = p.isParent ? `What does ${p.who} need help with?` : 'What do you need help with?';
-    lead = answers.level ? `${FINDER_LEVEL_LABELS[answers.level]} subjects.` : 'Pick the subject you want a class in.';
-    const pick = (subject: string) => {
-      setAnswers((a) => ({ ...a, subject }));
-      p.onSubjectPicked();
-    };
+    lead = answers.level
+      ? `${FINDER_LEVEL_LABELS[answers.level]} subjects. Pick all that apply.`
+      : 'Pick every subject you want a class in.';
+    // Multi-select: a tap toggles. Continue moves on once at least one is picked.
+    const pick = (subject: string) =>
+      setAnswers((a) => {
+        if (a.subjects.includes(subject)) return { ...a, subjects: a.subjects.filter((s) => s !== subject) };
+        if (a.subjects.length >= MAX_SUBJECTS) return a;
+        return { ...a, subjects: [...a.subjects, subject] };
+      });
     body = (
       <div className="flex flex-col gap-ds-3">
         <div className="relative">
@@ -252,7 +255,7 @@ export default function FinderWizardV2(p: FinderWizardV2Props) {
                     subject={s}
                     badge="You study this"
                     tone={tone}
-                    selected={answers.subject === s}
+                    selected={answers.subjects.includes(s)}
                     onSelect={() => pick(s)}
                   />
                 ))}
@@ -264,7 +267,7 @@ export default function FinderWizardV2(p: FinderWizardV2Props) {
             {p.restShown.length > 0 ? (
               <SubjectList>
                 {p.restShown.map((s) => (
-                  <SubjectRow key={s} subject={s} tone={tone} selected={answers.subject === s} onSelect={() => pick(s)} />
+                  <SubjectRow key={s} subject={s} tone={tone} selected={answers.subjects.includes(s)} onSelect={() => pick(s)} />
                 ))}
               </SubjectList>
             ) : null}
@@ -384,7 +387,7 @@ export default function FinderWizardV2(p: FinderWizardV2Props) {
 
   return (
     <FinderFrame>
-      {p.submitting ? <FindingScreen subject={answers.subject} who={p.isParent ? p.who : 'you'} /> : null}
+      {p.submitting ? <FindingScreen subject={answers.subjects.length === 1 ? answers.subjects[0] : null} who={p.isParent ? p.who : 'you'} /> : null}
       <FinderTopBar
         tone={tone}
         onBack={p.canGoBack ? p.goBack : undefined}
@@ -426,7 +429,7 @@ export default function FinderWizardV2(p: FinderWizardV2Props) {
           <div className="sticky bottom-0 -mx-5 bg-surface-page px-5 pb-1 pt-ds-2">
             {step === STEP.SUBJECT ? (
               <FinderButton tone={tone} disabled={!p.answered} onClick={p.advance}>
-                Continue
+                {answers.subjects.length > 1 ? `Continue with ${answers.subjects.length} subjects` : 'Continue'}
               </FinderButton>
             ) : (
               <FinderButton

@@ -101,7 +101,7 @@ function pickAnswered(a: FinderAnswers): Partial<FinderAnswers> {
   const out: Partial<FinderAnswers> = {};
   if (a.childLabel) out.childLabel = a.childLabel;
   if (a.level) out.level = a.level;
-  if (a.subject) out.subject = a.subject;
+  if (a.subjects.length > 0) out.subjects = a.subjects;
   if (a.availabilityBlocks.length > 0) out.availabilityBlocks = a.availabilityBlocks;
   if (a.lessonType) out.lessonType = a.lessonType;
   if (a.deliveryPref) out.deliveryPref = a.deliveryPref;
@@ -195,7 +195,7 @@ export default function FinderWizard({
 
   const [answers, setAnswers] = useState<FinderAnswers>(() => ({
     ...emptyAnswers(),
-    subject: prefillSubject,
+    subjects: prefillSubject ? [prefillSubject] : [],
     // An authed run does not ask the level; pre-selecting it from the profile
     // keeps the wizard from ever disagreeing with the account.
     level: profileLevel,
@@ -394,7 +394,7 @@ export default function FinderWizard({
           // both are known. Null for CAPE, on purpose: signup asks which
           // sixth-form year rather than us guessing one.
           formLevelLabel: formLevelLabelFor(answers.level),
-          subject: answers.subject,
+          subjects: answers.subjects,
           availabilityBlocks: answers.availabilityBlocks,
           lessonType: answers.lessonType,
           deliveryPref: answers.deliveryPref,
@@ -452,13 +452,6 @@ export default function FinderWizard({
         goToStep={goToStep}
         skip={skip}
         submit={submit}
-        onSubjectPicked={() => {
-          // Tapping a subject row is the answer (OB05). The state update lands
-          // before the URL change re-renders, so the next step sees it.
-          if (nextStep === null) return;
-          trackClient(PRODUCT_EVENTS.FINDER_STEP, { step, value: null });
-          goToStep(nextStep);
-        }}
         headingRef={headingRef}
         searchParams={searchParams}
       />
@@ -569,8 +562,8 @@ export default function FinderWizard({
                 key={subject}
                 label={subject}
                 badge="You study this"
-                selected={answers.subject === subject}
-                onSelect={() => setAnswers(a => ({ ...a, subject }))}
+                selected={answers.subjects.includes(subject)}
+                onSelect={() => setAnswers(a => ({ ...a, subjects: [subject] }))}
               />
             ))}
             {savedShown.length > 0 && restShown.length > 0 ? (
@@ -582,8 +575,8 @@ export default function FinderWizard({
               <OptionRow
                 key={subject}
                 label={subject}
-                selected={answers.subject === subject}
-                onSelect={() => setAnswers(a => ({ ...a, subject }))}
+                selected={answers.subjects.includes(subject)}
+                onSelect={() => setAnswers(a => ({ ...a, subjects: [subject] }))}
               />
             ))}
           </div>
