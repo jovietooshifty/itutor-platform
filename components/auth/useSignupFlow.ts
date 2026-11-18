@@ -21,6 +21,7 @@ import { Institution } from '@/lib/hooks/useInstitutionsSearch';
 import { setUserSubjects } from '@/lib/supabase/userSubjects';
 import { ensureSchoolCommunityAndMembership } from '@/lib/actions/community';
 import { safeRedirectOr } from '@/lib/utils/safeRedirect';
+import { saveLearnerSubjects } from '@/lib/auth/saveLearnerSubjects';
 
 export type UserRole = 'student' | 'tutor' | 'parent';
 export type Step = 'details' | 'role' | 'verify' | 'confirmed' | 'profile';
@@ -83,9 +84,54 @@ export type SignupFlowOptions = {
   role?: UserRole | null;
   /** A year level already given (Finder run). See SignupCard for why CAPE is null. */
   prefillFormLevel?: string | null;
+  /** Do not ask for a username: derive one from the full name and add digits
+   *  until it is free. The new UI does this for students and parents, whose
+   *  username is never shown as a public address. Full name becomes required. */
+  autoUsername?: boolean;
 };
 
-export function useSignupFlow({ redirectTo, role: roleOverride, prefillFormLevel }: SignupFlowOptions = {}) {
+/** What this browser already told the Finder, from /api/finder/prefill. */
+export type FinderPrefill = {
+  enabled: boolean;
+  hasRun: boolean;
+  /** Canonical level (FORM_5, CAPE, ...). */
+  level: string | null;
+  subjects: string[];
+};
+
+/** Profile year (YEAR_LEVELS value) to the Finder's canonical level. */
+export function canonicalForYear(year: string): string | null {
+  if (!year) return null;
+  if (year === 'SEA') return 'SEA';
+  if (year === 'Lower 6' || year === 'Upper 6') return 'CAPE';
+  const m = /^Form ([1-5])$/.exec(year);
+  return m ? `FORM_${m[1]}` : null;
+}
+
+/** Teaching levels a tutor subject implies (the label carries its exam). */
+export function levelsForTutorSubject(subject: string): string[] {
+  if (subject.startsWith('CSEC ')) return ['form-4', 'form-5'];
+  if (subject.startsWith('CAPE ')) return ['cape-1', 'cape-2'];
+  if (subject.startsWith('SEA ')) return ['sea'];
+  return [];
+}
+
+function usernameBase(name: string, fallback: string): string {
+  const b = name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 24);
+  return b.length >= 3 ? b : fallback;
+}
+
+export function useSignupFlow({
+  redirectTo,
+  role: roleOverride,
+  prefillFormLevel,
+  autoUsername = false,
+}: SignupFlowOptions = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   // A prop wins over the URL: the modal is rendered on another route entirely,
@@ -140,31 +186,64 @@ export function useSignupFlow({ redirectTo, role: roleOverride, prefillFormLevel
     prefillFormLevel && YEAR_LEVELS.some((l) => l.value === prefillFormLevel) ? prefillFormLevel : ''
   );
 
+  // Subjects the learner studies, saved to user_subjects at the profile step.
+  // Seeded from the Finder run; the profile step asks for any others.
+  const [studentSubjects, setStudentSubjects] = useState<string[]>([]);
+  // Null until the prefill read settles, so the caller can wait on it before
+  // deciding whether to send a student to the Finder first.
+  const [finder, setFinder] = useState<FinderPrefill | null>(null);
+
   /**
-   * Pick up a year level the visitor already gave the Finder, before they had
-   * an account. Fetched because the `finder_token` cookie is httpOnly. Only
-   * ever fills an EMPTY field, and only from a real stored run.
+   * Pick up what the visitor already gave the Finder before they had an
+   * account: year level and subjects. Fetched because the `finder_token`
+   * cookie is httpOnly. Only ever fills EMPTY fields, only from a real run.
    */
   useEffect(() => {
-    if (prefillFormLevel) return; // an explicit prop wins
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch('/api/finder/prefill', { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = (await res.json()) as { form_level_label?: string | null };
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as {
+          enabled?: boolean;
+          has_run?: boolean;
+          level?: string | null;
+          form_level_label?: string | null;
+          subjects?: string[];
+        };
+        if (cancelled) return;
+        const subjects = Array.isArray(data?.subjects)
+          ? data.subjects.filter((s) => typeof s === 'string')
+          : [];
+        setFinder({
+          enabled: Boolean(data?.enabled),
+          hasRun: Boolean(data?.has_run),
+          level: data?.level ?? null,
+          subjects,
+        });
+        if (subjects.length > 0) setStudentSubjects((cur) => (cur.length > 0 ? cur : subjects));
         const label = data?.form_level_label ?? null;
-        if (cancelled || !label) return;
-        if (!YEAR_LEVELS.some((l) => l.value === label)) return;
-        setYear((current) => current || label);
+        if (!prefillFormLevel && label && YEAR_LEVELS.some((l) => l.value === label)) {
+          setYear((current) => current || label);
+        }
       } catch {
-        // No run, no cookie, or the route is unavailable.
+        // No run, no cookie, or the route is unavailable: ask as before.
+        if (!cancelled) setFinder({ enabled: false, hasRun: false, level: null, subjects: [] });
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [prefillFormLevel]);
+
+  /**
+   * Where a learner lands after signup when no ?redirect= says otherwise. With
+   * a Finder run on this browser that is their matches, which the run is about
+   * to be adopted onto; /find?trigger=signup would ask every question again
+   * (including the level they just gave), which is what the owner hit.
+   */
+  const learnerHome = (r: UserRole | null): string =>
+    finder?.hasRun ? (r === 'parent' ? '/parent/matches' : '/student/matches') : '/find?trigger=signup';
 
   // Step 3
   const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
@@ -208,6 +287,22 @@ export function useSignupFlow({ redirectTo, role: roleOverride, prefillFormLevel
     return () => clearInterval(t);
   }, [resendIn]);
 
+  // Auto username: follow the full name, and on a clash try the same base with
+  // a few digits. Bounded so a pathological name cannot loop the checker.
+  const [usernameTries, setUsernameTries] = useState(0);
+  useEffect(() => {
+    if (!autoUsername) return;
+    setUsernameTries(0);
+  }, [autoUsername, fullName]);
+  useEffect(() => {
+    if (!autoUsername) return;
+    const fallback = presetRole === 'parent' ? 'parent' : 'student';
+    const base = usernameBase(fullName, fallback);
+    const suffix =
+      usernameTries === 0 && base !== fallback ? '' : String(Math.floor(100 + Math.random() * 9900));
+    setUsername(`${base}${suffix}`.slice(0, 30));
+  }, [autoUsername, fullName, usernameTries, presetRole]);
+
   // Real-time username check
   useEffect(() => {
     setUsernameError('');
@@ -226,7 +321,10 @@ export function useSignupFlow({ redirectTo, role: roleOverride, prefillFormLevel
           body: JSON.stringify({ username: trimmed }),
         });
         const data = await res.json();
-        if (data.usernameAvailable === false) setUsernameError('Username already taken');
+        if (data.usernameAvailable === false) {
+          if (autoUsername) setUsernameTries((n) => (n < 6 ? n + 1 : n));
+          setUsernameError('Username already taken');
+        }
         else setUsernameAvailable(true);
       } catch { /* ignore */ } finally { setUsernameChecking(false); }
     }, 400);
@@ -236,7 +334,8 @@ export function useSignupFlow({ redirectTo, role: roleOverride, prefillFormLevel
   const usernameValid = /^[a-zA-Z0-9_]{3,30}$/.test(username) && !usernameError && usernameAvailable;
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const passwordValid = password.length >= 8;
-  const detailsValid = usernameValid && emailValid && !!country && passwordValid && agree;
+  const nameValid = !autoUsername || fullName.trim().length >= 2;
+  const detailsValid = usernameValid && nameValid && emailValid && !!country && passwordValid && agree;
 
   // ---- Step 2 ----
   /** True when the code went out. */
@@ -359,7 +458,7 @@ export function useSignupFlow({ redirectTo, role: roleOverride, prefillFormLevel
         // Parent: no extra profile step (children are added later), so they go
         // straight to the Finder. A `?redirect=` still wins. No flag check here:
         // /find's layout bounces to the dashboard when the Finder is off.
-        router.push(safeRedirectOr(redirectParam, '/find?trigger=signup'));
+        router.push(safeRedirectOr(redirectParam, learnerHome('parent')));
       }
     }, 1400);
   };
@@ -389,21 +488,30 @@ export function useSignupFlow({ redirectTo, role: roleOverride, prefillFormLevel
       if (updateError) { setError(`Error saving profile: ${updateError.message}`); return; }
 
       if (showSchool && studentInstitution) await ensureSchoolCommunityAndMembership(userId!);
-      router.push(safeRedirectOr(redirectParam, '/find?trigger=signup'));
+      // Best-effort: a failure costs the "You study this" badge, not the account.
+      if (studentSubjects.length > 0) await saveLearnerSubjects(userId!, studentSubjects, year);
+      router.push(safeRedirectOr(redirectParam, learnerHome('student')));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally { setLoading(false); }
   };
 
   // ---- Step 5: Tutor profile ----
+  /**
+   * Subjects first; levels follow from them. "CSEC Chemistry" already says
+   * Form 4-5, so the level chips are prefilled from the subjects and only Form
+   * 1-3 (which have no subjects in the list) need a tap. Requiring both up
+   * front was two questions for one fact.
+   */
   const handleTutorProfile = async () => {
-    if (tLevels.length === 0) { setError('Select at least one teaching level.'); return; }
-    const needsSubjects = tLevels.some((l) => l !== 'sea');
-    if (needsSubjects && tSubjects.length === 0) { setError('Select at least one subject.'); return; }
+    // The chips arrive ticked from the subjects (addTutorSubject) and stay
+    // editable, so an untick is honoured; derive only if none are left.
+    const levels = tLevels.length > 0 ? tLevels : Array.from(new Set(tSubjects.flatMap(levelsForTutorSubject)));
+    if (tSubjects.length === 0 && levels.length === 0) { setError('Add at least one subject you teach.'); return; }
     setError('');
     setLoading(true);
     try {
-      await supabase.from('profiles').update({ teaching_levels: tLevels }).eq('id', userId);
+      await supabase.from('profiles').update({ teaching_levels: levels }).eq('id', userId);
       if (tSubjects.length > 0) await setUserSubjects(userId!, tSubjects);
       router.push(safeRedirectOr(redirectParam, '/tutor/dashboard'));
     } catch (err) {
@@ -413,7 +521,12 @@ export function useSignupFlow({ redirectTo, role: roleOverride, prefillFormLevel
 
   const toggleLevel = (v: string) =>
     setTLevels((cur) => cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]);
-  const addTutorSubject = (s: string) => { if (!tSubjects.includes(s)) setTSubjects((cur) => [...cur, s]); setTQuery(''); };
+  const addTutorSubject = (s: string) => {
+    if (!tSubjects.includes(s)) setTSubjects((cur) => [...cur, s]);
+    const implied = levelsForTutorSubject(s);
+    if (implied.length > 0) setTLevels((cur) => Array.from(new Set([...cur, ...implied])));
+    setTQuery('');
+  };
   const removeTutorSubject = (s: string) => setTSubjects((cur) => cur.filter((x) => x !== s));
 
   const filteredTutorSubjects = useMemo(() =>
@@ -433,6 +546,7 @@ export function useSignupFlow({ redirectTo, role: roleOverride, prefillFormLevel
     role, setRole, parentAccountsEnabled,
     code, setCode, resendIn, resendLoading, verifyError, verifying,
     affiliation, setAffiliation, studentInstitution, setStudentInstitution, year, setYear,
+    studentSubjects, setStudentSubjects, finder, nameValid,
     tLevels, tSubjects, tQuery, setTQuery, toggleLevel, addTutorSubject, removeTutorSubject, filteredTutorSubjects,
     loading, error, setError,
     handleStep1, handleStep2, sendCode, handleVerify, handleStudentProfile, handleTutorProfile,

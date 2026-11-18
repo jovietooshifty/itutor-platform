@@ -18,10 +18,9 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronRight, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ShieldCheck } from 'lucide-react';
 import '@/components/ui/ds-tokens.css';
-import { DS_ROOT_CLASS, SubjectTile } from '@/components/ui';
-import { subjectCode, subjectColor } from '@/components/parent/v2/subjectTile';
+import { DS_ROOT_CLASS } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
 export type FinderTone = 'student' | 'parent';
@@ -250,23 +249,24 @@ export function SubjectRow({
         FOCUS
       )}
     >
-      <SubjectTile code={subjectCode(subject)} color={subjectColor(subject)} size={44} />
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 py-[6px]">
         <span className="block text-[16px] font-extrabold leading-[1.25] text-ink [overflow-wrap:anywhere]">{subject}</span>
         {badge ? <span className="text-[12px] font-extrabold text-brand-edge">{badge}</span> : null}
       </span>
-      {selected ? (
-        <span
-          className={cn(
-            'grid size-6 shrink-0 place-items-center rounded-full',
-            tone === 'parent' ? 'bg-[#0f2e47] text-on-ink' : 'bg-brand text-ink'
-          )}
-        >
-          <Check className="size-[14px]" strokeWidth={3} aria-label="Selected" />
-        </span>
-      ) : (
-        <ChevronRight aria-hidden className="size-5 shrink-0 text-ink" strokeWidth={2.25} />
-      )}
+      {/* A tick box, not a chevron: the list is multi-select. */}
+      <span
+        aria-hidden
+        className={cn(
+          'grid size-6 shrink-0 place-items-center rounded-[6px] bw-bold',
+          selected
+            ? tone === 'parent'
+              ? 'border-[#0f2e47] bg-[#0f2e47] text-on-ink'
+              : 'border-ink bg-brand text-ink'
+            : 'border-border-strong bg-surface-card text-transparent'
+        )}
+      >
+        <Check className="size-[14px]" strokeWidth={3} />
+      </span>
     </button>
   );
 }
@@ -359,7 +359,10 @@ export function FindingScreen({ subject, who }: { subject: string | null; who: s
     <div
       role="status"
       aria-live="polite"
-      className={cn(DS_ROOT_CLASS, 'fixed inset-0 z-50 flex flex-col bg-[#10301d] font-body text-on-ink')}
+      // The background is inline on purpose: .ds-root paints the page surface
+      // and beat the bg-[#10301d] utility, leaving white text on a light page.
+      className={cn(DS_ROOT_CLASS, 'fixed inset-0 z-50 flex flex-col font-body text-on-ink')}
+      style={{ background: '#10301d', color: '#fff' }}
     >
       <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col px-6 pb-10">
         <div className="flex flex-1 items-center">

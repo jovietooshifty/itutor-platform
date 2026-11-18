@@ -15,22 +15,30 @@
  * This file is presentation only.
  *
  * Differences from the frames, each deliberate:
- * - Username and Country are asked. /api/auth/register requires both (the
- *   username is the public profile address). The username is suggested from
- *   the full name until the person edits it; country starts on Trinidad and
- *   Tobago, visible and changeable.
+ * - Teachers are asked for a username (their public profile address).
+ *   Students and parents are not: /api/auth/register still needs one, so it is
+ *   derived from the full name, with digits added if taken. Country starts on
+ *   Trinidad and Tobago, visible and changeable.
+ * - Students and parents answer the Finder BEFORE this screen, and the profile
+ *   step is prefilled from it (year, subjects); see AccountFlow.
  * - No WhatsApp field: there is nowhere to store it at sign-up.
  * - The Terms tick box becomes the frames' "By continuing you agree" line.
  * - The marketing tick box stays: it records consent, and it must be a choice.
- * - G1b's subject chips and the "first quest" note are not built; the Finder
- *   asks for subjects next, and quests have no backend.
+ * - G1b's subject chips are built (seeded from the Finder). The "first quest"
+ *   note is not: quests have no backend.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { SIGNUP_COUNTRIES } from '@/lib/auth/signupCountries';
 import { cn } from '@/lib/utils';
-import { TUTOR_LEVELS, YEAR_LEVELS, useSignupFlow, type SignupFlow } from '../useSignupFlow';
+import {
+  TUTOR_LEVELS,
+  YEAR_LEVELS,
+  canonicalForYear,
+  useSignupFlow,
+  type SignupFlow,
+} from '../useSignupFlow';
 import {
   AuthAlert,
   AuthButton,
@@ -73,7 +81,27 @@ export default function SignupV2() {
 }
 
 function AccountFlow({ role }: { role: AuthRole }) {
-  const f = useSignupFlow({ role });
+  const router = useRouter();
+  // Students and parents never see a username field: theirs is not a public
+  // address, so it is derived from the full name (see useSignupFlow).
+  const f = useSignupFlow({ role, autoUsername: role !== 'tutor' });
+
+  /**
+   * FINDER FIRST, for every student and parent (owner, 18 Nov 2026).
+   *
+   * The account is created on the far side of the questionnaire, so signup can
+   * reuse its answers instead of asking them again. Someone who reaches
+   * /signup?role=student without a run on this browser is sent to the Finder;
+   * its results then link back here. A ?redirect= (an invite, Class Match Week,
+   * a class link) means another flow sent them, and wins. A Finder that is
+   * switched off (enabled: false) never redirects.
+   */
+  const learner = role === 'student' || role === 'parent';
+  const sendToFinder =
+    learner && f.step === 'details' && !f.redirectParam && f.finder?.enabled === true && !f.finder.hasRun;
+  useEffect(() => {
+    if (sendToFinder) router.replace(`/find?role=${role}`);
+  }, [sendToFinder, role, router]);
 
   // The frames agree to the Terms by continuing (see LegalLine), and the
   // business is in Trinidad and Tobago, so start there.
@@ -82,6 +110,18 @@ function AccountFlow({ role }: { role: AuthRole }) {
     setAgree(true);
     setCountry((c) => c || 'TT');
   }, [setAgree, setCountry]);
+
+  if (learner && f.step === 'details' && (f.finder === null || sendToFinder)) {
+    return (
+      <AuthFrame>
+        <AuthMain className="items-center justify-center">
+          <span className="text-ink-muted">
+            <Spinner />
+          </span>
+        </AuthMain>
+      </AuthFrame>
+    );
+  }
 
   if (f.step === 'verify') return <VerifyStep f={f} role={role} />;
   if (f.step === 'confirmed') return <ConfirmedStep role={role} />;
@@ -108,7 +148,8 @@ function DetailsStep({ f, role }: { f: SignupFlow; role: AuthRole }) {
 
   const onName = (v: string) => {
     f.setFullName(v);
-    if (!usernameTouched) f.setUsername(suggestUsername(v));
+    // Students and parents: the hook derives the username itself.
+    if (role === 'tutor' && !usernameTouched) f.setUsername(suggestUsername(v));
   };
 
   const usernameState = !f.username
@@ -153,7 +194,11 @@ function DetailsStep({ f, role }: { f: SignupFlow; role: AuthRole }) {
         <OrDivider />
 
         <form onSubmit={f.handleStep1} className="flex flex-col gap-[14px]" noValidate>
-          <AuthField label="Full name" htmlFor="su-name">
+          <AuthField
+            label="Full name"
+            htmlFor="su-name"
+            hint={role === 'tutor' ? undefined : 'Shown to your teachers.'}
+          >
             <AuthInput
               id="su-name"
               autoComplete="name"
@@ -164,6 +209,7 @@ function DetailsStep({ f, role }: { f: SignupFlow; role: AuthRole }) {
             />
           </AuthField>
 
+          {role === 'tutor' ? (
           <AuthField
             label="Username"
             htmlFor="su-username"
@@ -186,6 +232,7 @@ function DetailsStep({ f, role }: { f: SignupFlow; role: AuthRole }) {
               maxLength={30}
             />
           </AuthField>
+          ) : null}
 
           <AuthField label="Email" htmlFor="su-email">
             <AuthInput
@@ -409,13 +456,35 @@ export function Chip({ on, onClick, children }: { on: boolean; onClick: () => vo
   );
 }
 
+/**
+ * The learner's profile step, PARTLY FILLED from the Finder (owner, 18 Nov).
+ *
+ * - Year: already answered in the Finder, so it shows as a settled answer with
+ *   a Change link, not the chip grid again. CAPE is the one exception: the
+ *   Finder records "CAPE" and the profile needs Lower 6 or Upper 6, so only
+ *   those two chips are offered.
+ * - Subjects: the Finder's picks arrive as chips; the question is "anything
+ *   else?", answered from the same subject list the Finder used.
+ * - School: new here, optional.
+ */
 function StudentProfileStep({ f }: { f: SignupFlow }) {
+  const fromFinder = f.finder?.hasRun === true;
+  const finderLevel = f.finder?.level ?? null;
+  const [editYear, setEditYear] = useState(!f.year);
+  const capeOnly = !f.year && finderLevel === 'CAPE';
+  const yearChoices = capeOnly ? YEAR_LEVELS.filter((y) => y.value === 'Lower 6' || y.value === 'Upper 6') : YEAR_LEVELS;
+  const yearLabel = YEAR_LEVELS.find((y) => y.value === f.year)?.value ?? f.year;
+
   return (
     <AuthFrame>
       <AuthTopBar noBack right={<span className="ml-auto text-[13px] font-extrabold tracking-[0.72px] text-brand-edge">LAST STEP</span>} />
       <AuthMain>
-        <AuthTitle>What are you studying?</AuthTitle>
-        <AuthLead>So we can show you the right classes and teachers.</AuthLead>
+        <AuthTitle>{fromFinder ? 'Almost done' : 'What are you studying?'}</AuthTitle>
+        <AuthLead>
+          {fromFinder
+            ? 'We kept what you told us. Add anything we missed.'
+            : 'So we can show you the right classes and teachers.'}
+        </AuthLead>
         {f.error && <AuthAlert>{f.error}</AuthAlert>}
 
         <form
@@ -423,16 +492,35 @@ function StudentProfileStep({ f }: { f: SignupFlow }) {
           className="flex flex-col gap-[18px]"
           noValidate
         >
-          <fieldset className="flex flex-col gap-[8px]">
-            <legend className="mb-[8px] text-[15px] font-extrabold text-ink">Year</legend>
-            <div className="flex flex-wrap gap-ds-2">
-              {YEAR_LEVELS.map((y) => (
-                <Chip key={y.value} on={f.year === y.value} onClick={() => f.setYear(y.value)}>
-                  {y.value}
-                </Chip>
-              ))}
+          {f.year && !editYear ? (
+            <div className="flex items-center justify-between gap-ds-3 rounded-[10px] bw-hair border-border-strong bg-surface-card px-[14px] py-[12px]">
+              <span className="min-w-0">
+                <span className="block text-[13px] font-extrabold text-ink-muted">Year</span>
+                <span className="block text-[16px] font-extrabold text-ink">{yearLabel}</span>
+              </span>
+              <ULink onClick={() => setEditYear(true)}>Change</ULink>
             </div>
-          </fieldset>
+          ) : (
+            <fieldset className="flex flex-col gap-[8px]">
+              <legend className="mb-[8px] text-[15px] font-extrabold text-ink">
+                {capeOnly ? 'Lower 6 or Upper 6?' : 'Year'}
+              </legend>
+              <div className="flex flex-wrap gap-ds-2">
+                {yearChoices.map((y) => (
+                  <Chip key={y.value} on={f.year === y.value} onClick={() => f.setYear(y.value)}>
+                    {y.value}
+                  </Chip>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          <LearnerSubjectsField
+            year={f.year}
+            value={f.studentSubjects}
+            onChange={f.setStudentSubjects}
+            fromFinder={fromFinder && f.studentSubjects.length > 0}
+          />
 
           <SchoolPickerV2 value={f.studentInstitution} onChange={f.setStudentInstitution} />
 
@@ -445,76 +533,181 @@ function StudentProfileStep({ f }: { f: SignupFlow }) {
   );
 }
 
+/** Subjects as removable chips, plus a search over the Finder's subject list. */
+function LearnerSubjectsField({
+  year,
+  value,
+  onChange,
+  fromFinder,
+}: {
+  year: string;
+  value: string[];
+  onChange: (next: string[]) => void;
+  fromFinder: boolean;
+}) {
+  const [options, setOptions] = useState<string[]>([]);
+  const [q, setQ] = useState('');
+  const level = canonicalForYear(year);
+
+  useEffect(() => {
+    let cancelled = false;
+    const url = level ? `/api/finder/subjects?level=${encodeURIComponent(level)}` : '/api/finder/subjects';
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : { subjects: [] }))
+      .then((d: { subjects?: string[] }) => {
+        if (!cancelled) setOptions(Array.isArray(d.subjects) ? d.subjects : []);
+      })
+      .catch(() => {
+        if (!cancelled) setOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [level]);
+
+  const has = (s: string) => value.some((v) => v.toLowerCase() === s.toLowerCase());
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return [];
+    return options.filter((s) => s.toLowerCase().includes(t) && !has(s)).slice(0, 8);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, options, value]);
+
+  return (
+    <AuthField
+      label={fromFinder ? 'Do you study anything else?' : 'What subjects do you study?'}
+      htmlFor="su-learner-subject"
+      hint={fromFinder ? 'Search to add more. Tap a subject to remove it.' : 'Search, then tap to add.'}
+    >
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-ds-2 pb-1">
+          {value.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onChange(value.filter((v) => v !== s))}
+              aria-label={`Remove ${s}`}
+              className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-ink px-[14px] text-[14px] font-extrabold text-on-ink"
+            >
+              {s} <span aria-hidden>×</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <AuthInput
+        id="su-learner-subject"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="e.g. Chemistry"
+        autoComplete="off"
+      />
+      {q.trim() && (
+        <ul className="overflow-hidden rounded-[8px] bw-hair border-border-strong bg-surface-card">
+          {shown.length === 0 ? (
+            <li className="px-[14px] py-3 text-[15px] text-ink-muted">No subject matches that.</li>
+          ) : (
+            shown.map((s) => (
+              <li key={s} className="bw-t-hair border-line-soft first:border-t-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange([...value, s]);
+                    setQ('');
+                  }}
+                  className="flex min-h-[44px] w-full items-center px-[14px] text-left text-[15px] text-ink hover:bg-surface-sunken"
+                >
+                  {s}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </AuthField>
+  );
+}
+
 /* ─── profile: teacher ─── */
 
+/**
+ * Subjects first, levels after. A subject label carries its exam ("CSEC
+ * Chemistry" is Form 4-5), so the level chips arrive already ticked from the
+ * subjects; only Form 1-3, which have no subjects in the list, need a tap.
+ * Before this the screen required levels AND subjects: two questions for one
+ * fact.
+ */
 function TutorProfileStep({ f }: { f: SignupFlow }) {
-  const needsSubjects = f.tLevels.some((l) => l !== 'sea');
-  const ready = f.tLevels.length > 0 && (!needsSubjects || f.tSubjects.length > 0);
+  const ready = f.tSubjects.length > 0 || f.tLevels.length > 0;
   const shown = useMemo(() => f.filteredTutorSubjects, [f.filteredTutorSubjects]);
   return (
     <AuthFrame>
       <AuthTopBar noBack right={<span className="ml-auto text-[13px] font-extrabold tracking-[0.72px] text-[#9a6200]">LAST STEP</span>} />
       <AuthMain>
         <AuthTitle>What do you teach?</AuthTitle>
-        <AuthLead>Families find you by level and subject. You can change these later.</AuthLead>
+        <AuthLead>Families find you by subject. You can change these later.</AuthLead>
         {f.error && <AuthAlert>{f.error}</AuthAlert>}
 
+        <AuthField label="Subjects" htmlFor="su-subject" hint="Search, then tap to add.">
+          <AuthInput
+            id="su-subject"
+            value={f.tQuery}
+            onChange={(e) => f.setTQuery(e.target.value)}
+            placeholder="e.g. CSEC Mathematics"
+            autoComplete="off"
+          />
+          {f.tQuery.trim() && (
+            <ul className="overflow-hidden rounded-[8px] bw-hair border-border-strong bg-surface-card">
+              {shown.length === 0 ? (
+                <li className="px-[14px] py-3 text-[15px] text-ink-muted">No subject matches that.</li>
+              ) : (
+                shown.map((s) => (
+                  <li key={s} className="bw-t-hair border-line-soft first:border-t-0">
+                    <button
+                      type="button"
+                      onClick={() => f.addTutorSubject(s)}
+                      className="flex min-h-[44px] w-full items-center px-[14px] text-left text-[15px] text-ink hover:bg-surface-sunken"
+                    >
+                      {s}
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
+          {f.tSubjects.length > 0 && (
+            <div className="flex flex-wrap gap-ds-2 pt-1">
+              {f.tSubjects.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => f.removeTutorSubject(s)}
+                  aria-label={`Remove ${s}`}
+                  className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-ink px-[14px] text-[14px] font-extrabold text-on-ink"
+                >
+                  {s} <span aria-hidden>×</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </AuthField>
+
         <fieldset className="flex flex-col">
-          <legend className="mb-[8px] text-[15px] font-extrabold text-ink">Levels</legend>
+          <legend className="mb-[4px] text-[15px] font-extrabold text-ink">Levels</legend>
+          <p className="mb-[8px] text-[14px] text-ink-muted">
+            Filled in from your subjects. Tap to add Forms 1 to 3 if you teach them.
+          </p>
           <div className="flex flex-wrap gap-ds-2">
             {TUTOR_LEVELS.map((l) => (
-              <Chip key={l.value} on={f.tLevels.includes(l.value)} onClick={() => f.toggleLevel(l.value)}>
+              <Chip
+                key={l.value}
+                on={f.tLevels.includes(l.value)}
+                onClick={() => f.toggleLevel(l.value)}
+              >
                 {l.label}
               </Chip>
             ))}
           </div>
         </fieldset>
-
-        {needsSubjects && (
-          <AuthField label="Subjects" htmlFor="su-subject" hint="Search, then tap to add.">
-            <AuthInput
-              id="su-subject"
-              value={f.tQuery}
-              onChange={(e) => f.setTQuery(e.target.value)}
-              placeholder="e.g. CSEC Mathematics"
-              autoComplete="off"
-            />
-            {f.tQuery.trim() && (
-              <ul className="overflow-hidden rounded-[8px] bw-hair border-border-strong bg-surface-card">
-                {shown.length === 0 ? (
-                  <li className="px-[14px] py-3 text-[15px] text-ink-muted">No subject matches that.</li>
-                ) : (
-                  shown.map((s) => (
-                    <li key={s} className="bw-t-hair border-line-soft first:border-t-0">
-                      <button
-                        type="button"
-                        onClick={() => f.addTutorSubject(s)}
-                        className="flex min-h-[44px] w-full items-center px-[14px] text-left text-[15px] text-ink hover:bg-surface-sunken"
-                      >
-                        {s}
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-            )}
-            {f.tSubjects.length > 0 && (
-              <div className="flex flex-wrap gap-ds-2 pt-1">
-                {f.tSubjects.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => f.removeTutorSubject(s)}
-                    aria-label={`Remove ${s}`}
-                    className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-ink px-[14px] text-[14px] font-extrabold text-on-ink"
-                  >
-                    {s} <span aria-hidden>×</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </AuthField>
-        )}
 
         <AuthButton tone="tutor" onClick={f.handleTutorProfile} busy={f.loading} disabled={!ready}>
           Finish
