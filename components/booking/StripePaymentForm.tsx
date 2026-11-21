@@ -20,7 +20,9 @@
 // is the only writer of payment state; we just wait for it.
 // =====================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { WarningCircle } from '@phosphor-icons/react';
+import { Button } from '@/components/ui';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -72,6 +74,15 @@ export interface StripePaymentFormProps {
   hideBreakdown?: boolean;
   onConfirmed: () => void;
   onCancel?: () => void;
+  /**
+   * PRESENTATION ONLY. 'ds' draws the form in the new design system (the
+   * parent checkout, Figma 198:1837 / 160:6322): ink focus colour, a DS
+   * primary button, the declined-card note. 'legacy' (default) is unchanged.
+   * The payment logic below is identical for both.
+   */
+  variant?: 'legacy' | 'ds';
+  /** Rendered between the card fields and the submit button (terms copy). */
+  beforeSubmit?: ReactNode;
 }
 
 export default function StripePaymentForm(props: StripePaymentFormProps) {
@@ -92,12 +103,21 @@ export default function StripePaymentForm(props: StripePaymentFormProps) {
         clientSecret: props.clientSecret,
         appearance: {
           theme: 'stripe',
-          variables: {
-            colorPrimary: BRAND_GREEN,
-            colorText: '#111827',
-            borderRadius: '10px',
-            fontFamily: 'system-ui, sans-serif',
-          },
+          variables:
+            props.variant === 'ds'
+              ? {
+                  colorPrimary: '#0d2318',
+                  colorText: '#0d2318',
+                  colorDanger: '#c2362f',
+                  borderRadius: '9px',
+                  fontFamily: 'system-ui, sans-serif',
+                }
+              : {
+                  colorPrimary: BRAND_GREEN,
+                  colorText: '#111827',
+                  borderRadius: '10px',
+                  fontFamily: 'system-ui, sans-serif',
+                },
         },
       }}
     >
@@ -117,7 +137,10 @@ function InnerForm({
   hideBreakdown = false,
   onConfirmed,
   onCancel,
+  variant = 'legacy',
+  beforeSubmit,
 }: StripePaymentFormProps) {
+  const ds = variant === 'ds';
   const stripe = useStripe();
   const elements = useElements();
 
@@ -214,6 +237,44 @@ function InnerForm({
     setSubmitting(false);
     setError(
       'Your payment went through but is still being confirmed. You do not need to pay again — check your bookings in a few moments.'
+    );
+  }
+
+  if (awaitingWebhook && ds) {
+    return (
+      <div className="py-ds-8 text-center" role="status">
+        <div className="mx-auto h-10 w-10 animate-spin rounded-ds-full bw-bold border-surface-sunken border-t-ink" />
+        <p className="mt-ds-4 font-display text-[16px] font-extrabold text-ink">Confirming your payment…</p>
+        <p className="mt-ds-1 text-[14px] text-ink-muted">Please don&apos;t close this page.</p>
+        {slowWarning && (
+          <p className="mt-ds-3 text-[13px] text-ink-muted">
+            This is taking longer than usual. Your payment is safe — we&apos;re just waiting on confirmation.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (ds) {
+    return (
+      <form onSubmit={handleSubmit} className="flex flex-col gap-ds-3">
+        <PaymentElement options={{ layout: 'tabs' }} />
+        {error && (
+          <p role="alert" className="flex items-start gap-ds-2 text-[13px] leading-[18px] text-ink">
+            <WarningCircle size={18} weight="fill" className="mt-[1px] flex-none text-danger" />
+            <span>{error}</span>
+          </p>
+        )}
+        {beforeSubmit}
+        <Button type="submit" size="lg" block="always" disabled={!stripe || submitting}>
+          {submitting ? 'Processing…' : submitLabel ?? `Pay $${total.toFixed(2)} ${currency}`}
+        </Button>
+        {onCancel && (
+          <Button variant="outline" size="lg" block="always" onClick={onCancel} disabled={submitting}>
+            Cancel
+          </Button>
+        )}
+      </form>
     );
   }
 

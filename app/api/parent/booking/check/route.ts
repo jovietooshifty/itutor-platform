@@ -18,6 +18,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ParentAccessError, requireParentContext, requireParentChild } from '@/lib/server/parentAccess';
 import { conflictMessage, findChildScheduleConflict } from '@/lib/services/scheduleConflict';
 import { classifyMembership } from '@/lib/services/groupMembership';
+import { normaliseClassLevel, normaliseLearnerLevel } from '@/lib/matching/levels';
+import { formatLevelShort } from '@/lib/utils/formatLevel';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,9 +113,23 @@ export async function POST(request: NextRequest) {
     } | null;
 
     const childLevel = child?.form_level ?? null;
-    const levelMismatch = Boolean(
-      childLevel && classFormLevel && childLevel !== classFormLevel
-    );
+    // Compared NORMALISED. The two columns use different vocabularies: a child
+    // is "Form 4" and a class is "FORM_4" or "CSEC (14–16)", so the raw string
+    // test warned a Form 4 parent off a Form 4 class. A class level resolves to
+    // a SET (CSEC spans Form 4 and 5), so "fits" means the child's level is in
+    // it. Either side unrecognised falls back to a folded string compare,
+    // which is the old behaviour minus the case/underscore noise.
+    const levelMismatch = (() => {
+      if (!childLevel || !classFormLevel) return false;
+      const learner = normaliseLearnerLevel(childLevel);
+      const served = normaliseClassLevel(classFormLevel);
+      if (learner && served.length > 0) return !served.includes(learner);
+      const fold = (v: string) => v.replace(/_/g, ' ').replace(/s+/g, ' ').trim().toUpperCase();
+      return fold(childLevel) !== fold(classFormLevel);
+    })();
+    const levelMessage = levelMismatch
+      ? `Your student is in ${formatLevelShort(childLevel)}, this is a ${formatLevelShort(classFormLevel)} class. Are you sure this is the right class?`
+      : null;
 
     // ---- already in this class --------------------------------------------
     // Checked BEFORE anything else, because it outranks every other answer: a
@@ -154,9 +170,7 @@ export async function POST(request: NextRequest) {
         childLevel,
         classFormLevel,
         levelMismatch,
-        levelMessage: levelMismatch
-          ? `Your student is in ${childLevel}, this is a ${classFormLevel} class — are you sure this is the right class?`
-          : null,
+        levelMessage,
         schedule: { checked: false, reason: 'no_scheduled_sessions' },
         alternatives: [],
       });
@@ -173,9 +187,7 @@ export async function POST(request: NextRequest) {
         childLevel,
         classFormLevel,
         levelMismatch,
-        levelMessage: levelMismatch
-          ? `Your student is in ${childLevel}, this is a ${classFormLevel} class — are you sure this is the right class?`
-          : null,
+        levelMessage,
         schedule: { checked: true, clear: true, message: 'No schedule conflicts' },
         alternatives: [],
       });
@@ -195,9 +207,7 @@ export async function POST(request: NextRequest) {
       childLevel,
       classFormLevel,
       levelMismatch,
-      levelMessage: levelMismatch
-        ? `Your student is in ${childLevel}, this is a ${classFormLevel} class — are you sure this is the right class?`
-        : null,
+      levelMessage,
       schedule: {
         checked: true,
         clear: false,

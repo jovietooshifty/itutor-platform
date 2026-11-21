@@ -29,8 +29,12 @@ import { invalidateCredits } from '@/lib/credits/useCredits';
 import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 import { DetailScreen, DetailSkeleton, EmptyCard } from '@/components/parent/v2/DetailScreen';
 import { Sheet } from '@/components/parent/v2/Sheet';
+import { SecureSpotTermsV2 } from '@/components/classes/SecureSpotTermsV2';
 import { ParentClassDetailV2, type ChildEnrolment } from '@/components/parent/v2/ParentClassDetailV2';
 import { Button } from '@/components/ui';
+
+/** Class ids are uuids. Anything else cannot be a class, so it is not fetched. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function ParentClassPage() {
   // Same ClassContent, same enrolment logic; only the presentation forks.
@@ -93,6 +97,14 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
   // `countAsView` is passed only by the mount effect below. The reloads after
   // enrolling or requesting a seat must not count as browsing the class again.
   const load = useCallback(async (countAsView = false) => {
+    // A malformed id answers "not found" at once. It used to go to
+    // /api/groups/[id], which tries its select tiers and a bare fallback
+    // before giving up with a 500, while the page sat on skeletons.
+    if (!UUID_RE.test(groupId ?? '')) {
+      setGroup(null);
+      setLoading(false);
+      return;
+    }
     // Same loader the student page uses, so the two cannot disagree about what
     // this class is.
     const mapped = await fetchClassDetail(groupId, { countAsView });
@@ -104,7 +116,10 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
     void load(true);
   }, [load]);
 
-  if (v2 && loading) {
+  // Held until the children are known too: rendering before then drew the
+  // browse view ("Choose a child and pay") for a class a child is already
+  // in, and then swapped it for the enrolled view.
+  if (v2 && (loading || (group && childCount === null))) {
     return (
       <DetailScreen backLabel="Back" fallbackHref="/parent/classes">
         <DetailSkeleton rows={3} />
@@ -164,7 +179,8 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
   // seat. This page used to send every priced class to /subscribe, which meant
   // a preorder class became a recurring subscription in a parent's hands, and
   // failed outright once the child had a secure-spot hold of their own.
-  const isPreorder = Boolean(preorderFor(group));
+  const preorder = preorderFor(group);
+  const isPreorder = Boolean(preorder);
 
   const enroll = async (childId: string) => {
     setBusy(true);
@@ -303,9 +319,14 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
               </p>
               {/* ChildPickerCheck runs the §5 checks (schedule clash, level)
                   before any card is entered. Reused as is. */}
-              <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false} />
+              <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false} variant="ds" />
               {isPaid && !isPreorder ? (
                 <CheckoutCreditsChoice groupId={group.id} value={creditChoice} onChange={setCreditChoice} />
+              ) : null}
+              {/* Securing a spot: the terms again at the point of choosing,
+                  before the parent is sent to the card form. */}
+              {isPreorder && preorder ? (
+                <SecureSpotTermsV2 preorder={preorder} priceMonthly={group.price_monthly} audience="parent" compact />
               ) : null}
               {error ? (
                 <p role="alert" className="font-body text-[13px] font-extrabold text-danger">{error}</p>
@@ -383,7 +404,7 @@ function ClassContent({ v2 = false }: { v2?: boolean }) {
                 </div>
 
                 {/* The dialog's own h2 already asks it. */}
-                <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false} />
+                <ChildPickerCheck groupId={group.id} onReady={setReadyChildId} showHeading={false}/>
 
                 {isPaid && !isPreorder ? (
                   <CheckoutCreditsChoice groupId={group.id} value={creditChoice} onChange={setCreditChoice} />

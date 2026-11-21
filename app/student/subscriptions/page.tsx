@@ -10,6 +10,9 @@ import { fmtTTD } from '@/lib/utils/formatCurrency';
 import { calculateGrossAmountForProvider } from '@/lib/payments/grossUp';
 import { cn } from '@/lib/utils';
 import RenewalCreditsControl from '@/components/credits/RenewalCreditsControl';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import StudentBillingV2 from '@/components/student/v2/StudentBillingV2';
 
 type Subscription = {
   id: string;
@@ -585,7 +588,18 @@ function SubscriptionCard({ sub, onCancel, onUndo, onSeatChanged, actionLoading 
   );
 }
 
-export default function StudentSubscriptionsPage() {
+/** New UI (Figma 2:1535, 2:1684) behind NEXT_PUBLIC_NEW_UI_ENABLED; fixed at build time. */
+export default function StudentSubscriptionsRoute() {
+  return isNewUiEnabled() ? (
+    <StudentV2Shell width="wide" title="Subscriptions">
+      <StudentBillingV2 />
+    </StudentV2Shell>
+  ) : (
+    <StudentSubscriptionsPage />
+  );
+}
+
+function StudentSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading]             = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);

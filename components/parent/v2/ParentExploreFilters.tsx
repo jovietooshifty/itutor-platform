@@ -104,7 +104,7 @@ export function ParentExploreFilters({
           aria-modal="true"
           aria-label="Filters"
           className={cn(
-            'relative flex max-h-[85vh] w-full max-w-[430px] flex-col md:max-w-[520px]',
+            'relative flex max-h-[90dvh] w-full max-w-[430px] flex-col md:max-w-[520px]',
             'rounded-t-ds-card md:rounded-ds-card bw-hair border-border bg-surface-card'
           )}
         >
@@ -121,7 +121,9 @@ export function ParentExploreFilters({
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-ds-4 overflow-y-auto px-ds-card py-ds-4">
+          {/* No visible scrollbar (owner, 14 Nov): it still scrolls by touch, wheel
+              and keyboard on a short screen, without the grey track. */}
+          <div className="scrollbar-hide flex flex-col gap-ds-4 overflow-y-auto overscroll-contain px-ds-card py-ds-4">
             {groups.map((group) => (
               <section key={group.id} className="flex flex-col gap-ds-2">
                 <h3 className="font-body text-[13px] font-extrabold uppercase tracking-[0.55px] text-ink-muted">
@@ -137,7 +139,7 @@ export function ParentExploreFilters({
                       className={cn(
                         'rounded-ds-full bw-hair px-ds-3 py-[7px] cursor-pointer',
                         'font-body text-[13px] font-extrabold whitespace-nowrap',
-                        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
+                        'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink',
                         option.selected
                           ? 'bg-ink border-ink text-on-ink'
                           : 'bg-surface-card border-border text-ink'
@@ -152,7 +154,7 @@ export function ParentExploreFilters({
           </div>
 
           <div className="bw-t-hair border-line-soft p-ds-card">
-            <Button onClick={onClose} block>
+            <Button onClick={onClose} block="always">
               {`Show ${resultCount} ${plural(resultCount, resultNoun)}`}
             </Button>
           </div>

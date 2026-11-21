@@ -198,7 +198,7 @@ function SearchRow({
           className={cn(
             'h-[44px] w-full rounded-ds-card bw-hair border-border bg-surface-card',
             'pl-[38px] pr-ds-3 font-body text-[14px] text-ink placeholder:text-ink-muted',
-            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+            'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
           )}
         />
       </div>
@@ -208,7 +208,7 @@ function SearchRow({
         className={cn(
           'flex h-[44px] shrink-0 items-center gap-ds-2 rounded-ds-card bw-hair bg-surface-card',
           'px-ds-3 font-body text-[14px] font-extrabold text-ink cursor-pointer',
-          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
+          'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink',
           filtersApplied ? 'border-ink' : 'border-border'
         )}
       >
@@ -236,7 +236,7 @@ function ChipRow({ chips, activeChip, onChipChange }: Pick<ParentExploreV2Props,
               onClick={() => onChipChange(c)}
               className={cn(
                 'ds-press rounded-ds-full bw-hair px-ds-3 py-[7px] font-body text-[13px] font-extrabold cursor-pointer',
-                'whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
+                'whitespace-nowrap focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink',
                 active ? 'bg-ink border-ink text-on-ink' : 'bg-surface-card border-border text-ink'
               )}
             >
@@ -275,11 +275,13 @@ function LessonCard({
       href={href}
       className={cn(
         'ds-press ds-rise block overflow-hidden rounded-ds-card bw-hair border-border bg-surface-card',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+        'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
       )}
       style={{ ['--i' as string]: index }}
     >
-      <ClassCover image={lesson.coverImage} subject={lesson.subject || lesson.title} className="h-[112px] lg:h-[128px]" />
+      {/* The tutor's banner when there is one, else the subject colour block,
+          both in the banner's own 4:1 box so nothing is cropped. */}
+      <ClassCover image={lesson.coverImage} subject={lesson.subject || lesson.title} className="aspect-[4/1]" />
       <div className="flex flex-col gap-ds-2 p-ds-card">
         <div className="flex items-start justify-between gap-ds-3">
           <h3 className="font-display text-[16px] font-extrabold leading-[20px] text-ink">{lesson.title}</h3>
@@ -324,7 +326,7 @@ function TutorCard({ tutor, href, index = 0 }: { tutor: ExploreTutor; href: stri
       href={href}
       className={cn(
         'ds-press ds-rise flex gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-card',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+        'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
       )}
       style={{ ['--i' as string]: index }}
     >
@@ -386,7 +388,7 @@ function EmptyState({
           className={cn(
             'mt-ds-3 rounded-ds-btn bw-bold border-ink bg-surface-card px-ds-4 py-ds-2',
             'font-body text-[14px] font-extrabold text-ink cursor-pointer',
-            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink'
+            'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink'
           )}
         >
           Clear search
@@ -434,10 +436,17 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
       <ChipRow chips={chips} activeChip={activeChip} onChipChange={onChipChange} />
 
       {loading ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
-          <Skeleton height={showingLessons ? 210 : 96} />
-          <Skeleton height={showingLessons ? 210 : 96} />
-          <Skeleton height={showingLessons ? 210 : 96} />
+        <div
+          className={cn(
+            'grid gap-ds-3 lg:gap-ds-4',
+            showingLessons
+              ? 'grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))]'
+              : 'grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))]'
+          )}
+        >
+          <Skeleton height={showingLessons ? 250 : 96} />
+          <Skeleton height={showingLessons ? 250 : 96} />
+          <Skeleton height={showingLessons ? 250 : 96} />
         </div>
       ) : showingLessons ? (
         <>
@@ -452,10 +461,12 @@ export function ParentExploreV2(props: ParentExploreV2Props) {
               onClear={narrowed ? onClearSearch : undefined}
             />
           ) : (
-            // One column on a phone, as drawn; from there as many 300px+
-            // columns as fit (PROVISIONAL: no wide frame), so a monitor gets
-            // three or four cards a row rather than two huge ones.
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
+            // One column on a phone, two on a tablet, three in the 1280 frame
+            // (owner asked for three, 2026-11-15). Class cards carry the
+            // tutor's 4:1 banner, which is dense with text: at a 300px minimum
+            // (four a row) it was ~75px tall and unreadable. A 340px minimum
+            // caps the frame at three, with banners ~100px tall.
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
               {lessons.map((l, i) => {
                 const enrolled = enrolledIds.has(l.id);
                 return (

@@ -1,6 +1,7 @@
 // Student accepts or declines a parent invite. Only the invited student may
-// respond. On accept: set the child's billing_mode + create the parent_child_link
-// (the ONLY place a link is now created), then notify the parent. On decline:
+// respond. On accept: create the parent_child_link with self-pay ON (the child
+// keeps paying for themselves until the parent switches it off). This is
+// the ONLY place a link is now created. Then notify the parent. On decline:
 // mark declined + notify the parent. This is the consent gate that replaces the
 // old instant linking.
 
@@ -45,9 +46,15 @@ export async function POST(request: NextRequest, { params }: Params) {
   const childName = child?.display_name || child?.full_name || 'Your child';
 
   if (action === 'accept') {
-    // Set billing mode first, then create the link (write-order preserved from
-    // the old link-child flow). Guard against a pre-existing link.
-    await admin.from('profiles').update({ billing_mode: 'parent_required', updated_at: now }).eq('id', invite.child_id);
+    // DEFAULT IS SELF-PAY. A connected student keeps paying for their own
+    // classes, with no approval gate, until the parent turns self-pay off on
+    // the child's page. The link's column defaults (migration 224) still say
+    // parent_required / requires_approval, so both are written explicitly here
+    // rather than relying on them. self_pay_enabled_by stays null: that marks a
+    // DEFAULT, which revokeAllSelfPay leaves alone (only a parent's own switch
+    // is undone by a password change). The profiles mirror is written only
+    // when a link is actually created, so re-accepting never overrides a
+    // choice the parent already made on an existing link.
     const { data: existing } = await admin
       .from('parent_child_links').select('id').eq('parent_id', invite.parent_id).eq('child_id', invite.child_id).maybeSingle();
     if (!existing) {
@@ -59,7 +66,12 @@ export async function POST(request: NextRequest, { params }: Params) {
       // student until migration 251 removed it.
       const { error: linkError } = await admin
         .from('parent_child_links')
-        .insert({ parent_id: invite.parent_id, child_id: invite.child_id });
+        .insert({
+          parent_id: invite.parent_id,
+          child_id: invite.child_id,
+          billing_mode: 'self_allowed',
+          requires_approval: false,
+        });
       if (linkError) {
         console.error('[invites/respond] link insert failed:', linkError.message);
         // The invite stays 'pending' so the student can try again, rather than
@@ -69,6 +81,9 @@ export async function POST(request: NextRequest, { params }: Params) {
           { status: 500 }
         );
       }
+      // The sync trigger mirrors this on INSERT already; written here as well so
+      // a database without the trigger still agrees with the link.
+      await admin.from('profiles').update({ billing_mode: 'self_allowed', updated_at: now }).eq('id', invite.child_id);
     }
     await admin.from('parent_child_invites').update({ status: 'accepted', responded_at: now }).eq('id', invite.id);
     await admin.from('notifications').insert({

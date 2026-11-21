@@ -6,7 +6,17 @@
 // two must not be separate implementations.
 
 import ExploreMarketplace from '@/components/marketplace/ExploreMarketplace';
+import StudentV2Shell from '@/components/student/v2/StudentV2Shell';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
 
+// New UI: the same marketplace inside the student shell; ExploreMarketplace
+// draws the Explore frames (2:673, 2:812) itself when the flag is on.
 export default function FindTutorsPage() {
-  return <ExploreMarketplace variant="student" />;
+  return isNewUiEnabled() ? (
+    <StudentV2Shell width="wide" title="Explore">
+      <ExploreMarketplace variant="student" />
+    </StudentV2Shell>
+  ) : (
+    <ExploreMarketplace variant="student" />
+  );
 }

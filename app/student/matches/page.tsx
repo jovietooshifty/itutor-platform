@@ -13,6 +13,8 @@ import { getLatestFinderRequest } from '@/lib/finder/latestRequest';
 import { adoptFinderRunFromCookie } from '@/lib/finder/adoptFromCookie';
 import MatchResults from '@/components/finder/MatchResults';
 import { isFinderEnabled } from '@/lib/featureFlags/finder';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import { FinderButton } from '@/components/finder/v2/FinderKit';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +44,23 @@ export default async function StudentMatchesPage({
   // Never run the Finder? Invite rather than redirect. A redirect into a forced
   // wizard from a page the student chose to open takes the choice away, and this
   // page is reachable from the dashboard card.
+  if (!row && isNewUiEnabled()) {
+    return (
+      <>
+        <div className="flex max-w-[480px] flex-col gap-ds-3">
+          <h1 className="font-display text-[30px] font-extrabold leading-[1.08] text-ink">My best matches</h1>
+          <p className="text-[15px] leading-[1.45] text-ink-muted">
+            Answer a few quick questions and we will line up the classes that fit your subject, your timetable and your
+            budget.
+          </p>
+          <FinderButton tone="student" href="/find?trigger=dashboard">
+            Find my iTutor
+          </FinderButton>
+        </div>
+      </>
+    );
+  }
+
   if (!row) {
     return (
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">

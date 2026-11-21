@@ -57,7 +57,7 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
               'relative z-[1] flex flex-1 items-center justify-center gap-ds-2 rounded-ds-btn px-ds-3 py-ds-2',
               'border-0 bg-transparent font-body text-[14px] font-extrabold cursor-pointer',
               'transition-colors duration-200',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink',
+              'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-ink',
               active ? 'text-on-ink' : 'text-ink-muted'
             )}
           >

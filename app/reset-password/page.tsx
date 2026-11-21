@@ -4,8 +4,15 @@ import { FormEvent, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ResetPasswordV2 from '@/components/auth/v2/ResetPasswordV2';
 
+/** New UI on: components/auth/v2/ResetPasswordV2. Off: the old page below. */
 export default function ResetPasswordPage() {
+  return isNewUiEnabled() ? <ResetPasswordV2 /> : <LegacyResetPasswordPage />;
+}
+
+function LegacyResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

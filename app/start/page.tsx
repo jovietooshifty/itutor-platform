@@ -29,6 +29,9 @@ import { redirect } from 'next/navigation';
 import { isFinderEnabled } from '@/lib/featureFlags/finder';
 import { isParentAccountsEnabled } from '@/lib/featureFlags/parentAccounts';
 import RolePicker from '@/components/finder/RolePicker';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import FinderRolePickerV2 from '@/components/finder/v2/FinderRolePickerV2';
+import { AuthFrame, AuthMain, AuthTitle, AuthTopBar, ULink } from '@/components/auth/v2/AuthKit';
 
 export const revalidate = 3600;
 
@@ -51,6 +54,31 @@ export default function StartPage() {
   // Offering "for my child" here while the flag is off would therefore ship a
   // parent funnel the product has switched off. Two cards instead.
   const parentAccountsEnabled = isParentAccountsEnabled();
+
+  // New UI: the auth set's green role screen (RO01), so /start and /signup
+  // read as one product. Same three destinations as below.
+  if (isNewUiEnabled()) {
+    return (
+      <AuthFrame tone="brand">
+        <AuthTopBar backHref="/" />
+        <AuthMain>
+          <AuthTitle size={34}>
+            What brings you
+            <br />
+            to iTutor?
+          </AuthTitle>
+          <p className="-mt-1 text-[16px] font-extrabold leading-[1.35] text-ink">
+            See the classes that fit before you sign up.
+          </p>
+          <FinderRolePickerV2 parentAccountsEnabled={parentAccountsEnabled} />
+          <div className="flex-1" />
+          <div className="flex justify-center">
+            <ULink href="/login">I already have an account</ULink>
+          </div>
+        </AuthMain>
+      </AuthFrame>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-mint/40 px-4 pb-16 pt-10 sm:pt-16">

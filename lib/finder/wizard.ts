@@ -146,7 +146,10 @@ export interface FinderAnswers {
   childLabel: string | null;
   /** Asked pre-auth; read from the profile when there is a session. */
   level: CanonicalLevel | null;
-  subject: string | null;
+  /** One or more subjects, in the order picked. The first is the run's
+   *  "primary" subject (finder_requests.subject_id / subject_text); every one
+   *  of them is matched and gets its own demand_signals row. */
+  subjects: string[];
   availabilityBlocks: AvailabilityBlock[];
   lessonType: LessonType | null;
   /** Online / in person / either. Asked because migration 242 made it a real
@@ -160,7 +163,7 @@ export function emptyAnswers(): FinderAnswers {
   return {
     childLabel: null,
     level: null,
-    subject: null,
+    subjects: [],
     availabilityBlocks: [],
     lessonType: null,
     deliveryPref: null,
@@ -228,7 +231,10 @@ export function questionSequence(isParent: boolean): number[] {
     STEP.LESSON_TYPE,
     STEP.DELIVERY,
     STEP.BUDGET,
-    STEP.URGENCY,
+    // STEP.URGENCY is no longer asked (owner, 18 Nov 2026). Nothing reads it:
+    // the matcher ignores it and no admin screen shows it, so it was a question
+    // that cost every family a screen and bought nothing. The constant stays so
+    // an old ?step=5 link is still recognised; the column is nullable.
   ];
   return isParent ? [STEP.CHILD, ...tail] : tail;
 }
@@ -274,7 +280,7 @@ export function isStepAnswered(
     case STEP.LEVEL:
       return answers.level !== null;
     case STEP.SUBJECT:
-      return answers.subject !== null;
+      return answers.subjects.length > 0;
     case STEP.AVAILABILITY:
       return answers.availabilityBlocks.length > 0;
     case STEP.LESSON_TYPE:
@@ -328,11 +334,12 @@ export function validateAnswers(input: unknown): string | null {
   if (typeof input !== 'object' || input === null) return 'body';
   const a = input as Record<string, unknown>;
 
-  if (typeof a.subject !== 'string' || a.subject.trim().length === 0) return 'subject';
   // 120 is comfortably longer than the longest real subject
   // ("CAPE Caribbean Studies Unit 1" is 29) and short enough that a megabyte of
-  // junk cannot be stored by an unauthenticated caller.
-  if (a.subject.length > 120) return 'subject';
+  // junk cannot be stored by an unauthenticated caller. At most MAX_SUBJECTS,
+  // so one POST cannot fan out into hundreds of demand rows.
+  const subjects = submittedSubjects(a);
+  if (subjects === null) return 'subject';
 
   if (a.level !== null && a.level !== undefined) {
     if (typeof a.level !== 'string' || !LEVEL_VALUES.has(a.level)) return 'level';
@@ -370,8 +377,11 @@ export function validateAnswers(input: unknown): string | null {
   if (typeof a.budgetBand !== 'string' || !BUDGET_BANDS.some(b => b.value === a.budgetBand)) {
     return 'budgetBand';
   }
-  if (typeof a.urgency !== 'string' || !URGENCIES.some(u => u.value === a.urgency)) {
-    return 'urgency';
+  // Optional since the question was dropped; still validated when sent.
+  if (a.urgency !== null && a.urgency !== undefined) {
+    if (typeof a.urgency !== 'string' || !URGENCIES.some(u => u.value === a.urgency)) {
+      return 'urgency';
+    }
   }
 
   // childLabel is optional (students never have one) but must be sane if given.
@@ -380,6 +390,37 @@ export function validateAnswers(input: unknown): string | null {
   }
 
   return null;
+}
+
+/** Most subjects one run may carry. */
+export const MAX_SUBJECTS = 8;
+
+/**
+ * The subjects a submission carries, or null when they are invalid.
+ *
+ * Accepts the current `subjects: string[]` and the legacy single `subject`
+ * string, so a tab still running the old bundle does not 400. Trimmed and
+ * de-duplicated case-insensitively, order kept.
+ */
+export function submittedSubjects(a: Record<string, unknown>): string[] | null {
+  const raw: unknown[] = Array.isArray(a.subjects)
+    ? a.subjects
+    : typeof a.subject === 'string'
+      ? [a.subject]
+      : [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const s of raw) {
+    if (typeof s !== 'string') return null;
+    const t = s.trim();
+    if (!t || t.length > 120) return null;
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
+  }
+  if (out.length === 0 || out.length > MAX_SUBJECTS) return null;
+  return out;
 }
 
 export { QUESTIONNAIRE_LEVELS };

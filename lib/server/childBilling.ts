@@ -185,6 +185,11 @@ export async function revokeAllSelfPay(
     })
     .eq('parent_id', parentId)
     .eq('billing_mode', 'self_allowed')
+    // Only self-pay a parent switched on by hand. Since self-pay became the
+    // default for a new connection (self_pay_enabled_by null), reverting every
+    // self_allowed link would silently move all of a parent's children onto
+    // their card the first time they changed their password.
+    .not('self_pay_enabled_by', 'is', null)
     .select('child_id');
 
   if (error) {

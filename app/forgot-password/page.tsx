@@ -3,8 +3,15 @@
 import { FormEvent, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
+import { isNewUiEnabled } from '@/lib/featureFlags/newUi';
+import ForgotPasswordV2 from '@/components/auth/v2/ForgotPasswordV2';
 
+/** New UI on: Figma LG03/LG04. Off: the old page below. */
 export default function ForgotPasswordPage() {
+  return isNewUiEnabled() ? <ForgotPasswordV2 /> : <LegacyForgotPasswordPage />;
+}
+
+function LegacyForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

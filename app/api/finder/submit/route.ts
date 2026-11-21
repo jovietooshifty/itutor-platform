@@ -43,7 +43,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient, getServerClient } from '@/lib/supabase/server';
 import { matchFinderRequest, type FinderCandidate } from '@/lib/matching/finder';
 import { loadFinderSupply, type SupplyRow } from '@/lib/finder/supply';
-import { budgetMaxFor, validateAnswers } from '@/lib/finder/wizard';
+import { budgetMaxFor, submittedSubjects, validateAnswers } from '@/lib/finder/wizard';
 import { mintFinderToken, setFinderToken } from '@/lib/finder/token';
 import { ANON_COOKIE } from '@/lib/analytics/attribution';
 import { getFinderMaxMatches, isFinderEnabled } from '@/lib/featureFlags/finder';
@@ -125,14 +125,16 @@ async function insertTolerant(
 }
 
 interface SubmitBody {
-  subject: string;
+  /** Legacy single subject (old bundles). Read through submittedSubjects. */
+  subject?: string;
+  subjects?: string[];
   availabilityBlocks: AvailabilityBlock[];
   lessonType: 'group' | 'one_on_one' | 'either';
   /** Optional on the wire: a client bundle cached from before migration 243
    *  does not send it, and a stale tab should record null rather than 400. */
   deliveryPref?: DeliveryPref | null;
   budgetBand: string;
-  urgency: 'now' | 'this_month' | 'exploring';
+  urgency?: 'now' | 'this_month' | 'exploring' | null;
   childLabel?: string | null;
   /** The picker's answer. Optional so an authed run can omit it and take the
    *  role from the profile instead. */
@@ -189,6 +191,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_field', field: invalidField }, { status: 400 });
   }
   const body = raw as SubmitBody;
+  // validateAnswers already rejected an invalid list, so this is non-null.
+  const subjects = submittedSubjects(raw as Record<string, unknown>) as string[];
+  const primarySubject = subjects[0];
 
   const service = getServiceClient();
   const { attribution } = await getRequestAttribution();
@@ -271,21 +276,24 @@ export async function POST(req: NextRequest) {
     runNumber = (priorRuns ?? 0) + 1;
   }
 
-  // Resolve the picked subject name to its canonical row, for the demand map's
-  // GROUP BY. A miss is tolerable — the name is what matching uses — so this
-  // never fails the request.
-  let subjectId: string | null = null;
-  try {
-    const { data: subjectRow } = await service
-      .from('subjects')
-      .select('id')
-      .ilike('name', body.subject.trim())
-      .limit(1)
-      .maybeSingle();
-    subjectId = (subjectRow as { id: string } | null)?.id ?? null;
-  } catch {
-    subjectId = null;
+  // Resolve each picked subject name to its canonical row, for the demand
+  // map's GROUP BY. A miss is tolerable — the name is what matching uses — so
+  // this never fails the request.
+  const subjectIds = new Map<string, string | null>();
+  for (const name of subjects) {
+    try {
+      const { data: subjectRow } = await service
+        .from('subjects')
+        .select('id')
+        .ilike('name', name)
+        .limit(1)
+        .maybeSingle();
+      subjectIds.set(name, (subjectRow as { id: string } | null)?.id ?? null);
+    } catch {
+      subjectIds.set(name, null);
+    }
   }
+  const subjectId = subjectIds.get(primarySubject) ?? null;
 
   const budgetMax = budgetMaxFor(body.budgetBand);
   const deliveryPref: DeliveryPref | null = body.deliveryPref ?? null;
@@ -313,16 +321,19 @@ export async function POST(req: NextRequest) {
       child_label: body.childLabel?.trim() || null,
       run_number: runNumber,
       subject_id: subjectId,
+      // The run's first subject, as typed. Every subject gets its own
+      // demand_signals row below; that is where the full list lives.
+      subject_text: primarySubject,
       level: learnerLevel,
       form_level_label: body.formLevelLabel ?? null,
       availability_blocks: body.availabilityBlocks,
       lesson_type: body.lessonType,
       delivery_pref: deliveryPref,
       budget_max: budgetMax,
-      urgency: body.urgency,
+      urgency: body.urgency ?? null,
       attribution,
     },
-    ['delivery_pref']
+    ['delivery_pref', 'subject_text']
   );
 
   if (insertError || !requestId) {
@@ -358,7 +369,7 @@ export async function POST(req: NextRequest) {
       const verdict = matchFinderRequest(
         supply as FinderCandidate[],
         {
-          subjectNames: [body.subject],
+          subjectNames: subjects,
           level: learnerLevel,
           availabilityBlocks: body.availabilityBlocks,
           budgetMax,
@@ -415,14 +426,19 @@ export async function POST(req: NextRequest) {
     console.error('[finder/submit] verdict update failed:', updateError.message);
   }
 
-  // 4) Ledger the demand — every submission, exact matches included.
-  const { id: demandId, error: demandError } = await insertTolerant(
+  // 4) Ledger the demand — every submission, exact matches included, and one
+  //    row PER SUBJECT: "wants Maths and Physics" is two units of demand for
+  //    the map, and /api/finder/answers rebuilds the list from these rows.
+  let demandId: string | null = null;
+  for (const name of subjects) {
+  const { id: oneDemandId, error: demandError } = await insertTolerant(
     service,
     'demand_signals',
     {
       request_id: requestId,
       user_id: userId,
-      subject_id: subjectId,
+      subject_id: subjectIds.get(name) ?? null,
+      subject_text: name,
       level: learnerLevel,
       availability_blocks: body.availabilityBlocks,
       budget_max: budgetMax,
@@ -433,11 +449,13 @@ export async function POST(req: NextRequest) {
       delivery_pref: deliveryPref,
       match_class: matchClass,
     },
-    ['delivery_pref']
+    ['delivery_pref', 'subject_text']
   );
 
   if (demandError) {
     console.error('[finder/submit] demand insert failed:', demandError);
+  }
+  demandId = demandId ?? oneDemandId;
   }
 
   // Events. track() swallows its own failures, so none of this can fail the run.
@@ -446,12 +464,13 @@ export async function POST(req: NextRequest) {
     {
       answers: {
         level: learnerLevel,
-        subject: body.subject,
+        subject: primarySubject,
+        subjects,
         availability_blocks: body.availabilityBlocks,
         lesson_type: body.lessonType,
         delivery_pref: deliveryPref,
         budget_band: body.budgetBand,
-        urgency: body.urgency,
+        urgency: body.urgency ?? null,
       },
       run_number: runNumber,
     },
@@ -466,7 +485,7 @@ export async function POST(req: NextRequest) {
 
   await track(
     PRODUCT_EVENTS.DEMAND_RECORDED,
-    { subject: body.subject, level: learnerLevel ?? 'unknown' },
+    { subject: primarySubject, level: learnerLevel ?? 'unknown' },
     { userId, anonId, attribution }
   );
 
