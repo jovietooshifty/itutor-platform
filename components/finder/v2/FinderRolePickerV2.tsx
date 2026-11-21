@@ -14,32 +14,26 @@
 import Link from 'next/link';
 import type { ReadonlyURLSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { ROLE_PANEL, ROLE_TAG, type AuthRole } from '@/components/auth/v2/AuthKit';
+import { ROLE_TAG, type AuthRole } from '@/components/auth/v2/AuthKit';
 
-const CARDS: { role: AuthRole; tag: string; title: string; detail: string; photo: string; crop: string }[] = [
+const CARDS: { role: AuthRole; tag: string; title: string; detail: string }[] = [
   {
     role: 'student',
     tag: 'STUDENT',
     title: 'Find a class for me',
     detail: "I'm the student",
-    photo: '/brand/auth/role-student.jpg',
-    crop: 'object-[38%_50%]',
   },
   {
     role: 'parent',
     tag: 'PARENT',
     title: 'Find a class for my child',
     detail: "I'm a parent or guardian",
-    photo: '/brand/auth/role-parent.jpg',
-    crop: 'object-[45%_50%]',
   },
   {
     role: 'tutor',
     tag: 'TEACHER',
     title: 'Teach on iTutor',
     detail: 'I want students',
-    photo: '/brand/auth/role-teacher.jpg',
-    crop: 'object-[45%_50%]',
   },
 ];
 
@@ -77,11 +71,7 @@ export default function FinderRolePickerV2({
             'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ink'
           )}
         >
-          <span className={cn('relative w-[96px] shrink-0 border-r-2 border-solid border-ink', ROLE_PANEL[c.role])}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={c.photo} alt="" className={cn('absolute inset-0 h-full w-full object-cover', c.crop)} />
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col justify-center gap-[5px] py-[12px] pl-[14px] pr-2">
+          <span className="flex min-w-0 flex-1 flex-col justify-center gap-[5px] py-[12px] pl-[16px] pr-2">
             <span
               className={cn(
                 'self-start rounded-[4px] bw-hair border-ink px-2 py-[3px] text-[12px] font-extrabold tracking-[0.72px]',

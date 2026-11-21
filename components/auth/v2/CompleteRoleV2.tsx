@@ -30,7 +30,6 @@ import {
   AuthMain,
   AuthTitle,
   AuthTopBar,
-  ROLE_PANEL,
   ROLE_TAG,
   Spinner,
   type AuthRole,
@@ -38,10 +37,10 @@ import {
 import { Chip } from './SignupV2';
 import SchoolPickerV2 from './SchoolPickerV2';
 
-const CARDS: { role: AuthRole; tag: string; title: string; detail: string; photo: string }[] = [
-  { role: 'student', tag: 'STUDENT', title: "I'm a student", detail: 'Classes and 1:1 lessons with Caribbean teachers', photo: '/brand/auth/role-student.jpg' },
-  { role: 'parent', tag: 'PARENT', title: "I'm a parent", detail: "Find and pay for your child's lessons", photo: '/brand/auth/role-parent.jpg' },
-  { role: 'tutor', tag: 'TEACHER', title: "I'm a teacher", detail: 'Teach classes and 1:1, get paid in TTD', photo: '/brand/auth/role-teacher.jpg' },
+const CARDS: { role: AuthRole; tag: string; title: string; detail: string }[] = [
+  { role: 'student', tag: 'STUDENT', title: "I'm a student", detail: 'Classes and 1:1 lessons with Caribbean teachers' },
+  { role: 'parent', tag: 'PARENT', title: "I'm a parent", detail: "Find and pay for your child's lessons" },
+  { role: 'tutor', tag: 'TEACHER', title: "I'm a teacher", detail: 'Teach classes and 1:1, get paid in TTD' },
 ];
 
 export type CompleteRoleV2Props = {
@@ -234,11 +233,7 @@ export default function CompleteRoleV2(p: CompleteRoleV2Props) {
                   'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ink'
                 )}
               >
-                <span className={cn('relative w-[106px] shrink-0 border-r-2 border-solid border-ink', ROLE_PANEL[c.role])}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={c.photo} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col justify-center gap-[5px] py-[14px] pl-[14px] pr-3">
+                <span className="flex min-w-0 flex-1 flex-col justify-center gap-[5px] py-[14px] pl-[16px] pr-3">
                   <span className={cn('self-start rounded-[4px] bw-hair border-ink px-2 py-[3px] text-[12px] font-extrabold tracking-[0.72px]', ROLE_TAG[c.role])}>
                     {c.tag}
                   </span>

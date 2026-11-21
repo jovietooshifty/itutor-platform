@@ -17,32 +17,26 @@
 
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { AuthFrame, AuthMain, AuthTitle, AuthTopBar, ROLE_PANEL, ROLE_TAG, ULink, type AuthRole } from './AuthKit';
+import { AuthFrame, AuthMain, AuthTitle, AuthTopBar, ROLE_TAG, ULink, type AuthRole } from './AuthKit';
 
-const CARDS: { role: AuthRole; tag: string; title: string; detail: string; photo: string; crop: string }[] = [
+const CARDS: { role: AuthRole; tag: string; title: string; detail: string }[] = [
   {
     role: 'student',
     tag: 'STUDENT',
     title: "I'm a student",
     detail: 'Classes and 1:1 lessons with Caribbean teachers',
-    photo: '/brand/auth/role-student.jpg',
-    crop: 'object-[38%_50%]',
   },
   {
     role: 'parent',
     tag: 'PARENT',
     title: "I'm a parent",
     detail: "Find and pay for your child's lessons",
-    photo: '/brand/auth/role-parent.jpg',
-    crop: 'object-[45%_50%]',
   },
   {
     role: 'tutor',
     tag: 'TEACHER',
     title: "I'm a teacher",
     detail: 'Teach classes and 1:1, get paid in TTD',
-    photo: '/brand/auth/role-teacher.jpg',
-    crop: 'object-[45%_50%]',
   },
 ];
 
@@ -75,11 +69,7 @@ export default function RolePickerV2({
               'focus-visible:[outline-style:solid] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ink'
             )}
           >
-            <span className={cn('relative w-[106px] shrink-0 border-r-2 border-solid border-ink', ROLE_PANEL[c.role])}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={c.photo} alt="" className={cn('absolute inset-0 h-full w-full object-cover', c.crop)} />
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col justify-center gap-[5px] py-[14px] pl-[14px] pr-2">
+            <span className="flex min-w-0 flex-1 flex-col justify-center gap-[5px] py-[14px] pl-[16px] pr-2">
               <span
                 className={cn(
                   'self-start rounded-[4px] bw-hair border-ink px-2 py-[3px] text-[12px] font-extrabold tracking-[0.72px]',
