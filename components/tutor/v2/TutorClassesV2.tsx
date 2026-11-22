@@ -103,6 +103,25 @@ export default function TutorClassesV2() {
     load();
   }, [load]);
 
+  // Keep-active rules (21 Nov 2026 sprint): which classes are in a warning,
+  // and the archived ones the tutor can bring back. A failure here only hides
+  // these extras; the class list itself does not depend on it.
+  const [activity, setActivity] = useState<ClassActivity | null>(null);
+  const loadActivity = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tutor/class-activity', { cache: 'no-store' });
+      const json = await res.json();
+      if (res.ok && json?.success) setActivity(json.data as ClassActivity);
+    } catch {
+      /* extras only */
+    }
+  }, []);
+  useEffect(() => {
+    loadActivity();
+  }, [loadActivity]);
+  const warningFor = useMemo(() => new Map((activity?.warnings ?? []).map((w) => [w.groupId, w])), [activity]);
+  const wantArchived = searchParams.get('archived') === '1';
+
   const counts = useMemo(
     () => Object.fromEntries(FILTERS.map((f) => [f.id, (classes ?? []).filter(f.match).length])) as Record<Filter, number>,
     [classes]
@@ -211,7 +230,7 @@ export default function TutorClassesV2() {
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-ds-3 lg:gap-ds-4">
               {shown.map((c) => (
-                <ClassTile key={c.id} c={c} />
+                <ClassTile key={c.id} c={c} warning={warningFor.get(c.id)} />
               ))}
             </div>
           )}
@@ -220,6 +239,17 @@ export default function TutorClassesV2() {
           </Button>
         </>
       )}
+
+      {half === 'classes' && activity && activity.archived.length > 0 ? (
+        <ArchivedSection
+          items={activity.archived}
+          open={wantArchived}
+          onReactivated={() => {
+            load();
+            loadActivity();
+          }}
+        />
+      ) : null}
 
       {half === 'classes' && classes && classes.length > 0 ? (
         <section aria-label="Take a break" className="mt-ds-2">
@@ -230,7 +260,107 @@ export default function TutorClassesV2() {
   );
 }
 
-function ClassTile({ c }: { c: ClassItem }) {
+type ActivityWarning = { groupId: string; rule: 'no_students' | 'inactive'; archiveOn: string; reminded: boolean };
+type ArchivedClass = {
+  id: string;
+  name: string;
+  subject: string | null;
+  coverImage: string | null;
+  archivedAt: string;
+  reason: string;
+  visibility: string;
+};
+type ClassActivity = { warnings: ActivityWarning[]; archived: ArchivedClass[] };
+
+const ARCHIVE_WHY: Record<string, string> = {
+  auto_no_students: 'No students joined',
+  auto_inactive: 'No activity for 90 days',
+  auto_inactive_90_days: 'No activity for 90 days',
+  manual: 'You archived it',
+};
+
+/**
+ * Classes → Archived. Nothing in an archived class is deleted; Reactivate
+ * puts it back as it was (on the marketplace again if it is public) with a
+ * fresh 30 days. Collapsed by default unless the "archived" email/notification
+ * link (?archived=1) brought the tutor here.
+ */
+function ArchivedSection({ items, open, onReactivated }: { items: ArchivedClass[]; open: boolean; onReactivated: () => void }) {
+  const [expanded, setExpanded] = useState(open);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) document.getElementById('archived-classes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [open]);
+
+  const reactivate = async (c: ArchivedClass) => {
+    setBusy(c.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/groups/${c.id}/restore`, { method: 'POST' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || 'Could not reactivate this class.');
+      setDone(c.name);
+      onReactivated();
+    } catch (e: any) {
+      setError(e?.message || 'Could not reactivate this class.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section id="archived-classes" aria-label="Archived classes" className="mt-ds-2 flex scroll-mt-ds-4 flex-col gap-ds-3">
+      <button
+        type="button"
+        onClick={() => setExpanded((x) => !x)}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-between gap-ds-3 border-0 bg-transparent p-0 text-left cursor-pointer"
+      >
+        <h2 className="m-0 font-display text-[18px] font-extrabold text-ink">
+          Archived <span className="tabular-nums text-ink-muted">{items.length}</span>
+        </h2>
+        <span className="text-[14px] font-extrabold text-ink-muted">{expanded ? 'Hide' : 'Show'}</span>
+      </button>
+      {done ? (
+        <p role="status" className="m-0 text-[14px] font-extrabold text-brand-edge">
+          {done} is back, with a fresh 30 days.
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="m-0 text-[14px] font-extrabold text-danger">
+          {error}
+        </p>
+      ) : null}
+      {expanded ? (
+        <>
+          <p className="m-0 text-[14px] leading-5 text-ink-muted">
+            Nothing in an archived class is deleted: settings, sessions, posts and members&rsquo; history are all kept.
+            Reactivate puts it back exactly as it was{items.some((i) => i.visibility === 'public') ? ', on the marketplace if it is public' : ''}.
+          </p>
+          <ul className="m-0 flex list-none flex-col gap-ds-2 p-0">
+            {items.map((c) => (
+              <li key={c.id} className="flex items-center gap-ds-3 rounded-ds-card bw-hair border-border bg-surface-card p-ds-3">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[15px] font-extrabold text-ink">{c.name}</div>
+                  <div className="text-[13px] text-ink-muted">
+                    {[c.subject, `Archived ${shortDate(c.archivedAt)}`, ARCHIVE_WHY[c.reason]].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+                <Button variant="dark" size="sm" disabled={busy !== null} onClick={() => reactivate(c)}>
+                  {busy === c.id ? 'Reactivating…' : 'Reactivate'}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function ClassTile({ c, warning }: { c: ClassItem; warning?: ActivityWarning }) {
   const router = useRouter();
   const tag = STATE_TAG[c.state];
   const draft = c.state === 'draft';
@@ -274,6 +404,15 @@ function ClassTile({ c }: { c: ClassItem }) {
         </div>
 
         {/* Stat strip, as on the old card. */}
+        {warning ? (
+          <Link
+            href={`/tutor/classes/${c.id}?keepActive=1`}
+            className="rounded-ds-sm bw-hair border-ink bg-accent-yellow/30 px-ds-3 py-ds-2 text-[13px] font-extrabold leading-[18px] text-ink no-underline"
+          >
+            {warning.rule === 'no_students' ? 'No students yet' : 'No recent activity'} · archives {shortDate(warning.archiveOn)}. Keep it active →
+          </Link>
+        ) : null}
+
         <dl className="m-0 grid grid-cols-3 divide-x divide-border overflow-hidden rounded-ds-sm bw-hair border-border text-center">
           {[
             ['Next', next],

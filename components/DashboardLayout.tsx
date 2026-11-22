@@ -309,6 +309,7 @@ export default function DashboardLayout({ children, role, userName }: DashboardL
         { label: 'System', items: [
           { href: '/admin/emails', label: 'Email Management', icon: icons.mail },
           { href: '/admin/classes', label: 'Class Admin', icon: icons.book },
+          { href: '/admin/class-activity', label: 'Class Activity', icon: icons.book },
           { href: '/admin/settings', label: 'Settings & Roles', icon: icons.settings },
         ]},
       ];

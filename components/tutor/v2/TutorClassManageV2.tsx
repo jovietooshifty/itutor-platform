@@ -38,6 +38,7 @@ import { useProfile } from '@/lib/hooks/useProfile';
 import { parentInitials } from '@/components/parent/v2/initials';
 import { STATE_TAG, money, shortDate, type ClassItem } from './classState';
 import { shareOrCopy } from '@/components/tutor/classHub/shared';
+import { GoogleLogo, WhatsappLogo } from '@phosphor-icons/react';
 
 type RosterRow = {
   id: string;
@@ -55,6 +56,8 @@ type Overview = {
     endDate: string | null;
     enrolmentClosedUntil: string | null;
     requireJoinRequests: boolean;
+    whatsappLink?: string | null;
+    classroomLink?: string | null;
   };
   next: { id: string; start: string; end: string } | null;
   lastEnded: string | null;
@@ -159,6 +162,50 @@ export default function TutorClassManageV2({ classId, onUnavailable, renderTabs 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Opening the class counts as teacher activity for the 90-day rule. Only the
+  // old class view sent this, so new-UI tutors looked inactive. The route
+  // ignores non-owners and logs at most one visit a day.
+  useEffect(() => {
+    fetch(`/api/groups/${classId}/visit`, { method: 'POST' }).catch(() => {});
+  }, [classId]);
+
+  // Keep-active warning for this class, if one is running (21 Nov 2026 sprint).
+  const [warning, setWarning] = useState<{ rule: 'no_students' | 'inactive'; archiveOn: string } | null>(null);
+  const [keepState, setKeepState] = useState<'idle' | 'saving' | 'kept' | 'failed'>('idle');
+  const keepRef = useRef<HTMLDivElement>(null);
+  const wantKeep = searchParams?.get('keepActive') === '1';
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/tutor/class-activity', { cache: 'no-store' });
+        const json = await res.json();
+        if (cancelled || !res.ok || !json?.success) return;
+        const w = (json.data.warnings ?? []).find((x: any) => x.groupId === classId);
+        setWarning(w ? { rule: w.rule, archiveOn: w.archiveOn } : null);
+      } catch {
+        /* the banner is an extra */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [classId]);
+  useEffect(() => {
+    if (wantKeep && (warning || keepState === 'kept')) keepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [wantKeep, warning, keepState]);
+  const keepActive = async () => {
+    setKeepState('saving');
+    try {
+      const res = await fetch(`/api/groups/${classId}/keep-active`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      setKeepState('kept');
+      setWarning(null);
+    } catch {
+      setKeepState('failed');
+    }
+  };
 
   // With the hub's tabs embedded below (renderTabs), every "go to X" button
   // switches that section in place and scrolls to it. Without them, the old
@@ -327,6 +374,38 @@ export default function TutorClassManageV2({ classId, onUnavailable, renderTabs 
             </div>
           </Card>
 
+          {warning || keepState === 'kept' ? (
+            <div ref={keepRef}>
+              {keepState === 'kept' ? (
+                <Card tag={<Tag tone="brand">Kept active</Tag>} title={`${c.name} stays live`} body="You have another 30 days before we check in again." />
+              ) : warning ? (
+                <Card
+                  tone="alert"
+                  tag={<Tag tone="warning">Archives {shortDate(warning.archiveOn)}</Tag>}
+                  title={warning.rule === 'no_students' ? `${c.name} has no students yet` : `No recent activity on ${c.name}`}
+                  body={
+                    warning.rule === 'no_students'
+                      ? 'Share the link on WhatsApp, check the price and description, and add sessions so families can see when it runs. If nothing changes we will archive it; nothing is deleted and you can bring it back in one tap.'
+                      : 'Classes with no activity for 90 days are archived. Nothing is deleted and you can bring it back in one tap.'
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-ds-2">
+                    <Button variant="dark" size="md" disabled={keepState === 'saving'} onClick={keepActive}>
+                      {keepState === 'saving' ? 'Saving…' : 'Keep my class active'}
+                    </Button>
+                    {warning.rule === 'no_students' ? (
+                      <Button variant="outline" size="md" onClick={() => setShareOpen(true)}>
+                        Share the class
+                      </Button>
+                    ) : null}
+                  </div>
+                  {keepState === 'failed' ? (
+                    <p role="alert" className="m-0 text-[14px] font-extrabold text-danger">That didn&rsquo;t save. Try again.</p>
+                  ) : null}
+                </Card>
+              ) : null}
+            </div>
+          ) : null}
           {fixCard}
           {requestsCard}
 
@@ -416,10 +495,16 @@ export default function TutorClassManageV2({ classId, onUnavailable, renderTabs 
           </>)}
         </div>
 
-        {/* Desktop right rail (d03): the share card. */}
+        {/* Desktop right rail (d03): the share card, then the class's
+            WhatsApp group and Google Classroom. On phones the community card
+            sits under the class card instead (rendered just below). */}
         <aside className="hidden lg:flex lg:flex-col lg:gap-ds-4">
           <ShareCard message={share.message} url={share.url} />
+          <CommunityCard whatsapp={c.whatsappLink ?? null} classroom={c.classroomLink ?? null} onEdit={() => hub('settings')} />
         </aside>
+        <div className="lg:hidden">
+          <CommunityCard whatsapp={c.whatsappLink ?? null} classroom={c.classroomLink ?? null} onEdit={() => hub('settings')} />
+        </div>
       </div>
 
       {/* The class hub's sections, full width — the old page's lower layout. */}
@@ -477,6 +562,46 @@ export default function TutorClassManageV2({ classId, onUnavailable, renderTabs 
         </button>
       </Sheet>
     </div>
+  );
+}
+
+/**
+ * The class's WhatsApp group and Google Classroom, as set in Settings. Families
+ * see that a class has them on its marketplace page (a selling point); only
+ * the tutor and enrolled students get the links themselves.
+ */
+function CommunityCard({ whatsapp, classroom, onEdit }: { whatsapp: string | null; classroom: string | null; onEdit: () => void }) {
+  const rows: Array<{ label: string; href: string | null; icon: ReactNode }> = [
+    { label: 'WhatsApp group', href: whatsapp, icon: <WhatsappLogo size={20} weight="bold" aria-hidden /> },
+    { label: 'Google Classroom', href: classroom, icon: <GoogleLogo size={20} weight="bold" aria-hidden /> },
+  ];
+  return (
+    <Card title="Class community" className="gap-ds-3">
+      <ul className="m-0 flex list-none flex-col gap-ds-2 p-0">
+        {rows.map((r) => (
+          <li key={r.label} className="flex items-center gap-ds-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink">{r.icon}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-extrabold leading-5">{r.label}</span>
+              {r.href ? (
+                <a href={r.href} target="_blank" rel="noopener noreferrer" className="block truncate text-[13px] text-ink-muted underline">
+                  {r.href.replace(/^https?:\/\//, '')}
+                </a>
+              ) : (
+                <span className="block text-[13px] text-ink-muted">Not connected</span>
+              )}
+            </span>
+            {r.href ? <Tag tone="brand">Connected</Tag> : null}
+          </li>
+        ))}
+      </ul>
+      <p className="m-0 text-[13px] leading-[18px] text-ink-muted">
+        Families see these on your class page. Enrolled students get the links.
+      </p>
+      <Button variant="outline" size="md" onClick={onEdit}>
+        {whatsapp || classroom ? 'Edit links' : 'Add links'}
+      </Button>
+    </Card>
   );
 }
 

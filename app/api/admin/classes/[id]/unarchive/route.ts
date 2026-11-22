@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/middleware/adminAuth';
 import { getServiceClient } from '@/lib/supabase/server';
 import { logAdminAction } from '@/lib/services/adminAudit';
+import { readState, startFreshPeriod } from '@/lib/server/classActivity';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,13 +31,17 @@ export async function POST(
     return NextResponse.json({ error: 'Class is not archived' }, { status: 409 });
   }
 
+  // Same flow as the tutor's Reactivate: the status it had before the
+  // keep-active rules archived it, and a fresh 30-day period.
+  const state = await readState(admin, id);
   const { error: updateError } = await admin
     .from('groups')
-    .update({ archived_at: null, status: 'PUBLISHED', archived_reason: null })
+    .update({ archived_at: null, status: state?.previous_status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED', archived_reason: null })
     .eq('id', id);
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 400 });
   }
+  await startFreshPeriod(admin, id, { clearArchive: true });
 
   await logAdminAction(
     { id: auth.profile?.id, email: auth.profile?.email },

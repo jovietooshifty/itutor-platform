@@ -42,7 +42,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const [{ data: g }, { data: nextOcc }, { data: lastOcc }, { data: enrolRows }, { data: pending }] = await Promise.all([
       db
         .from('groups')
-        .select('class_format, end_date, enrolment_closed_until, require_join_requests, description')
+        .select('class_format, end_date, enrolment_closed_until, require_join_requests, description, whatsapp_link, google_classroom_link')
         .eq('id', classId)
         .eq('tutor_id', user.id)
         .single(),
@@ -105,6 +105,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
         endDate: g?.end_date ?? null,
         enrolmentClosedUntil: closedUntil,
         requireJoinRequests: Boolean(g?.require_join_requests),
+        // The class's WhatsApp group and Google Classroom (Settings → Communication).
+        whatsappLink: (g as any)?.whatsapp_link || null,
+        classroomLink: (g as any)?.google_classroom_link || null,
       },
       next: nextOcc?.[0] ? { id: nextOcc[0].id, start: nextOcc[0].scheduled_start_at, end: nextOcc[0].scheduled_end_at } : null,
       lastEnded: lastOcc?.[0]?.scheduled_end_at ?? null,
