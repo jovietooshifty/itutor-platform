@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { ClassRatingsSection } from '@/components/ratings/v2/ClassRating';
 import { ClassCover } from './ClassCover';
 import { preorderFor, type GroupData, type SessionRow } from '@/components/classes/ClassDetailView';
+import { classCommunityLine } from '@/lib/classes/classCommunity';
 import { SecureSpotTermsV2 } from '@/components/classes/SecureSpotTermsV2';
 import { formatAstTimeRange } from '@/lib/utils/scheduleFormat';
 import { formatLevelShort } from '@/lib/utils/formatLevel';
@@ -466,6 +467,8 @@ function BrowseView({
         <StackRow label="Where">{[group.venue.name, group.venue.region?.name].filter(Boolean).join(' · ')}</StackRow>
       ) : null}
       {group.require_join_requests ? <SummaryRow label="Joining" value="The tutor approves each place" /> : null}
+      {/* A selling point, so it shows before joining (21 Nov 2026 sprint). */}
+      {classCommunityLine(group) ? <StackRow label="Class community">{classCommunityLine(group)}</StackRow> : null}
     </div>
   );
 

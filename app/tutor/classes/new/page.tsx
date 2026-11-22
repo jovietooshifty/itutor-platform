@@ -79,7 +79,6 @@ function CreateClassContent() {
   // classes on staging end on the same 2027-12-12, which no school calendar
   // produces.
   const [endDateTouched, setEndDateTouched] = useState(false);
-  const [memberFee, setMemberFee] = useState(0);
   const [visibility, setVisibility] = useState<Visibility>('public');
   const [joinRequests, setJoinRequests] = useState(false);
   const [autoSuspend, setAutoSuspend] = useState(true);
@@ -93,6 +92,7 @@ function CreateClassContent() {
   // this closes: CreateGroupModal (the older /groups creation flow) got it,
   // this one — the one "Create a Class" actually links to — did not.
   const physicalClasses = usePhysicalClasses();
+  const tutorVerified = (profile as { tutor_verification_status?: string | null } | null)?.tutor_verification_status === 'VERIFIED';
   const [inPerson, setInPerson] = useState<InPersonDraft>({
     classFormat: 'online',
     venueId: null,
@@ -259,7 +259,6 @@ function CreateClassContent() {
           maxStudents: type === 'recurring-1on1' ? 1 : studentLimit,
           price_monthly: price,
           end_date: endDate,
-          member_service_fee: memberFee,
           pricing_model: 'MONTHLY',
           isPublic: visibility === 'public',
           require_join_requests: joinRequests,
@@ -451,14 +450,6 @@ function CreateClassContent() {
                     className="w-full pl-8 pr-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
                 </div>
               </Field>
-              <Field
-                label="Per-member service fee (TTD)"
-                infoTitle="Service fee"
-                infoBlurb="A small flat fee added to each member's bill — useful to cover materials, platform costs, or admin overhead."
-              >
-                <input type="number" value={memberFee} onChange={(e) => setMemberFee(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
-              </Field>
             </div>
             <Field
               label="Class end date"
@@ -505,7 +496,8 @@ function CreateClassContent() {
             </Field>
           </Card>
 
-          {type === 'group' && physicalClasses && (
+          {/* In person is for verified tutors only; the API refuses it too. */}
+          {type === 'group' && physicalClasses && tutorVerified && (
             <Card title="Where does this meet?">
               <p className="-mt-2 text-xs text-muted-foreground">
                 You can change this later. Everyone gets a meeting link either way —

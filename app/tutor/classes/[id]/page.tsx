@@ -335,7 +335,9 @@ function ClassHubContent({ embedded = false, tab: controlledTab, onTabChange }: 
           recurrenceRule: g.recurrence_rule,
           earningsTtd: 0,
           totalSessionsRun: 0,
-          whatsappLink: g.whatsapp_url ?? g.whatsapp_link ?? '',
+          // whatsapp_link is what Settings saves (PATCH /api/classes/[id]/settings);
+          // reading the legacy whatsapp_url first showed a stale link after a save.
+          whatsappLink: g.whatsapp_link || g.whatsapp_url || '',
           tutorId: g.tutor_id ?? null,
           endDate: typeof g.end_date === 'string' && g.end_date ? g.end_date.slice(0, 10) : null,
           meetingLink: g.meeting_link ?? '',
@@ -683,7 +685,10 @@ function ClassHubContent({ embedded = false, tab: controlledTab, onTabChange }: 
                 aria-selected={tab === t.key}
                 onClick={() => switchTab(t.key)}
                 className={cn(
-                  'ds-press shrink-0 rounded-ds-full bw-bold px-ds-4 py-ds-2 font-body text-[15px] font-extrabold whitespace-nowrap cursor-pointer',
+                  // Compact (21 Nov 2026 sprint): the pills were taller and
+                  // bolder than every button around them, so "Sessions" and
+                  // its neighbours stood out of the layout.
+                  'ds-press inline-flex h-9 shrink-0 items-center rounded-ds-full bw-hair px-ds-3 font-body text-[14px] font-extrabold whitespace-nowrap cursor-pointer',
                   tab === t.key ? 'border-ink bg-ink text-on-ink' : 'border-ink/15 bg-surface-card text-ink hover:border-ink/40'
                 )}
               >

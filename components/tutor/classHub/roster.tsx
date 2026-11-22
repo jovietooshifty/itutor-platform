@@ -3,7 +3,7 @@
 // Class hub: roster. Moved out of app/tutor/classes/[id]/page.tsx (2026-11-16) so each
 // tab can be redrawn in the new UI on its own. Behaviour unchanged by the move.
 // Redrawn in the design system 2026-11-16; the one behaviour change is that
-// Invite by link opens the device's share sheet (shareOrCopy).
+// "Share class" opens the same Share pop-up as Manage class (ShareCard).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -55,6 +55,7 @@ import { StreamTab, ComposerKind, COMPOSER_THEME, COMPOSER_MAX_MB, ClassPostComp
 import { NO_CLASS_LINK_MESSAGE, SessionRow, SessionsTab } from './sessions';
 import { SETTINGS_SECTIONS, SettingsSectionId, SettingsTab, ClassBannerUpload, ClassPreviewCard } from './settings';
 import { AnalyticsTab } from './analytics';
+import { ShareCard, shareBase } from '@/components/tutor/v2/TutorClassManageV2';
 
 type TagTone = 'outline' | 'brand' | 'dark' | 'warning' | 'danger' | 'orange';
 
@@ -92,15 +93,14 @@ export function RosterTab({ members, setMembers, group, isOneOnOne, atCapacity, 
   members: GroupMember[]; setMembers: React.Dispatch<React.SetStateAction<GroupMember[]>>;
   group: GroupDetail; isOneOnOne: boolean; atCapacity: boolean; onRefresh?: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
   const [inviteOpen, setInviteOpen] = useState<null | 'link' | 'user'>(null);
   const [inviteQuery, setInviteQuery] = useState('');
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteOk, setInviteOk] = useState('');
-  // Outcome of the last share attempt: only 'copied' and 'failed' say anything.
-  const [shareResult, setShareResult] = useState<null | 'copied' | 'failed'>(null);
-  const inviteUrl = typeof window !== 'undefined' ? `${window.location.origin}/classes/${group.id}` : '';
+  // The canonical class page, the same link and message Manage class shares.
+  const shareUrl = `${shareBase()}/student/explore/${group.id}`;
+  const shareMessage = `Hi! I'm teaching ${group.title} on iTutor. You can see the details and join here: ${shareUrl}`;
 
   // The Seat column earns its place only when the class can actually differ
   // by seat or by payment method.
@@ -108,24 +108,6 @@ export function RosterTab({ members, setMembers, group, isOneOnOne, atCapacity, 
 
   const updateMember = (sid: string, patch: Partial<GroupMember>) =>
     setMembers((ms) => ms.map((m) => m.studentId === sid ? { ...m, ...patch } : m));
-
-  const copy = () => { navigator.clipboard?.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); };
-
-  // Invite by link opens the device's share sheet (WhatsApp, Messages, ...),
-  // falling back to the clipboard where there is none. The link stays on screen
-  // either way so it can be copied by hand.
-  const shareLink = async () => {
-    setInviteOpen('link');
-    setShareResult(null);
-    if (!inviteUrl) return;
-    // No `text`: shareOrCopy's clipboard fallback copies `text` instead of the
-    // url when one is given, and the tutor needs the link itself.
-    const result = await shareOrCopy({ title: group.title || 'Join my class on iTutor', url: inviteUrl });
-    if (result === 'copied' || result === 'failed') {
-      setShareResult(result);
-      if (result === 'copied') setTimeout(() => setShareResult((r) => (r === 'copied' ? null : r)), 2500);
-    }
-  };
 
   const sendInvite = async () => {
     if (!inviteQuery.trim() || inviteSending) return;
@@ -221,8 +203,8 @@ export function RosterTab({ members, setMembers, group, isOneOnOne, atCapacity, 
           )}
           {!isOneOnOne && (
             <>
-              <Button variant="outline" size="sm" disabled={atCapacity} onClick={shareLink} className="gap-[6px] px-ds-3">
-                <LinkIcon className="size-4" /> Invite by link
+              <Button variant="outline" size="sm" disabled={atCapacity} onClick={() => setInviteOpen('link')} className="gap-[6px] px-ds-3">
+                <Share2 className="size-4" /> Share class
               </Button>
               <Button variant="dark" size="sm" disabled={atCapacity} onClick={() => setInviteOpen('user')} className="gap-[6px] px-ds-3">
                 <UserPlus className="size-4" /> Invite by user
@@ -239,42 +221,13 @@ export function RosterTab({ members, setMembers, group, isOneOnOne, atCapacity, 
 
       <SecuredSpotsSummary members={members} />
 
-      {inviteOpen === 'link' && (
-        <div className={cn(DS_CARD, 'flex flex-col gap-ds-3')}>
-          <div className="flex items-start justify-between gap-ds-3">
-            <div className="min-w-0">
-              <h3 className="m-0 font-display text-[17px] font-extrabold text-ink">Invite link</h3>
-              <p className="m-0 text-[14px] text-ink-muted">Send it on WhatsApp or any app, or copy it below.</p>
-            </div>
-            <button type="button" onClick={() => setInviteOpen(null)} aria-label="Close invite link"
-              className="grid size-8 shrink-0 place-items-center rounded-ds-sm text-ink-muted hover:bg-surface-sunken hover:text-ink">
-              <X className="size-4" />
-            </button>
-          </div>
-          <div className="flex min-w-0 items-center gap-ds-2 rounded-ds-btn bg-surface-sunken px-ds-3 py-ds-2">
-            <span className="min-w-0 flex-1 font-mono text-[13px] text-ink [overflow-wrap:anywhere] select-all">{inviteUrl}</span>
-            <button type="button" onClick={copy}
-              className="inline-flex shrink-0 items-center gap-1 text-[13px] font-extrabold text-ink hover:underline">
-              {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-ds-3">
-            <Button variant="dark" size="sm" disabled={atCapacity} onClick={shareLink} className="gap-[6px] px-ds-3">
-              <Share2 className="size-4" /> Share link
-            </Button>
-            {shareResult === 'copied' && (
-              <span role="status" className="inline-flex items-center gap-1 text-[14px] font-extrabold text-brand-edge">
-                <Check className="size-4" /> Link copied
-              </span>
-            )}
-            {shareResult === 'failed' && (
-              <span role="alert" className="text-[14px] font-extrabold text-danger">
-                Couldn&apos;t open the share menu or copy the link. Copy it from the box above.
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+      {/* The one share experience (21 Nov 2026 sprint): the same pop-up as
+          Manage class's "Add students" — WhatsApp first, then the device's
+          share menu. The first-version inline "Invite link" box, which copied
+          the legacy /classes/{id} URL, is gone. */}
+      <Sheet open={inviteOpen === 'link'} onClose={() => setInviteOpen(null)} title="Share this class">
+        <ShareCard message={shareMessage} url={shareUrl} bare />
+      </Sheet>
 
       {inviteOpen === 'user' && (
         <div className={cn(DS_CARD, 'flex flex-col gap-ds-3')}>
@@ -303,7 +256,7 @@ export function RosterTab({ members, setMembers, group, isOneOnOne, atCapacity, 
       )}
 
       {visible.length === 0 ? (
-        <EmptyState icon={Users} title="No members yet" body="Invite by link or by user to start filling this class." />
+        <EmptyState icon={Users} title="No members yet" body="Share the class or invite by user to start filling it." />
       ) : (
         <div className="min-w-0 overflow-x-auto rounded-ds-card bw-hair border-border bg-surface-card">
           <table className="w-full min-w-[640px] font-body text-[14px]">

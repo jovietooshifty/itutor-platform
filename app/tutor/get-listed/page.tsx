@@ -835,9 +835,9 @@ function SectionShell({ done, title, subtitle, children, optional }: { done: boo
           <h2 className="font-semibold text-ink">{title}</h2>
           <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
         </div>
-        {optional && !done ? (
-          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full shrink-0 bg-sky/20 text-sky-700">Optional</span>
-        ) : (
+        {/* No "Optional" pill (21 Nov 2026 sprint): an optional section that
+            isn't done simply shows no status. */}
+        {optional && !done ? null : (
           <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full shrink-0', done ? 'bg-brand/15 text-brand-deep' : 'bg-muted text-muted-foreground')}>
             {done ? 'Complete' : 'Incomplete'}
           </span>

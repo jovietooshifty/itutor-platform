@@ -232,6 +232,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (updateError) throw updateError;
 
+    // Keep the legacy whatsapp_url column in step (the create form and older
+    // routes wrote it, and readers fall back to it). Separate and best-effort:
+    // the column does not exist on every database.
+    if (input.whatsapp_url !== undefined) {
+      const { error: legacyErr } = await service
+        .from('groups')
+        .update({ whatsapp_url: input.whatsapp_url || null })
+        .eq('id', classId);
+      if (legacyErr && !isSchemaMismatch(legacyErr)) console.warn('[settings] whatsapp_url mirror failed:', legacyErr.message);
+    }
+
     // The group_feedback_settings / group_feedback_periods side effects that used
     // to run here are gone with those tables. The period-and-deadline model they
     // served is replaced by the request-driven one in migrations 221/222, which

@@ -617,6 +617,18 @@ export async function GET(req: NextRequest, { params }: Params) {
         }
       : null;
 
+    // whatsapp_link is canonical (PATCH /api/classes/[id]/settings writes it,
+    // wa-redirect reads it); whatsapp_url is the legacy column.
+    const whatsapp = ((group as any).whatsapp_link || (group as any).whatsapp_url || '').trim() || null;
+    const classroom = ((group as any).google_classroom_link || '').trim() || null;
+    const communityLinks = {
+      whatsapp_link: maySeeClassLink ? whatsapp : null,
+      whatsapp_url: maySeeClassLink ? whatsapp : null,
+      google_classroom_link: maySeeClassLink ? classroom : null,
+      has_whatsapp_group: Boolean(whatsapp),
+      has_google_classroom: Boolean(classroom),
+    };
+
     return NextResponse.json({
       success: true,
       group: {
@@ -628,6 +640,12 @@ export async function GET(req: NextRequest, { params }: Params) {
         // POST /meeting-link reads for itself.
         meeting_link: maySeeClassLink ? (group.meeting_link ?? null) : null,
         meeting_link_generated_at: undefined,
+        // The WhatsApp group invite and the Classroom link are the same kind of
+        // secret as the class link: whoever holds one is in the group. Before
+        // the 21 Nov 2026 sprint they went to anyone, anonymous visitors
+        // included. Everyone else gets the two booleans, which is all the
+        // marketplace needs to show them as part of the class.
+        ...communityLinks,
         /** Per seat type: capacity, enrolled, remaining, full, price. */
         seat_availability: seats?.availability ?? null,
         /** True only when every seat type the class offers is full. */
@@ -664,6 +682,7 @@ export async function GET(req: NextRequest, { params }: Params) {
           venue: venueForViewer,
           meeting_link: maySeeClassLink ? (group.meeting_link ?? null) : null,
           meeting_link_generated_at: undefined,
+          ...communityLinks,
           seat_availability: seats?.availability ?? null,
           seats_full: seats?.full ?? null,
           members: isAnonymous ? [] : group.group_members,

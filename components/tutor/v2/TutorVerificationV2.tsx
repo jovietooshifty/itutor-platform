@@ -113,10 +113,9 @@ function VerificationBody({ onApply }: { onApply: () => void }) {
         <span className="text-[12px] font-extrabold uppercase tracking-[1.2px] text-ink-muted">Verified badge</span>
         <div className="flex flex-wrap items-center gap-ds-2">
           <h1 className="ds-page-title m-0">iTutor Verified</h1>
-          <Tag tone="outline">Optional</Tag>
         </div>
         <p className="m-0 text-[15px] text-ink-muted">
-          A badge families can trust. You can teach and get paid without it.
+          A badge families can trust. You can teach online and get paid without it; in-person classes need it.
         </p>
       </div>
 

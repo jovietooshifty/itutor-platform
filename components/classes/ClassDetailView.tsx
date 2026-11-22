@@ -115,8 +115,12 @@ export type GroupData = {
   schedule_data: string | null;
   session_length_minutes: number | null;
   session_frequency: string | null;
+  /** Null unless the viewer is enrolled (or the tutor); see has_* for everyone. */
   whatsapp_link: string | null;
   google_classroom_link: string | null;
+  /** Whether the class has a WhatsApp group / Google Classroom — public. */
+  has_whatsapp_group: boolean;
+  has_google_classroom: boolean;
   average_rating: number | null;
   tutor: { id: string; full_name: string | null; display_name: string | null; avatar_url: string | null; verified: boolean } | null;
   member_count: number;
@@ -735,10 +739,10 @@ export function Detail({
           </section>
 
           {/* Class channels — info only until enrolled */}
-          {(group.whatsapp_link || group.google_classroom_link) && (
+          {(group.has_whatsapp_group || group.has_google_classroom) && (
             <section className="rounded-3xl border border-border bg-background p-5 space-y-3">
               <h3 className="text-base font-bold text-ink">Class channels</h3>
-              {group.enrolled ? (
+              {group.enrolled && (group.whatsapp_link || group.google_classroom_link) ? (
                 <>
                   <p className="text-xs text-muted-foreground">Join your tutor's external channels for announcements and materials.</p>
                   <div className="flex flex-wrap gap-2">
@@ -759,13 +763,13 @@ export function Detail({
               ) : (
                 <div className="flex items-start gap-3">
                   <div className="size-8 rounded-lg bg-muted grid place-items-center shrink-0">
-                    {group.whatsapp_link && !group.google_classroom_link
+                    {group.has_whatsapp_group && !group.has_google_classroom
                       ? <MessageSquare className="size-4 text-muted-foreground" />
                       : <Globe className="size-4 text-muted-foreground" />}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-ink">
-                      This class uses {[group.whatsapp_link && 'WhatsApp', group.google_classroom_link && 'Google Classroom'].filter(Boolean).join(' and ')}
+                      This class uses {[group.has_whatsapp_group && 'a WhatsApp group', group.has_google_classroom && 'Google Classroom'].filter(Boolean).join(' and ')}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">Join the class to access the group link.</p>
                   </div>

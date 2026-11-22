@@ -35,8 +35,11 @@ import {
   Globe,
   GraduationCap,
   MapPin,
+  GoogleLogo,
+  WhatsappLogo,
 } from '@phosphor-icons/react';
 import { Button, Tag } from '@/components/ui';
+import { classCommunityLine } from '@/lib/classes/classCommunity';
 import { cn } from '@/lib/utils';
 import { ClassRatingsSection } from '@/components/ratings/v2/ClassRating';
 import { ClassCover } from '@/components/parent/v2/ClassCover';
@@ -230,9 +233,10 @@ export function StudentClassDetailV2({ group, parentGate, onJoin }: StudentClass
         }
       : {
           icon: <Globe size={18} weight="bold" aria-hidden />,
-          title: group.google_classroom_link ? 'Google Classroom' : 'Online class',
+          title: 'Online class',
           sub: 'You get the link after joining',
         };
+  const community = classCommunityLine(group);
 
   const tutorMeta =
     group.average_rating && group.average_rating > 0
@@ -279,6 +283,15 @@ export function StudentClassDetailV2({ group, parentGate, onJoin }: StudentClass
         <BasicsRow icon={<GraduationCap size={18} weight="bold" aria-hidden />} title={level} />
       ) : null}
       <BasicsRow icon={where.icon} title={where.title} sub={where.sub} />
+      {/* The class's WhatsApp group / Google Classroom — a selling point, so
+          it shows before joining; the links arrive after (21 Nov 2026 sprint). */}
+      {community ? (
+        <BasicsRow
+          icon={group.has_whatsapp_group ? <WhatsappLogo size={18} weight="bold" aria-hidden /> : <GoogleLogo size={18} weight="bold" aria-hidden />}
+          title={community}
+          sub={group.enrolled ? 'Open them from your class page' : 'Your tutor shares the links once you join'}
+        />
+      ) : null}
     </div>
   );
 

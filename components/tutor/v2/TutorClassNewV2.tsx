@@ -113,7 +113,6 @@ export default function TutorClassNewV2() {
   const [endDateTouched, setEndDateTouched] = useState(false);
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [moreOpen, setMoreOpen] = useState(false);
-  const [memberFee, setMemberFee] = useState(0);
   const [joinRequests, setJoinRequests] = useState(false);
   const [autoSuspend, setAutoSuspend] = useState(true);
   const [graceDays, setGraceDays] = useState(7);
@@ -191,7 +190,6 @@ export default function TutorClassNewV2() {
           maxStudents: isGroup ? seats : 1,
           price_monthly: price,
           end_date: endDate,
-          member_service_fee: memberFee,
           pricing_model: 'MONTHLY',
           isPublic: visibility === 'public',
           require_join_requests: joinRequests,
@@ -466,10 +464,6 @@ export default function TutorClassNewV2() {
                     <input type="number" min={0} value={graceDays} onChange={(e) => setGraceDays(Number(e.target.value))} className={cn(inputCls, 'w-32')} />
                   </Field>
                 ) : null}
-                <Field label="Per-member service fee (TT$)">
-                  <input type="number" min={0} value={memberFee} onChange={(e) => setMemberFee(Number(e.target.value))} className={cn(inputCls, 'w-32')} />
-                  <Hint>A flat fee added to each member&rsquo;s bill, for materials or admin.</Hint>
-                </Field>
                 <Field label="WhatsApp group link">
                   <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="https://chat.whatsapp.com/…" className={inputCls} />
                 </Field>

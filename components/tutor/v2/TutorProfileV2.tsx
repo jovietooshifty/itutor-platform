@@ -270,7 +270,7 @@ function ProfileBody() {
     >
       {desktop ? null : (
         <>
-          <Row first href="/tutor/verification" icon={<SealCheck size={20} weight="bold" />} title="iTutor Verified" detail={step ? `Optional · ${step.toLowerCase()}` : 'Optional'} />
+          <Row first href="/tutor/verification" icon={<SealCheck size={20} weight="bold" />} title="iTutor Verified" detail={step ? step : 'Needed for in-person classes'} />
           <Row href="/tutor/wallet?payout=1" icon={<Bank size={20} weight="bold" />} title="Payout account" detail={accountLine} />
         </>
       )}
@@ -402,7 +402,6 @@ function ProfileBody() {
           <section className="hidden flex-col rounded-ds-card bw-hair border-border bg-surface-card p-ds-card lg:flex">
             <div className="flex items-center gap-ds-2">
               <h2 className="m-0 font-display text-[18px] font-extrabold text-ink">iTutor Verified</h2>
-              <Tag tone="outline">Optional</Tag>
             </div>
             <p className="m-0 mt-ds-1 text-[14px] text-ink-muted">
               Only an approved review shows the badge. Documents are seen only by the review team. Separate from payouts.

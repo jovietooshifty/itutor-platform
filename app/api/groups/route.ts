@@ -11,6 +11,7 @@ import {
   type TimeBand,
 } from '@/lib/utils/scheduleFormat';
 import { z } from 'zod';
+import { classSettingsSchema } from '@/lib/validation/classSettings';
 import { track } from '@/lib/analytics/track';
 import { PRODUCT_EVENTS } from '@/lib/analytics/events';
 import { syncProfileNow } from '@/lib/customerio/sync';
@@ -183,12 +184,14 @@ export async function GET(request: NextRequest) {
       } else {
         q = q.is('archived_at', null);
         if (useVisibilityFilter) {
+          // 'unlisted' is a legacy spelling of private (the create form wrote
+          // it for every private class until the 21 Nov 2026 sprint), so it
+          // is hidden too. Only public classes are on the marketplace.
           if (isTutor) {
-            // Tutors see their own classes plus any non-private group
-            q = q.or(`tutor_id.eq.${user.id},visibility.neq.private,visibility.is.null`);
+            // Tutors see their own classes plus any public group
+            q = q.or(`tutor_id.eq.${user.id},visibility.not.in.(private,unlisted),visibility.is.null`);
           } else {
-            // Students see anything that isn't explicitly private
-            q = q.or('visibility.neq.private,visibility.is.null');
+            q = q.or('visibility.not.in.(private,unlisted),visibility.is.null');
           }
         }
       }
@@ -222,7 +225,11 @@ export async function GET(request: NextRequest) {
     }
     if (error) throw error;
 
-    const groupRows = groups ?? [];
+    // Belt and braces for the last-resort tier, which runs WITHOUT the
+    // visibility filter: a private class must never reach someone else's list.
+    const groupRows = (groups ?? []).filter(
+      (g: any) => fetchArchived || g.tutor_id === user.id || (g.visibility !== 'private' && g.visibility !== 'unlisted')
+    );
     const groupIds = groupRows.map((g: any) => g.id);
 
     // Preload the recurring schedule per group: powers the card's "Recurring
@@ -307,9 +314,20 @@ export async function GET(request: NextRequest) {
     let enriched = groupRows.map((g: any) => {
       const approvedMembers = (g.group_members ?? []).filter((m: any) => m.status === 'approved' || m.status === 'active');
       const currentUserMembership = (g.group_members ?? []).find((m: any) => m.user_id === user.id) ?? null;
+      // A WhatsApp invite or Classroom link IS access to the group, so a list
+      // read by every signed-in user only says whether one exists. Members get
+      // the links from GET /api/groups/[id], behind canSeeClassLink.
+      const whatsapp = String(g.whatsapp_link || g.whatsapp_url || '').trim();
+      const classroom = String(g.google_classroom_link || '').trim();
+      const own = g.tutor_id === user.id;
 
       return {
         ...g,
+        whatsapp_link: own ? whatsapp || null : null,
+        whatsapp_url: own ? whatsapp || null : null,
+        google_classroom_link: own ? classroom || null : null,
+        has_whatsapp_group: Boolean(whatsapp),
+        has_google_classroom: Boolean(classroom),
         group_members: undefined,
         member_count: approvedMembers.length,
         member_previews: [],
@@ -630,7 +648,10 @@ export async function POST(request: NextRequest) {
 
     // Resolve visibility: form may send isPublic (boolean legacy) or visibility (string)
     const resolvedVisibility: string | null =
-      rawBody.visibility ?? (rawBody.isPublic === true ? 'public' : rawBody.isPublic === false ? 'unlisted' : null);
+      // isPublic:false used to become 'unlisted', which the marketplace query
+      // (visibility <> 'private') LISTS — so a class created as private showed
+      // up publicly. The two-value rule (21 Nov 2026 sprint): public or private.
+      rawBody.visibility ?? (rawBody.isPublic === true ? 'public' : rawBody.isPublic === false ? 'private' : null);
 
     /**
      * DRAFT or PUBLISHED. `groups.status` is NOT NULL DEFAULT 'PUBLISHED', and no
@@ -836,6 +857,45 @@ export async function POST(request: NextRequest) {
     }
 
     if (error) throw error;
+
+    // ── Access and community settings from the create form ──────────────
+    // None of the insert tiers above carried these, so the form's WhatsApp
+    // link, Google Classroom link and join-request switch were silently
+    // dropped and the tutor had to enter them again in Settings. Saved as a
+    // separate, best-effort update so an optional column missing on some
+    // schema can never fail the class itself. Validated with the same schema
+    // as PATCH /api/classes/[id]/settings; an invalid link is skipped.
+    {
+      const isPrivate = (group as any).visibility === 'private' || resolvedVisibility === 'private';
+      // Field by field, so one bad link does not throw away the rest.
+      const shape = classSettingsSchema.shape;
+      const one = <K extends keyof typeof shape>(k: K, v: unknown) => {
+        if (v === undefined || v === null || v === '') return undefined;
+        const r = shape[k].safeParse(v);
+        if (!r.success) console.warn(`[POST /api/groups] create-form ${String(k)} skipped: invalid`);
+        return r.success ? (r.data as any) : undefined;
+      };
+      const s = {
+        whatsapp_url: one('whatsapp_url', rawBody.whatsapp_url || rawBody.whatsapp_link) as string | undefined,
+        google_classroom_link: one('google_classroom_link', rawBody.google_classroom_link) as string | undefined,
+        require_join_requests: one('require_join_requests', rawBody.require_join_requests) as boolean | undefined,
+        auto_suspend_missed_payment: one('auto_suspend_missed_payment', rawBody.auto_suspend_missed_payment) as boolean | undefined,
+        grace_period_days: one('grace_period_days', rawBody.grace_period_days) as number | undefined,
+      };
+      const extra: Record<string, unknown> = {};
+      if (s.whatsapp_url) extra.whatsapp_link = s.whatsapp_url;
+      if (s.google_classroom_link) extra.google_classroom_link = s.google_classroom_link;
+      // Private: every student needs the tutor's approval, whatever was sent.
+      if (isPrivate) extra.require_join_requests = true;
+      else if (s.require_join_requests !== undefined) extra.require_join_requests = s.require_join_requests;
+      if (s.auto_suspend_missed_payment !== undefined) extra.auto_suspend_missed_payment = s.auto_suspend_missed_payment;
+      if (s.grace_period_days !== undefined) extra.grace_period_days = s.grace_period_days;
+      if (Object.keys(extra).length > 0) {
+        const { data: updated, error: extraErr } = await service.from('groups').update(extra).eq('id', group.id).select().single();
+        if (extraErr) console.warn('[POST /api/groups] create-form settings not saved:', extraErr.message);
+        else if (updated) group = updated;
+      }
+    }
 
     // Emitted here, after the fallback chain, rather than beside any one
     // insert: four rungs can be the one that succeeded, and only this point

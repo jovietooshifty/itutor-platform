@@ -122,6 +122,9 @@ export async function fetchClassDetail(
     session_frequency: g.session_frequency ?? g.recurrence_type ?? g.key_info?.session_frequency ?? null,
     whatsapp_link: g.whatsapp_link ?? g.whatsapp_url ?? null,
     google_classroom_link: g.google_classroom_link ?? null,
+    // Public flags (the links themselves only reach members and the tutor).
+    has_whatsapp_group: Boolean(g.has_whatsapp_group ?? (g.whatsapp_link || g.whatsapp_url)),
+    has_google_classroom: Boolean(g.has_google_classroom ?? g.google_classroom_link),
     average_rating: g.average_rating ?? null,
     tutor: tutorObj ? {
       id: tutorObj.id,

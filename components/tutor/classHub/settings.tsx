@@ -301,7 +301,6 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
           parent_feedback_price: draft.feedbackMode === 'paid_addon' ? (draft.parentFeedbackPrice ?? 0) : null,
           price_monthly: draft.pricePerSession ?? 0,
           pricing_model: 'MONTHLY',
-          member_service_fee: draft.memberServiceFee ?? 0,
         }),
       });
       const settingsJson = await settingsRes.json().catch(() => ({}));
@@ -693,10 +692,6 @@ export function SettingsTab({ group, setGroup, isOneOnOne, onDirtyChange, enroll
               <div className="grid gap-ds-3 sm:grid-cols-2">
                 <SetField label="Monthly price (TTD)">
                   <input type="number" value={draft.pricePerSession ?? 0} onChange={(e) => d('pricePerSession', Number(e.target.value))}
-                    className={cn(DS_INPUT, 'tabular-nums')} />
-                </SetField>
-                <SetField label="Per-member service fee (TTD)" infoTitle="Service fee" infoBlurb="A small flat fee added to each member's bill — useful to cover materials, platform costs, or admin overhead.">
-                  <input type="number" value={draft.memberServiceFee} onChange={(e) => d('memberServiceFee', Number(e.target.value))}
                     className={cn(DS_INPUT, 'tabular-nums')} />
                 </SetField>
               </div>
