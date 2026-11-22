@@ -31,6 +31,7 @@ import ParentAccountSheet from '@/components/parent/v2/ParentAccountSheet';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import { NotificationsPopover, prefersNotificationsPopover } from '@/components/ui/NotificationsPopover';
+import { CreditsGiftButton } from '@/components/ui/CreditsGiftButton';
 
 // Loaded on first open only.
 const ParentNotificationsV2 = dynamic(() => import('./ParentNotificationsV2'), { ssr: false });
@@ -151,6 +152,7 @@ export default function ParentV2Shell({
       width={width}
       unread={unread}
       initials={initials}
+      headerExtra={<CreditsGiftButton href="/parent/rewards" enabled={Boolean(profile?.id)} />}
       onHeaderAction={(action) => {
         if (action !== 'bell') return;
         if (prefersNotificationsPopover() && pathname !== '/parent/notifications') setNotifOpen((o) => !o);

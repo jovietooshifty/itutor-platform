@@ -15,9 +15,8 @@
  *
  * Header: search (→ Explore), bell (→ Notifications, red dot when anything is
  * unread), and the avatar (→ Settings, the frames have no account sheet for
- * students). The credits pill shows only when `rewardsVisible` — the same rule
- * the old sidebar used for its Rewards item, so nothing changes for a student
- * with no credits and no programme switched on.
+ * students). The gift icon (→ Rewards) is permanent since the 21 Nov 2026
+ * sprint and shows the balance when there is one; see CreditsGiftButton.
  *
  * This shell does NOT replace StudentShell for every page. app/student/layout
  * only steps aside for routes that have a new screen (see StudentLayoutSwitch);
@@ -27,11 +26,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
-import { Gift } from '@phosphor-icons/react';
 import { NewUiShell, type NavItem } from '@/components/ui';
 import { useProfile } from '@/lib/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
-import { fmtCredits, rewardsVisible, useCredits } from '@/lib/credits/useCredits';
+import { CreditsGiftButton } from '@/components/ui/CreditsGiftButton';
 import { parentInitials } from '@/components/parent/v2/initials';
 import { NotificationsPopover, prefersNotificationsPopover } from '@/components/ui/NotificationsPopover';
 
@@ -61,11 +59,6 @@ function activeFromPath(pathname: string | null): string | undefined {
   return match?.id;
 }
 
-/** "TT$100" for whole amounts, as the frames draw it; cents only when there are some. */
-function pillAmount(n: number): string {
-  return fmtCredits(n).replace(/\.00$/, '');
-}
-
 export interface StudentV2ShellProps {
   children: ReactNode;
   nav?: boolean;
@@ -88,7 +81,6 @@ export default function StudentV2Shell({
   const router = useRouter();
   const pathname = usePathname();
   const { profile } = useProfile();
-  const credits = useCredits('lite', Boolean(profile?.id));
   const [unread, setUnread] = useState(false);
   // Large screens: the bell opens a popup instead of the page (NotificationsPopover).
   const [notifOpen, setNotifOpen] = useState(false);
@@ -115,8 +107,6 @@ export default function StudentV2Shell({
   }, [profile?.id, pathname]);
 
   const active = activeFromPath(pathname);
-  const showCredits = rewardsVisible(credits.data);
-  const balance = credits.data?.wallet?.available ?? 0;
 
   return (
     <>
@@ -132,19 +122,7 @@ export default function StudentV2Shell({
         unread={unread}
         initials={parentInitials(profile)}
         headerActions={['search', 'bell']}
-        headerExtra={
-          showCredits ? (
-            <button
-              type="button"
-              onClick={() => router.push('/student/rewards')}
-              aria-label={`Credits: ${pillAmount(balance)}`}
-              className="ds-press mr-ds-1 inline-flex h-[34px] items-center gap-ds-1h rounded-ds-sm border-0 bg-ink px-ds-3 font-display text-[13px] font-extrabold tabular-nums text-accent-yellow cursor-pointer"
-            >
-              <Gift size={16} weight="bold" aria-hidden />
-              {pillAmount(balance)}
-            </button>
-          ) : null
-        }
+        headerExtra={<CreditsGiftButton href="/student/rewards" enabled={Boolean(profile?.id)} />}
         onHeaderAction={(action) => {
           if (action === 'bell') {
             if (prefersNotificationsPopover() && pathname !== '/student/notifications') setNotifOpen((o) => !o);
