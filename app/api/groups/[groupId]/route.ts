@@ -10,6 +10,7 @@ import { classOccupancy } from '@/lib/services/classOccupancy';
 import { syncScheduleSessions } from '@/lib/classes/scheduleSessions';
 import { track } from '@/lib/analytics/track';
 import { PRODUCT_EVENTS } from '@/lib/analytics/events';
+import { isPaidGroup } from '@/lib/payments/groupPricing';
 import { canSeeClassLink, readClassLinkState } from '@/lib/classes/classLinkState';
 import { normalizeClassLinkUrl } from '@/lib/utils/meetingLink';
 
@@ -366,8 +367,18 @@ export async function GET(req: NextRequest, { params }: Params) {
     }
 
     const viewerMemberStatus = currentUserMembership?.status ? String(currentUserMembership.status) : null;
+    // On a PAID class a roster row is permission to pay, not a seat. A tutor
+    // approving a join request writes 'approved' and nothing else; counting
+    // that as enrolled showed "Open class" to a student who had never paid,
+    // and hid the checkout from them. Only a live enrolment is a paid seat.
+    // (Falls back to the old rule when a select tier dropped pricing_model —
+    // isPaidGroup is then false, which is the permissive, pre-existing answer.)
+    const memberGrantsSeat =
+      !!viewerMemberStatus &&
+      ['approved', 'active', 'invited'].includes(viewerMemberStatus) &&
+      !isPaidGroup(group);
     const viewerEnrolled =
-      (!!viewerMemberStatus && ['approved', 'active', 'invited'].includes(viewerMemberStatus)) ||
+      memberGrantsSeat ||
       (!!viewerEnrollmentStatus && ['SECURED', 'ACTIVE', 'GRACE', 'SUSPENDED'].includes(viewerEnrollmentStatus));
     const viewerMembership = {
       member_status: viewerMemberStatus,

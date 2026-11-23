@@ -176,6 +176,16 @@ export type GroupData = {
  */
 /** Exported: the parent's class page must buy the same product the student
  *  does, and "is this a preorder" is the fork. */
+/**
+ * Does this viewer still have to ASK before they can join? True on a class
+ * that takes requests, until the tutor has approved (or invited) them. Once
+ * approved, the same button pays rather than asks — on a paid class approval is
+ * permission to pay, and the API no longer reports it as enrolled.
+ */
+export function needsTutorRequest(group: GroupData): boolean {
+  return group.require_join_requests && !['approved', 'invited', 'active'].includes(group.memberStatus ?? '');
+}
+
 export function preorderFor(group: GroupData) {
   if (!group.secure_spot_enabled) return null;
   const eligibility = preorderEligibility(group.sessions);
@@ -485,7 +495,7 @@ export function Detail({
     : awaitingParent ? 'Waiting on your parent'
     : gated ? 'Ask parent to enrol'
     : preorder ? 'Secure your spot'
-    : group.require_join_requests ? 'Request to join'
+    : needsTutorRequest(group) ? 'Request to join'
     : 'Join class';
   const ctaCaption = group.enrolled ? "You're enrolled"
     : isPending ? 'Awaiting tutor approval'
@@ -502,7 +512,8 @@ export function Detail({
     : gated ? `${parentLabel} approves this · you will not be asked to pay`
     : preorder
       ? `${price > 0 ? `${fmtTTD(price)} today, covering your first month` : 'Free to reserve'} · Classes start ${preorder.firstSession.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
-    : group.require_join_requests ? 'Tutor approval required'
+    : needsTutorRequest(group) ? 'Tutor approval required'
+    : group.require_join_requests ? 'Approved by your tutor · complete payment to join'
     : 'Join instantly · cancel anytime';
 
   // Asking twice is harmless — the server returns the first request rather than
@@ -1402,7 +1413,7 @@ export function JoinFlow({ group, onBack, onSuccess, profile, hasLinkedParent, p
     offeredSeats.length > 0
       ? offeredSeats.every(s => s.full)
       : group.max_students - group.member_count <= 0;
-  const isRequest = group.require_join_requests;
+  const isRequest = needsTutorRequest(group);
   const price = group.price_monthly ?? group.price_per_session ?? 0;
   const promo = group.active_promotion;
   const discountedPrice = promo ? Math.round(price * (1 - promo.discount / 100)) : null;
@@ -1472,6 +1483,26 @@ export function JoinFlow({ group, onBack, onSuccess, profile, hasLinkedParent, p
           throw new Error(data.error || 'Could not send the request. Please try again.');
         }
         onSuccess('awaiting-parent');
+        return;
+      }
+
+      // A paid class that takes requests, and this student has not been
+      // approved yet: ask first, whatever payment method is selected. The
+      // subscribe route raises the request (no charge, no hold) and answers
+      // join_requested. Before this, the press went straight to a checkout
+      // that refused it, so the request never reached the tutor.
+      if (isRequest && price > 0 && !isFull) {
+        const res = await fetch(`/api/groups/${group.id}/subscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seatType: chosenSeat }),
+        });
+        const data = await res.json();
+        if (data.parent_approval_required) { onSuccess('awaiting-parent'); return; }
+        if (data.join_requested) { onSuccess('awaiting-approval'); return; }
+        if (data.checkout_url) { window.location.href = data.checkout_url; return; }
+        if (!res.ok) throw new Error(data.error || 'Could not send your request. Please try again.');
+        onSuccess('awaiting-approval');
         return;
       }
 
@@ -1548,6 +1579,9 @@ export function JoinFlow({ group, onBack, onSuccess, profile, hasLinkedParent, p
         });
         const data = await res.json();
         if (data.parent_approval_required) { onSuccess('awaiting-parent'); return; }
+        // A class that takes requests: the server raised the request rather
+        // than starting a checkout. The tutor approves, then this button pays.
+        if (data.join_requested) { onSuccess('awaiting-approval'); return; }
         if (data.checkout_url) { window.location.href = data.checkout_url; return; }
         if (data.waitlisted) { onSuccess('awaiting-approval'); return; }
         if (res.status === 503) throw new Error('Online payments are not available right now. Please contact the tutor directly.');

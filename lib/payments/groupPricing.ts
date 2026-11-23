@@ -45,3 +45,23 @@ export function hasAnyPrice(group: GroupPricingFields | null | undefined): boole
     positive(group.price_per_course)
   );
 }
+
+/**
+ * Can this class take enrolments, as far as its publish status goes?
+ *
+ * PUBLISHED, or a PRIVATE class stored as DRAFT. The tutor's class Settings
+ * save writes `status: visibility === 'private' ? 'DRAFT' : 'PUBLISHED'`, so
+ * every class a tutor made private through Settings is a "draft" that is in
+ * fact running, with members and a share link. Checking PUBLISHED alone told
+ * every one of those students "Group is not available for enrollment".
+ *
+ * A PUBLIC draft stays closed: that is a class saved from the create page with
+ * "Save as draft" and never published.
+ */
+export function isEnrollableStatus(
+  group: { status?: string | null; visibility?: string | null } | null | undefined
+): boolean {
+  if (!group) return false;
+  if (group.status === 'PUBLISHED') return true;
+  return group.status === 'DRAFT' && group.visibility === 'private';
+}

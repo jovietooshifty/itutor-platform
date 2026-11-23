@@ -15,7 +15,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { findGroupEnrollmentConflict, conflictMessage } from '@/lib/services/scheduleConflict';
-import { isPaidGroup } from '@/lib/payments/groupPricing';
+import { isEnrollableStatus, isPaidGroup } from '@/lib/payments/groupPricing';
 import { canTakeSeat, seatConfigFromRow } from '@/lib/services/seatOccupancy';
 import { formatOffersSeat, type SeatType } from '@/lib/utils/seatCapacity';
 
@@ -93,7 +93,7 @@ export async function loadCheckoutContext(params: {
   if (groupErr || !group) {
     return { ok: false as const, status: 404, body: { error: 'Group not found' } };
   }
-  if (group.status !== 'PUBLISHED') {
+  if (!isEnrollableStatus(group)) {
     return { ok: false as const, status: 404, body: { error: 'Group is not available for enrollment' } };
   }
 
@@ -133,22 +133,33 @@ export async function loadCheckoutContext(params: {
     memberRow = existing ?? null;
   }
 
-  if (group.visibility === 'private') {
-    if (!memberRow || !['invited', 'approved'].includes(memberRow.status)) {
-      return { ok: false as const, status: 403, body: { error: 'This group is by invitation only' } };
-    }
-  }
-
-  // Step 5: Approval check
+  // Step 5: Approval check. Before the private check, so a private class that
+  // takes requests is answered with "ask first" rather than "invitation only".
+  //
+  // No row (or a row the tutor removed) is not a refusal the student can act
+  // on: the only way forward is a join request, and the button they pressed
+  // says "Send request to tutor". So the refusal carries a reason the checkout
+  // turns into that request (groupSubscriptionCheckout.ts). Before this, a paid
+  // class that required approval had no request path at all — every press
+  // ended in this error.
   if (group.require_join_requests) {
-    if (!memberRow) {
-      return { ok: false as const, status: 403, body: { error: 'Request to join before subscribing' } };
+    if (!memberRow || memberRow.status === 'removed') {
+      return { ok: false as const, status: 403, body: {
+        error: 'Request to join before subscribing',
+        reason: 'join_request_required',
+      } };
     }
     if (memberRow.status === 'pending') {
       return { ok: false as const, status: 409, body: { error: 'Your join request is pending tutor approval' } };
     }
     if (memberRow.status === 'denied') {
       return { ok: false as const, status: 403, body: { error: 'Your join request was not approved' } };
+    }
+  }
+
+  if (group.visibility === 'private') {
+    if (!memberRow || !['invited', 'approved'].includes(memberRow.status)) {
+      return { ok: false as const, status: 403, body: { error: 'This group is by invitation only' } };
     }
   }
 

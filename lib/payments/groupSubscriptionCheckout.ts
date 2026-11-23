@@ -42,11 +42,12 @@ import { releaseStaleSecureSpotHold, type ReleaseHoldOutcome } from '@/lib/payme
 import { cancelIncompleteSubscription } from '@/lib/credits/stripeCoupon';
 import { track } from '@/lib/analytics/track';
 import { PRODUCT_EVENTS } from '@/lib/analytics/events';
+import { performGroupJoin } from '@/lib/server/classJoinRequests';
 
 const SEAT_RESERVATION_MS = 30 * 60 * 1000; // 30 minutes
 
 export type CheckoutOutcome =
-  | { ok: true; status: 201; body: Record<string, unknown> }
+  | { ok: true; status: 201 | 202; body: Record<string, unknown> }
   | { ok: false; status: number; body: Record<string, unknown> };
 
 export async function createGroupSubscriptionCheckout(params: {
@@ -120,6 +121,29 @@ export async function createGroupSubscriptionCheckout(params: {
     // step 6 or 7, rather than left to the Step 10 insert's unique-index
     // 23505 and a raw constraint-violation detail.
     loaded = await loadCheckoutContext({ admin, groupId, studentId, seatType });
+  }
+
+  // The class needs the tutor's approval and this student has not asked yet.
+  // Pressing the button IS the ask: raise the join request (pending roster row,
+  // tutor's in-app notice and email) instead of refusing. Nothing is charged —
+  // once the tutor approves, the same button runs this checkout again and the
+  // approval check passes. The parent route shares this function, so a parent
+  // enrolling a child gets the same request, on the child's behalf.
+  if (!loaded.ok && loaded.body.reason === 'join_request_required') {
+    const joined = await performGroupJoin(admin, {
+      groupId,
+      studentId,
+      ...(payerId !== studentId ? { onBehalfOf: payerId, seatSource: 'parent_enrol' as const } : {}),
+    });
+    if (!joined.ok) {
+      console.error('[subscribe] could not raise join request:', joined.reason);
+      return { ok: false as const, status: 400, body: { error: 'Could not send your request. Please try again.' } };
+    }
+    return { ok: true as const, status: 202, body: {
+      join_requested: true,
+      status: joined.status,
+      already_pending: joined.alreadyMember,
+    } };
   }
 
   if (!loaded.ok) return loaded;
