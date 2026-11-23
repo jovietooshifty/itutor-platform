@@ -59,6 +59,12 @@ type NavItem = {
  */
 export type { NavItem as StudentNavItem };
 
+const PARENT_NAV: NavItem[] = [
+  { to: '/parent/dashboard', label: 'Home', icon: LayoutDashboard, exact: true, tint: 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/30' },
+  { to: '/parent/classes', label: 'Explore', icon: Search, tint: 'bg-rose-500/20 text-rose-300 ring-1 ring-rose-400/30' },
+  { to: '/parent/children', label: 'Children', icon: GraduationCap, tint: 'bg-sky-500/20 text-sky-300 ring-1 ring-sky-400/30' },
+];
+
 const nav: NavItem[] = [
   { to: '/student/dashboard', label: 'Home', icon: LayoutDashboard, exact: true, tint: 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/30' },
   { to: '/student/find-tutors', label: 'Explore', icon: Search, tint: 'bg-rose-500/20 text-rose-300 ring-1 ring-rose-400/30' },
@@ -211,10 +217,15 @@ function ShellInner({
   // switched on, or a balance. Before launch nobody sees an empty page.
   const credits = useCredits('lite', !anonymous);
   const showRewards = !anonymous && rewardsVisible(credits.data);
-  const nav = navItems.filter((item) => item.to !== '/student/rewards' || showRewards);
+  const baseNav = navItems.filter((item) => item.to !== '/student/rewards' || showRewards);
   const pathname = usePathname();
   const router = useRouter();
   const { profile } = useProfile();
+  // A parent can be on a student page in their own right — a class they are
+  // enrolled in themselves. The student links would send them to pages that
+  // refuse non-students, which looked like being logged out. Give them their
+  // own destinations instead.
+  const shownNav = profile?.role === 'parent' && !anonymous && navItems === nav ? PARENT_NAV : baseNav;
   // Anonymous opens collapsed. The rail is orientation for someone who has not
   // decided to be here yet, not a menu they are navigating — and the screen it
   // frames (matches, browse) is the thing they came for.
@@ -300,7 +311,7 @@ function ShellInner({
 
         <nav className="flex-1 overflow-y-auto py-2">
           <div className={cn('space-y-0.5', collapsed ? 'px-2' : 'px-3')}>
-            {nav.map((item) => {
+            {shownNav.map((item) => {
               // Compare paths, not hrefs. A destination that carries a query
               // string (`/find/browse?role=parent`) never matched `pathname`,
               // so it could never show as the active item.
@@ -404,7 +415,7 @@ function ShellInner({
         {/* Mobile bottom nav. Opaque for the same reason as the header. */}
         <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background">
           <div className="grid grid-cols-5">
-            {nav.slice(0, 5).map((item) => {
+            {shownNav.slice(0, 5).map((item) => {
               const target = item.to.split('?')[0];
               const active = item.exact ? pathname === target : pathname.startsWith(target);
               const Icon = item.icon;

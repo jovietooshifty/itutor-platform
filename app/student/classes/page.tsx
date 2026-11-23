@@ -55,7 +55,7 @@ export default function MyClassesPage() {
 
   useEffect(() => {
     if (profileLoading) return;
-    if (!profile || profile.role !== 'student') { router.push('/login'); return; }
+    if (!profile || profile.role !== 'student') { router.push(profile?.role === 'parent' ? '/parent/dashboard' : '/login'); return; }
     fetchLessons();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, profileLoading]);

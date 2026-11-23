@@ -103,7 +103,7 @@ export default function StudentSettingsPage() {
 
   useEffect(() => {
     if (profileLoading) return;
-    if (!profile || profile.role !== 'student') { router.push('/login'); return; }
+    if (!profile || profile.role !== 'student') { router.push(profile?.role === 'parent' ? '/parent/dashboard' : '/login'); return; }
     setDisplayName(profile.display_name || profile.full_name || '');
     setUsername(profile.username || '');
     setEmail(profile.email || '');

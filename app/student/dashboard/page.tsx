@@ -53,7 +53,7 @@ export default function StudentDashboard() {
     if (testMode) { setLoadingData(false); return; }
     if (loading) return;
     if (!loading && !profile) { router.push('/login'); return; }
-    if (!loading && profile && profile.role !== 'student') { router.push('/login'); return; }
+    if (!loading && profile && profile.role !== 'student') { router.push(profile?.role === 'parent' ? '/parent/dashboard' : '/login'); return; }
     if (!profile || profile.role !== 'student') return;
     if (profile.billing_mode !== 'parent_required') {
       if (!profile.form_level) { router.push('/signup/complete-role'); return; }

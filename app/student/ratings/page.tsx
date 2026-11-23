@@ -43,7 +43,7 @@ export default function StudentRatings() {
 
   useEffect(() => {
     if (loading) return;
-    if (!profile || profile.role !== 'student') { router.push('/login'); return; }
+    if (!profile || profile.role !== 'student') { router.push(profile?.role === 'parent' ? '/parent/dashboard' : '/login'); return; }
     fetchAll(profile.id);
   }, [profile, loading, router]);
 

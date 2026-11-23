@@ -20,7 +20,7 @@ export default function StudentConversationPage() {
     if (profileLoading) return;
     
     if (!profile || profile.role !== 'student') {
-      router.push('/login');
+      router.push(profile?.role === 'parent' ? '/parent/dashboard' : '/login');
       return;
     }
 

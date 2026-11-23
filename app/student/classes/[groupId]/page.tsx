@@ -316,7 +316,7 @@ export default function EnrolledClassPage({ params }: { params: { groupId: strin
     return (
       <div className="max-w-md mx-auto text-center py-20">
         <h1 className="text-2xl font-bold text-ink">Class not found</h1>
-        <Link href="/student/classes" className="mt-4 inline-block text-brand-deep font-semibold">← My Classes</Link>
+        <Link href={profile?.role === 'parent' ? '/parent/dashboard' : '/student/classes'} className="mt-4 inline-block text-brand-deep font-semibold">← My Classes</Link>
       </div>
     );
   }
@@ -334,7 +334,7 @@ export default function EnrolledClassPage({ params }: { params: { groupId: strin
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Back link + Leave */}
       <div className="flex items-center justify-between">
-        <Link href="/student/classes"
+        <Link href={profile?.role === 'parent' ? '/parent/dashboard' : '/student/classes'}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-ink">
           <ArrowLeft className="size-4" /> All classes
         </Link>
@@ -398,7 +398,7 @@ export default function EnrolledClassPage({ params }: { params: { groupId: strin
                     ? `Subscribe — TT$${monthlyPrice} a month`
                     : 'Subscribe to continue'}
               </button>
-              <Link href="/student/classes"
+              <Link href={profile?.role === 'parent' ? '/parent/dashboard' : '/student/classes'}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm font-semibold text-ink hover:bg-muted transition">
                 My Classes
               </Link>
