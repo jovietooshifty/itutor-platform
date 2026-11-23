@@ -195,6 +195,19 @@ export default function EnrolledClassPage({ params }: { params: { groupId: strin
       if (!grp) { setLoading(false); return; }
 
       const membership = grp.current_user_membership;
+
+      // Approved for a PAID class but not paid: that is permission to pay, not
+      // a seat (viewer_membership.enrolled is false). Send them to the page
+      // that takes the payment instead of opening the class.
+      const ms = membership?.status ?? null;
+      if (
+        (ms === 'approved' || ms === 'invited') &&
+        grp.viewer_membership && grp.viewer_membership.enrolled === false &&
+        Number(grp.price_monthly ?? 0) > 0
+      ) {
+        router.replace(`/student/explore/${groupId}`);
+        return;
+      }
       setRawMemberStatus(membership?.status ?? null);
       // Default to 'removed' (not 'active') when no membership row exists —
       // a missing row means the student is not a current member and must

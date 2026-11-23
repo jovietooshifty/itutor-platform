@@ -496,6 +496,7 @@ export function Detail({
     : gated ? 'Ask parent to enrol'
     : preorder ? 'Secure your spot'
     : needsTutorRequest(group) ? 'Request to join'
+    : group.require_join_requests && price > 0 ? 'Pay now to join'
     : 'Join class';
   const ctaCaption = group.enrolled ? "You're enrolled"
     : isPending ? 'Awaiting tutor approval'

@@ -16,6 +16,7 @@
 // client component.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isPaidGroup } from '@/lib/payments/groupPricing';
 
 // ---------------------------------------------------------------------------
 // Windows
@@ -533,6 +534,18 @@ export async function isEnrolledInGroup(
     .limit(1);
 
   if (enrolment && enrolment.length > 0) return true;
+
+  // On a PAID class a roster row is permission to pay, not a seat: a tutor
+  // approving a join request writes 'approved' and nothing else. Letting that
+  // through handed the class link to students who had never paid. Only the
+  // enrolment above counts there. A failed read keeps the old answer rather
+  // than locking a free class's members out.
+  const { data: pricing } = await admin
+    .from('groups')
+    .select('pricing_model, price_monthly')
+    .eq('id', groupId)
+    .maybeSingle();
+  if (isPaidGroup(pricing as any)) return false;
 
   const { data: member } = await admin
     .from('group_members')

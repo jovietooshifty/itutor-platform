@@ -19,6 +19,7 @@ import ReliabilityPanel from '@/components/reliability/ReliabilityPanel';
 import CampaignDashboardBanner from '@/components/classMatchWeek/CampaignDashboardBanner';
 import CampaignJoinCard from '@/components/classMatchWeek/CampaignJoinCard';
 import DashboardRewardsCard from '@/components/credits/DashboardRewardsCard';
+import ApprovedAwaitingPaymentCard from '@/components/classes/ApprovedAwaitingPaymentCard';
 
 type RecentTutor = {
   tutorId: string;
@@ -174,6 +175,9 @@ export default function StudentDashboard() {
           invites people to reserve one they already have. Renders nothing
           without a reservation. */}
       <CampaignJoinCard />
+      {/* A tutor approved a paid class and the seat is not theirs until they
+          pay. Nothing renders when there is nothing to pay for. */}
+      <ApprovedAwaitingPaymentCard variant="student" />
       <CampaignDashboardBanner />
 
       {/* Mobile profile card */}

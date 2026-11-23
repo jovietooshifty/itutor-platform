@@ -24,6 +24,7 @@ export const TEMPLATE_TUTOR_JOIN_REQUEST = 'tutor_class_join_request';
 export const TEMPLATE_PARENT_CHILD_LEFT_CLASS = 'parent_child_left_class';
 export const TEMPLATE_STUDENT_ENROLLED_BY_PARENT = 'student_enrolled_by_parent';
 export const TEMPLATE_STUDENT_ASKED_PARENT = 'student_asked_parent_to_enrol';
+export const TEMPLATE_TUTOR_APPROVED_JOIN = 'tutor_approved_class_join';
 
 const escapeText = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -286,10 +287,10 @@ export async function notifyTutorOfJoinRequest(
           },
           {
             kind: 'paragraph',
-            text: 'You approve or decline from the class roster.',
+            text: 'You approve or decline from the Students tab of the class.',
           },
         ],
-        cta: { label: 'Open the roster', href: rosterUrl },
+        cta: { label: 'Open Students', href: rosterUrl },
       })
     : renderEmail({
         family: 'booking-confirmation',
@@ -302,7 +303,7 @@ export async function notifyTutorOfJoinRequest(
             text: `${escapeText(params.studentName)} has joined ${escapeText(params.className)}.`,
           },
         ],
-        cta: { label: 'Open the roster', href: rosterUrl },
+        cta: { label: 'Open Students', href: rosterUrl },
       });
 
   await sendIfAllowed(admin, {
@@ -663,6 +664,167 @@ export async function notifyParentsChildLeftClass(
       html,
       text,
       emailType: TEMPLATE_PARENT_CHILD_LEFT_CLASS,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The tutor approved a join request
+// ---------------------------------------------------------------------------
+
+/**
+ * The student (and any linked parent) is told the tutor said yes.
+ *
+ * Until this existed the only signal was an in-app bell, so a student who sent
+ * a request and closed the tab never learned it had been accepted. On a PAID
+ * class approval is permission to pay, not a seat — the email says so and
+ * links straight to the class page, where the button now takes payment. On a
+ * free class the approval IS the seat.
+ */
+export async function notifyStudentTutorApprovedJoin(
+  admin: SupabaseClient,
+  params: {
+    studentId: string;
+    groupId: string;
+    className: string;
+    /** Paid: the student still has to pay to take the seat. */
+    paid: boolean;
+    priceTtd?: number | null;
+  }
+): Promise<void> {
+  const { data: links } = await admin
+    .from('parent_child_links')
+    .select('parent_id')
+    .eq('child_id', params.studentId);
+  const parentIds = ((links ?? []) as Array<{ parent_id: string }>).map((l) => l.parent_id);
+
+  const { data: people } = await admin
+    .from('profiles')
+    .select('id, email, full_name, display_name')
+    .in('id', [params.studentId, ...parentIds]);
+  const byId = new Map(
+    ((people ?? []) as Array<{
+      id: string;
+      email: string | null;
+      full_name: string | null;
+      display_name: string | null;
+    }>).map((p) => [p.id, p])
+  );
+
+  const student = byId.get(params.studentId);
+  const studentName = student?.display_name || student?.full_name || 'Your child';
+  const price =
+    params.priceTtd && params.priceTtd > 0 ? `TT$${Number(params.priceTtd).toFixed(0)} / month` : null;
+  const className = escapeText(params.className);
+
+  // The student's own email.
+  if (student?.email) {
+    const rendered = renderEmail({
+      family: 'booking-confirmation',
+      subject: params.paid
+        ? `You're approved for ${params.className} — pay now to join`
+        : `You're in: ${params.className}`,
+      heading: params.paid ? 'Your access was approved' : "You're in",
+      intro: `Hi ${first(student.display_name || student.full_name)},`,
+      eyebrow: 'Request approved',
+      tone: 'success',
+      badge: '✓',
+      blocks: params.paid
+        ? [
+            {
+              kind: 'paragraph',
+              text: `The tutor approved your request to join ${className}. Pay now to take your place in the class.`,
+            },
+            ...(price
+              ? [{ kind: 'details' as const, rows: [
+                  { label: 'Class', value: className, strong: true },
+                  { label: 'Price', value: price },
+                ] }]
+              : []),
+            {
+              kind: 'paragraph',
+              text: 'Your place is not held until payment goes through, so it is worth doing soon.',
+            },
+          ]
+        : [
+            {
+              kind: 'paragraph',
+              text: `The tutor approved your request, and you are now in ${className}.`,
+            },
+          ],
+      cta: params.paid
+        ? { label: 'Pay now to join', href: appUrl(`/student/explore/${params.groupId}`) }
+        : { label: 'Go to your classes', href: appUrl('/student/classes') },
+    });
+
+    await sendIfAllowed(admin, {
+      userId: params.studentId,
+      type: 'join_request_approved',
+      to: student.email,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+      emailType: TEMPLATE_TUTOR_APPROVED_JOIN,
+    });
+  }
+
+  // Each linked parent — they may be the one paying, and on a child account
+  // they are the one who can.
+  for (const parentId of parentIds) {
+    const parent = byId.get(parentId);
+
+    await notifyInApp(admin, {
+      userId: parentId,
+      type: 'join_request_approved',
+      title: `${studentName} was approved for ${params.className}`,
+      message: params.paid
+        ? 'Pay now to confirm their place.'
+        : 'They are now in the class.',
+      link: `/parent/classes/${params.groupId}`,
+      metadata: { groupId: params.groupId, childId: params.studentId },
+    });
+
+    if (!parent?.email) continue;
+
+    const rendered = renderEmail({
+      family: 'booking-confirmation',
+      subject: params.paid
+        ? `${studentName} was approved for ${params.className} — pay now to join`
+        : `${studentName} is in ${params.className}`,
+      heading: params.paid ? 'Their access was approved' : "They're in",
+      intro: `Hi ${first(parent.display_name || parent.full_name)},`,
+      eyebrow: 'Request approved',
+      tone: 'success',
+      badge: '✓',
+      blocks: [
+        {
+          kind: 'paragraph',
+          text: params.paid
+            ? `The tutor approved ${escapeText(studentName)}'s request to join ${className}. Pay now to confirm their place.`
+            : `The tutor approved ${escapeText(studentName)}'s request, and they are now in ${className}.`,
+        },
+        ...(params.paid && price
+          ? [{ kind: 'details' as const, rows: [
+              { label: 'Class', value: className, strong: true },
+              { label: 'Student', value: escapeText(studentName) },
+              { label: 'Price', value: price },
+            ] }]
+          : []),
+      ],
+      cta: params.paid
+        ? { label: 'Pay now to join', href: appUrl(`/parent/classes/${params.groupId}`) }
+        : { label: 'See their classes', href: appUrl('/parent/children') },
+    });
+
+    await sendIfAllowed(admin, {
+      userId: parentId,
+      type: 'join_request_approved',
+      childId: params.studentId,
+      to: parent.email,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+      emailType: TEMPLATE_TUTOR_APPROVED_JOIN,
     });
   }
 }

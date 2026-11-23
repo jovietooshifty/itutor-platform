@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerClient, getServiceClient } from '@/lib/supabase/server';
 import { promoteNextFromWaitlist } from '@/lib/services/waitlistService';
 import { resolveGroupActor, auditAdminOverride } from '@/lib/auth/groupAccess';
-import { notifyParentsChildLeftClass } from '@/lib/server/classRequestNotify';
+import { notifyParentsChildLeftClass, notifyStudentTutorApprovedJoin } from '@/lib/server/classRequestNotify';
+import { isPaidGroup } from '@/lib/payments/groupPricing';
 import { trackForUser } from '@/lib/analytics/track';
 import { PRODUCT_EVENTS } from '@/lib/analytics/events';
 import { syncProfileNow } from '@/lib/customerio/sync';
@@ -24,7 +25,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const service = getServiceClient();
 
-    const actor = await resolveGroupActor({ groupId, userId: user.id, email: user.email, columns: 'subject' });
+    const actor = await resolveGroupActor({ groupId, userId: user.id, email: user.email, columns: 'subject, pricing_model, price_monthly' });
     if (actor.notFound) return NextResponse.json({ error: 'Group not found' }, { status: 404 });
     if (!actor.authorized) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
@@ -33,6 +34,16 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!['approved', 'denied'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
+
+    // Read first, so the approval email goes out once — on the pending ->
+    // approved transition — and not again if the tutor re-saves the row.
+    const { data: before } = await service
+      .from('group_members')
+      .select('status')
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    const wasApproved = (before as { status?: string } | null)?.status === 'approved';
 
     const { data: member, error } = await service
       .from('group_members')
@@ -99,6 +110,25 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
     } catch (err) {
       console.error('[members PATCH] notification threw:', err);
+    }
+
+    // The email the student never got. The bell above only reaches someone
+    // who opens the app; a student who asked and closed the tab heard nothing.
+    // On a paid class it tells them to pay, which is now what the class page
+    // asks of an approved student. Never fails the approval itself.
+    if (status === 'approved' && !wasApproved) {
+      try {
+        const g = actor.group as any;
+        await notifyStudentTutorApprovedJoin(service, {
+          studentId: userId,
+          groupId,
+          className: g.name ?? 'your class',
+          paid: isPaidGroup(g),
+          priceTtd: g.price_monthly != null ? Number(g.price_monthly) : null,
+        });
+      } catch (err) {
+        console.error('[members PATCH] approval email failed:', err);
+      }
     }
 
     return NextResponse.json({ member });

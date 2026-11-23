@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase/client';
 import CampaignDashboardBanner from '@/components/classMatchWeek/CampaignDashboardBanner';
 import CampaignJoinCard from '@/components/classMatchWeek/CampaignJoinCard';
 import DashboardRewardsCard from '@/components/credits/DashboardRewardsCard';
+import ApprovedAwaitingPaymentCard from '@/components/classes/ApprovedAwaitingPaymentCard';
 
 type ChildData = {
   id: string; name: string; initials: string; hue: number;
@@ -79,6 +80,10 @@ function DashboardContent() {
       {/* iTutor credits: balance and the referral link. Nothing until the
           programme is live or there is a balance. */}
       <DashboardRewardsCard />
+
+      {/* A tutor approved a child's request for a paid class; the place is not
+          theirs until it is paid for. */}
+      <ApprovedAwaitingPaymentCard variant="parent" />
 
       {/* §9.1's dominant element, above the tiles. A pending approval closes two
           hours before the class and sends no email when it lapses, so it cannot
