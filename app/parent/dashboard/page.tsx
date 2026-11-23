@@ -12,6 +12,7 @@ import CampaignDashboardBanner from '@/components/classMatchWeek/CampaignDashboa
 import CampaignJoinCard from '@/components/classMatchWeek/CampaignJoinCard';
 import DashboardRewardsCard from '@/components/credits/DashboardRewardsCard';
 import ApprovedAwaitingPaymentCard from '@/components/classes/ApprovedAwaitingPaymentCard';
+import ParentOwnClassesCard from '@/components/parent/ParentOwnClassesCard';
 
 type ChildData = {
   id: string; name: string; initials: string; hue: number;
@@ -84,6 +85,10 @@ function DashboardContent() {
       {/* A tutor approved a child's request for a paid class; the place is not
           theirs until it is paid for. */}
       <ApprovedAwaitingPaymentCard variant="parent" />
+
+      {/* Classes this parent account is in itself (joined via a share link).
+          Renders nothing for a parent who only enrols children. */}
+      <ParentOwnClassesCard />
 
       {/* §9.1's dominant element, above the tiles. A pending approval closes two
           hours before the class and sends no email when it lapses, so it cannot

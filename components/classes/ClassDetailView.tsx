@@ -309,7 +309,10 @@ export function Detail({
 }) {
   const isParent = variant === 'parent';
   const browseHref = isParent ? '/parent/classes' : '/student/find-tutors';
-  const openClassHref = isParent ? '/parent/children' : `/student/classes/${group.id}`;
+  // group.enrolled describes the VIEWER. On the parent page that is the parent
+  // themselves — a parent enrolled in their own right (joined via a share link)
+  // opens the class like anyone else. The class page has no role gate.
+  const openClassHref = `/student/classes/${group.id}`;
   const tutorHref = group.tutor
     ? isParent
       ? `/parent/tutors/${group.tutor.id}`
