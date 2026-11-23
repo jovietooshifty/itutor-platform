@@ -67,6 +67,23 @@ function ClassContent() {
     void load(true);
   }, [load]);
 
+  // A child the tutor approved for this (paid) class and who is not paid for
+  // yet. The class payload describes the PARENT's own membership, so this is
+  // read separately — it is what makes the button say "Pay now to join".
+  const [approvedChildName, setApprovedChildName] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/classes/awaiting-payment', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((j) => {
+        if (cancelled) return;
+        const hit = (Array.isArray(j?.items) ? j.items : []).find((i: any) => i.groupId === groupId);
+        setApprovedChildName(hit ? (hit.studentName ?? 'Your child') : null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [groupId, done]);
+
   if (loading) {
     return (
       <div className="flex justify-center py-32">
@@ -197,6 +214,7 @@ function ClassContent() {
       <Detail
         group={group}
         variant="parent"
+        approvedChildName={approvedChildName}
         onJoin={() => {
           setError(null);
           setReadyChildId(null);

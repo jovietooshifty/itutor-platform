@@ -292,6 +292,7 @@ export function Detail({
   onJoin,
   variant = 'student',
   parentGate = null,
+  approvedChildName = null,
 }: {
   group: GroupData;
   onJoin: () => void;
@@ -301,6 +302,10 @@ export function Detail({
   /** Null while it is still being fetched, and for the parent's own view — a
    *  parent is never gated by themselves. */
   parentGate?: ParentGate | null;
+  /** Parent view only: a child the tutor approved who is not paid for yet.
+   *  This page's memberStatus is the PARENT's (always null), so without it the
+   *  button kept saying "Request to join" for a child already accepted. */
+  approvedChildName?: string | null;
 }) {
   const isParent = variant === 'parent';
   const browseHref = isParent ? '/parent/classes' : '/student/find-tutors';
@@ -489,6 +494,7 @@ export function Detail({
   const parentLabel = parentGate?.parentName ?? 'your parent';
 
   const ctaLabel = group.enrolled ? 'Open class'
+    : approvedChildName ? 'Pay now to join'
     : isPending ? 'Request pending'
     : paymentPending ? 'Complete payment'
     : isFull ? 'Join waitlist'
@@ -499,6 +505,7 @@ export function Detail({
     : group.require_join_requests && price > 0 ? 'Pay now to join'
     : 'Join class';
   const ctaCaption = group.enrolled ? "You're enrolled"
+    : approvedChildName ? `${approvedChildName} was approved · pay to confirm their place`
     : isPending ? 'Awaiting tutor approval'
     : paymentPending
       ? holdMinutesLeft !== null
